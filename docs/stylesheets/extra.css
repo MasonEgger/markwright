@@ -1,29 +1,8 @@
 /* --- do-markdown extension styles — aligned to DigitalOcean's do-markdownit ---
-   Color values are ported verbatim from the do-markdownit SCSS theme so the
-   rendered output matches the DigitalOcean Community Markdown reference. */
+   Layout and accent colors follow the do-markdownit reference while keeping
+   Material's light code theme; only the structural pieces are restyled. */
 
-/* DigitalOcean dark code theme. Material drives token colors through CSS
-   variables, so overriding them restyles every fenced code block at once.
-   Code stays dark even on the light page, exactly like the DO reference. */
-[data-md-color-scheme="default"],
-[data-md-color-scheme="slate"] {
-    --md-code-bg-color: #11192e;
-    --md-code-fg-color: #f7f8fb;
-    --md-code-hl-keyword-color: #9fddff;
-    --md-code-hl-constant-color: #9fddff;
-    --md-code-hl-special-color: #9fddff;
-    --md-code-hl-function-color: #ffaf8c;
-    --md-code-hl-string-color: #b1e490;
-    --md-code-hl-variable-color: #b1e490;
-    --md-code-hl-number-color: #0be1ff;
-    --md-code-hl-name-color: #f7f8fb;
-    --md-code-hl-operator-color: #f7f8fb;
-    --md-code-hl-punctuation-color: #f7f8fb;
-    --md-code-hl-comment-color: #8a96b5;
-    --md-code-hl-generic-color: #f7f8fb;
-}
-
-/* Rounded DO-style block corners + faint stroke (visible on light blocks). */
+/* Rounded DO-style block corners + faint stroke (the wireframe look). */
 .md-typeset .highlight > pre > code {
     border-radius: 1em;
     box-shadow: inset 0 0 0 0.125em rgba(17, 25, 46, 0.1);
@@ -72,11 +51,11 @@
 /* Secondary label — muted header line inside the block. */
 .secondary-code-label {
     display: block;
-    color: #9fddff;
+    color: #081b4b;
     margin: 0 0 0.25rem;
 }
 
-/* Highlight marks: yellow in prose, subtle fill inside code. */
+/* Highlight marks: yellow, visible in prose and inside code. */
 .md-typeset mark {
     background: #ffe175;
     border-radius: 0.375rem;
@@ -84,27 +63,7 @@
     padding: 0.1em 0.3em;
 }
 
-.md-typeset pre code mark {
-    background: #29334d;
-}
-
-/* Environments use the DO light code theme, one tint per environment. */
-pre[class*="environment-"] {
-    --md-code-fg-color: #11192e;
-    --md-code-hl-keyword-color: #0f2fda;
-    --md-code-hl-constant-color: #0f2fda;
-    --md-code-hl-special-color: #0f2fda;
-    --md-code-hl-function-color: #7300b9;
-    --md-code-hl-string-color: #00573a;
-    --md-code-hl-variable-color: #00573a;
-    --md-code-hl-number-color: #00507d;
-    --md-code-hl-name-color: #11192e;
-    --md-code-hl-operator-color: #11192e;
-    --md-code-hl-punctuation-color: #11192e;
-    --md-code-hl-comment-color: #11192e;
-    --md-code-hl-generic-color: #11192e;
-}
-
+/* Environments tint the whole block, one color each (DO light palette). */
 pre.environment-local {
     --md-code-bg-color: #f7f8fb;
 }
@@ -125,16 +84,8 @@ pre.environment-fifth {
     --md-code-bg-color: #fff4fd;
 }
 
-pre[class*="environment-"] .secondary-code-label {
-    color: #081b4b;
-}
-
-pre[class*="environment-"] code mark {
-    background: #e3e8f4;
-}
-
 /* Line prefixes — DO renders data-prefix via ::before, color follows the
-   block's text color (white on dark blocks, dark on light environments). */
+   block's text color. */
 pre.prefixed code {
     white-space: normal;
 }
@@ -180,23 +131,6 @@ pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 10) ~ li::be
 pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100)::before,
 pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100) ~ li::before {
     width: 4ch;
-}
-
-/* Copy button: keep it visible on the dark blocks and on light environments. */
-.md-typeset .highlight .md-clipboard {
-    color: rgba(247, 248, 251, 0.45);
-}
-
-.md-typeset .highlight .md-clipboard:hover {
-    color: #fff;
-}
-
-.md-typeset .highlight:has(pre[class*="environment-"]) .md-clipboard {
-    color: rgba(17, 25, 46, 0.4);
-}
-
-.md-typeset .highlight:has(pre[class*="environment-"]) .md-clipboard:hover {
-    color: #11192e;
 }
 
 /* YouTube */
