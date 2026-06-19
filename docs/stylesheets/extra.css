@@ -16,10 +16,13 @@
     padding: 0.25rem 0.375rem;
 }
 
-/* Code labels — integrated dark header bar sitting flush on the block. */
+/* Code labels — integrated header bar sitting flush on the block.
+   Defaults to the MkDocs theme's primary color so the label matches the site
+   chrome; override --do-code-label-bg / --do-code-label-fg in your own CSS to
+   set a custom color without touching the theme palette. */
 .code-label {
-    background-color: #29334d;
-    color: #fff;
+    background-color: var(--do-code-label-bg, var(--md-primary-fg-color));
+    color: var(--do-code-label-fg, var(--md-primary-bg-color));
     border-radius: 1em 1em 0 0;
     display: flex;
     justify-content: space-between;
@@ -40,12 +43,6 @@
 .code-label + .highlight > pre > code {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
-}
-
-/* A label above an environment (light) block uses the muted light header. */
-.code-label:has(+ .highlight > pre[class*="environment-"]) {
-    background: #eff2fb;
-    color: #4d5b7c;
 }
 
 /* Secondary label — muted header line inside the block. */
