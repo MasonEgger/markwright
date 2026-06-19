@@ -1,109 +1,202 @@
-/* --- do-markdown extension styles --- */
+/* --- do-markdown extension styles — aligned to DigitalOcean's do-markdownit ---
+   Color values are ported verbatim from the do-markdownit SCSS theme so the
+   rendered output matches the DigitalOcean Community Markdown reference. */
 
-/* Code labels */
-.code-label {
-    background-color: #283618;
-    color: #fefae0;
-    padding: 0.4em 1em;
-    border-radius: 0.25em 0.25em 0 0;
-    font-size: 0.85em;
-    font-family: var(--md-code-font-family);
-    margin-bottom: 0;
+/* DigitalOcean dark code theme. Material drives token colors through CSS
+   variables, so overriding them restyles every fenced code block at once.
+   Code stays dark even on the light page, exactly like the DO reference. */
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+    --md-code-bg-color: #11192e;
+    --md-code-fg-color: #f7f8fb;
+    --md-code-hl-keyword-color: #9fddff;
+    --md-code-hl-constant-color: #9fddff;
+    --md-code-hl-special-color: #9fddff;
+    --md-code-hl-function-color: #ffaf8c;
+    --md-code-hl-string-color: #b1e490;
+    --md-code-hl-variable-color: #b1e490;
+    --md-code-hl-number-color: #0be1ff;
+    --md-code-hl-name-color: #f7f8fb;
+    --md-code-hl-operator-color: #f7f8fb;
+    --md-code-hl-punctuation-color: #f7f8fb;
+    --md-code-hl-comment-color: #8a96b5;
+    --md-code-hl-generic-color: #f7f8fb;
 }
 
-.code-label + .highlight > pre,
-.code-label + pre {
+/* Rounded DO-style block corners + faint stroke (visible on light blocks). */
+.md-typeset .highlight > pre > code {
+    border-radius: 1em;
+    box-shadow: inset 0 0 0 0.125em rgba(17, 25, 46, 0.1);
+}
+
+/* Inline code: DigitalOcean light pill. */
+.md-typeset :not(pre) > code {
+    background-color: #e3e8f4;
+    color: #4d5b7c;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.375rem;
+}
+
+/* Code labels — integrated dark header bar sitting flush on the block. */
+.code-label {
+    background-color: #29334d;
+    color: #fff;
+    border-radius: 1em 1em 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75em 1.5em;
+    font-size: 1rem;
+    min-height: 3.25em;
+    font-family: var(--md-code-font-family);
+    position: relative;
+    z-index: 2;
+}
+
+.code-label + .highlight,
+.code-label + .highlight > pre {
     margin-top: 0;
+}
+
+.code-label + .highlight > pre > code {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
 }
 
+/* A label above an environment (light) block uses the muted light header. */
+.code-label:has(+ .highlight > pre[class*="environment-"]) {
+    background: #eff2fb;
+    color: #4d5b7c;
+}
+
+/* Secondary label — muted header line inside the block. */
 .secondary-code-label {
-    color: #a0a0a0;
-    font-size: 0.8em;
-    font-style: italic;
-    padding-bottom: 0.3em;
-    border-bottom: 1px solid #3a3a3a;
-    margin-bottom: 0.5em;
     display: block;
+    color: #9fddff;
+    margin: 0 0 0.25rem;
 }
 
-/* Environment colors — tint the entire code block.
-   The directive adds an `environment-NAME` class to <pre>; Material paints the
-   code background on the inner <code>, so the fill is applied there. */
-pre.environment-local > code {
-    background-color: #e9f5ea !important;
+/* Highlight marks: yellow in prose, subtle fill inside code. */
+.md-typeset mark {
+    background: #ffe175;
+    border-radius: 0.375rem;
+    color: inherit;
+    padding: 0.1em 0.3em;
 }
 
-pre.environment-second > code {
-    background-color: #e6f0fb !important;
+.md-typeset pre code mark {
+    background: #29334d;
 }
 
-pre.environment-third > code {
-    background-color: #fdf1e3 !important;
+/* Environments use the DO light code theme, one tint per environment. */
+pre[class*="environment-"] {
+    --md-code-fg-color: #11192e;
+    --md-code-hl-keyword-color: #0f2fda;
+    --md-code-hl-constant-color: #0f2fda;
+    --md-code-hl-special-color: #0f2fda;
+    --md-code-hl-function-color: #7300b9;
+    --md-code-hl-string-color: #00573a;
+    --md-code-hl-variable-color: #00573a;
+    --md-code-hl-number-color: #00507d;
+    --md-code-hl-name-color: #11192e;
+    --md-code-hl-operator-color: #11192e;
+    --md-code-hl-punctuation-color: #11192e;
+    --md-code-hl-comment-color: #11192e;
+    --md-code-hl-generic-color: #11192e;
 }
 
-pre.environment-fourth > code {
-    background-color: #f4eafa !important;
+pre.environment-local {
+    --md-code-bg-color: #f7f8fb;
 }
 
-pre.environment-fifth > code {
-    background-color: #fdeaea !important;
+pre.environment-second {
+    --md-code-bg-color: #f4fbff;
 }
 
-/* Dark scheme: keep the same hues but dark enough for light code text. */
-[data-md-color-scheme="slate"] pre.environment-local > code {
-    background-color: #18271c !important;
+pre.environment-third {
+    --md-code-bg-color: #fff9f4;
 }
 
-[data-md-color-scheme="slate"] pre.environment-second > code {
-    background-color: #15233a !important;
+pre.environment-fourth {
+    --md-code-bg-color: #f9fdf6;
 }
 
-[data-md-color-scheme="slate"] pre.environment-third > code {
-    background-color: #2c2415 !important;
+pre.environment-fifth {
+    --md-code-bg-color: #fff4fd;
 }
 
-[data-md-color-scheme="slate"] pre.environment-fourth > code {
-    background-color: #251a30 !important;
+pre[class*="environment-"] .secondary-code-label {
+    color: #081b4b;
 }
 
-[data-md-color-scheme="slate"] pre.environment-fifth > code {
-    background-color: #301818 !important;
+pre[class*="environment-"] code mark {
+    background: #e3e8f4;
 }
 
-/* Prefixed code blocks */
+/* Line prefixes — DO renders data-prefix via ::before, color follows the
+   block's text color (white on dark blocks, dark on light environments). */
+pre.prefixed code {
+    white-space: normal;
+}
+
 pre.prefixed code ol {
     list-style: none;
     margin: 0;
     padding: 0;
-    counter-reset: none;
 }
 
 pre.prefixed code ol li {
-    position: relative;
-    padding-left: 2.5em;
+    margin: 0;
+    padding: 0;
     white-space: pre;
 }
 
 pre.prefixed code ol li::before {
     content: attr(data-prefix);
-    position: absolute;
-    left: 0;
-    width: 2em;
+    display: inline-block;
+    margin: 0 0.625rem 0 0.25rem;
     text-align: right;
-    color: #6a737d;
+    color: var(--md-code-fg-color);
     user-select: none;
     -webkit-user-select: none;
 }
 
-/* Wider prefix space for custom/long prefixes */
-pre.prefixed.custom_prefix code ol li {
-    padding-left: 10em;
+/* Line numbers — separator bar with widths that grow with the line count. */
+pre.prefixed.line_numbers code ol li {
+    margin-left: -0.25rem;
 }
 
-pre.prefixed.custom_prefix code ol li::before {
-    width: 9.5em;
+pre.prefixed.line_numbers code ol li::before {
+    border-right: 1px solid color-mix(in srgb, var(--md-code-fg-color) 50%, transparent);
+    padding-right: 0.25rem;
+    width: 2ch;
+}
+
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 10)::before,
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 10) ~ li::before {
+    width: 3ch;
+}
+
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100)::before,
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100) ~ li::before {
+    width: 4ch;
+}
+
+/* Copy button: keep it visible on the dark blocks and on light environments. */
+.md-typeset .highlight .md-clipboard {
+    color: rgba(247, 248, 251, 0.45);
+}
+
+.md-typeset .highlight .md-clipboard:hover {
+    color: #fff;
+}
+
+.md-typeset .highlight:has(pre[class*="environment-"]) .md-clipboard {
+    color: rgba(17, 25, 46, 0.4);
+}
+
+.md-typeset .highlight:has(pre[class*="environment-"]) .md-clipboard:hover {
+    color: #11192e;
 }
 
 /* YouTube */
