@@ -90,6 +90,17 @@ class TestFencedCodeHighlight:
         marked = "".join(re.findall(r"<mark>(.*?)</mark>", result))
         assert "name" in re.sub(r"<[^>]+>", "", marked)
 
+    def test_empty_highlight_in_fenced_code_produces_empty_mark(self) -> None:
+        """An empty highlight inside code yields ``<mark></mark>``.
+
+        Empty markers reach the postprocessor's segment wrapper with no text
+        between them, which must emit an empty mark rather than crashing on the
+        missing region.
+        """
+        source = "```\n<^><^>\n```"
+        result = _render_with_superfences(source)
+        assert "<mark></mark>" in result
+
 
 class TestEscapedMarkers:
     """Test that ``\\<^>`` renders a literal marker instead of highlighting.
