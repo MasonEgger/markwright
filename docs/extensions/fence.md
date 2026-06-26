@@ -73,7 +73,7 @@ Hello from Flask!
 
 ## Environments
 
-Add colored left borders to code blocks using `[environment NAME]` inside the fence. This helps distinguish code blocks for different server environments:
+Tint the whole code block with a color using `[environment NAME]` inside the fence. This helps distinguish code blocks for different server environments:
 
 ````
 ```

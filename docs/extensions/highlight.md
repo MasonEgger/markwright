@@ -1,6 +1,6 @@
 # Highlight
 
-Converts `<^>text<^>` to `<mark>text</mark>`. Works in regular text, inline code, and fenced code blocks — anywhere that `pymdownx.mark` (`==text==`) cannot reach.
+Converts `\<^>text\<^>` to `<mark>text</mark>`. Works in regular text, inline code, and fenced code blocks — anywhere that `pymdownx.mark` (`==text==`) cannot reach.
 
 ## Configuration
 
@@ -16,7 +16,7 @@ No configuration options.
 Wrap text in `<^>` delimiters:
 
 ```
-This has a <^>highlighted word<^> in it.
+This has a \<^>highlighted word\<^> in it.
 ```
 
 Result: This has a <^>highlighted word<^> in it.
@@ -24,7 +24,7 @@ Result: This has a <^>highlighted word<^> in it.
 ## In Inline Code
 
 ```
-Check the `config.<^>timeout<^>` value.
+Check the `config.\<^>timeout\<^>` value.
 ```
 
 Result: Check the `config.<^>timeout<^>` value.
@@ -34,7 +34,7 @@ Result: Check the `config.<^>timeout<^>` value.
 ````
 ```python
 def greet(name):
-    print(f"Hello, <^>{name}<^>!")
+    print(f"Hello, \<^>{name}\<^>!")
 ```
 ````
 
@@ -50,7 +50,13 @@ def greet(name):
 Multiple highlights work on the same line:
 
 ```
-Both <^>first<^> and <^>second<^> are highlighted.
+Both \<^>first\<^> and \<^>second\<^> are highlighted.
 ```
 
 Result: Both <^>first<^> and <^>second<^> are highlighted.
+
+## Escaping
+
+Prefix a marker with a backslash (`\<^>`) inside code to show it literally
+instead of applying a highlight — this is how the code samples above print the
+raw `<^>` syntax.
