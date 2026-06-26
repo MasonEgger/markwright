@@ -13,3 +13,8 @@ wheels/
 
 # MkDocs build output
 site/
+
+# Coverage artifacts
+.coverage
+*.cover
+htmlcov/
