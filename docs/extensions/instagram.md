@@ -29,11 +29,11 @@ No configuration options.
 | `left` | Left-align the post |
 | `center` | Center-align (default) |
 | `right` | Right-align the post |
-| *integer* | Width in pixels (clamped 326–550, default: auto) |
+| *integer* | Width in pixels (clamped 326-550, default: auto) |
 
 ## Examples
 
-### Basic Post
+### Basic post
 
 ```
 [instagram https://www.instagram.com/p/CkQuv3_LRgS]
@@ -41,7 +41,7 @@ No configuration options.
 
 [instagram https://www.instagram.com/p/CkQuv3_LRgS]
 
-### With Caption
+### With caption
 
 ```
 [instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
@@ -49,7 +49,7 @@ No configuration options.
 
 [instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
 
-### Left-Aligned with Custom Width
+### Left-aligned with custom width
 
 ```
 [instagram https://www.instagram.com/p/CkQuv3_LRgS left 400]
@@ -60,5 +60,5 @@ No configuration options.
 ## Notes
 
 - The embed must be on its own line
-- Width is clamped to 326–550px (Instagram's supported range)
+- Width is clamped to 326-550px (Instagram's supported range)
 - The Instagram embed script is injected once per page

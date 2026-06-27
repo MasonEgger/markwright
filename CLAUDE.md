@@ -28,7 +28,7 @@ Run a single test: `uv run pytest tests/test_highlight.py::TestInlineHighlight::
 
 ## Project Overview
 
-Python-Markdown extensions ported from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (JavaScript/markdown-it, Apache 2.0). Works with any Python-Markdown consumer — MkDocs, Flask, CLI tools, etc. The bundled MkDocs Material site in `docs/` serves as both documentation and a live demo. CI via GitHub Actions runs tests and deploys docs to GitHub Pages on push to main. The `gh-pages` branch is the Pages deploy target, force-pushed by `mkdocs gh-deploy` in the CI `deploy` job — it is auto-managed build output, not a source branch, so never commit to it, merge it, or delete it.
+Python-Markdown extensions ported from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (JavaScript/markdown-it, Apache 2.0). Works with any Python-Markdown consumer: MkDocs, Flask, CLI tools, etc. The bundled MkDocs Material site in `docs/` is both documentation and a live demo. CI via GitHub Actions runs tests and deploys docs to GitHub Pages on push to main. The `gh-pages` branch is the Pages deploy target, force-pushed by `mkdocs gh-deploy` in the CI `deploy` job; it is auto-managed build output, not a source branch, so never commit to it, merge it, or delete it.
 
 ## Architecture
 
@@ -47,7 +47,7 @@ Each extension is a standalone Python-Markdown extension in `src/do_markdown/` w
 | Priority | Type | Extension | Relationship |
 |----------|------|-----------|-------------|
 | 40 | Preprocessor | fence | Runs *before* `pymdownx.superfences` (~38) |
-| 20 | Preprocessor | all embeds | Runs *after* superfences — embed syntax in fences is already stashed |
+| 20 | Preprocessor | all embeds | Runs *after* superfences (embed syntax in fences is already stashed) |
 | 175 | InlineProcessor | highlight | Runs before emphasis |
 | 25 | Postprocessor | fence, highlight | Standard post-processing |
 | 15 | Postprocessor | codepen, twitter, instagram | Script injection (runs after other postprocessors) |
@@ -64,27 +64,28 @@ Each extension is a standalone Python-Markdown extension in `src/do_markdown/` w
 
 ## Code Conventions
 
-- `__init__.py` is **always empty** — never add anything to it
+- `__init__.py` is **always empty**; never add anything to it
 - Every source file uses `from __future__ import annotations` as the first import
-- Type hints on everything, no `Any` — mypy strict is enforced
+- Type hints on everything, no `Any`; mypy strict is enforced
 - Absolute imports only (e.g., `from do_markdown._util import reduce_fraction`)
 - RST docstrings (`:param:`, `:returns:`) on public interfaces
 - `line-length = 120`, `target-version = "py314"`
 - Every source file starts with a 2-line `# ABOUTME:` comment
-- **Descriptive variable names always** — single-letter variables are NEVER allowed (`line_index` not `i`, `label_match` not `m`, `mark_element` not `el`)
-- No trivial wrappers — call `html.escape()` directly, don't wrap stdlib functions
-- HTML output must match the do-markdownit reference format (see `plan.md` HTML Output Contracts)
+- **Descriptive variable names always**: single-letter variables are NEVER allowed (`line_index` not `i`, `label_match` not `m`, `mark_element` not `el`)
+- No trivial wrappers: call `html.escape()` directly, don't wrap stdlib functions
+- HTML output must match the do-markdownit reference format (see the HTML Output Contracts in `.ai-sessions/v1-init/plan.md`)
 
 ## Testing Approach
 
 - TDD: write failing tests first (RED), implement (GREEN), then refactor
 - Each extension has its own test file with a `render_*(source)` helper that creates a `markdown.Markdown` instance with the extension loaded (e.g., `render_youtube()`, `render_fence()`)
 - `tests/conftest.py` provides `md_with_superfences` fixture matching the real site stack
-- Test **our extension logic only** — do not test Python-Markdown or pymdownx behavior
+- Test **our extension logic only**: do not test Python-Markdown or pymdownx behavior
 - Do not test trivial code; test behavior and outcomes
 
 ## Plan & Progress Tracking
 
-- `plan.md`: Full implementation plan with detailed per-step prompts and HTML output contracts
-- `todo.md`: Checklist tracking completion of each sub-step
-- `.ai-sessions/`: Session summaries from previous work — read the most recent one for context
+- `spec.md`: Current spec, a pipeline CLI that exposes the extensions as pre/post filter stages so DO markdown can run in toolchains outside Python-Markdown (e.g. Go/Hugo). Wraps the existing extensions; not a Go port. Not yet implemented.
+- `.ai-sessions/v1-init/plan.md`: The v1 implementation plan (extensions) with detailed per-step prompts and HTML Output Contracts. Archived; v1 is complete.
+- `.ai-sessions/v1-init/todo.md`: The v1 step-completion checklist. Archived.
+- `.ai-sessions/`: Session summaries from previous work; read the most recent one for context. `.ai-sessions/lessons.md` accumulates lessons across sessions.

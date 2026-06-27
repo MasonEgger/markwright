@@ -26,7 +26,7 @@ No configuration options.
 
 ## Examples
 
-### Basic Comparison
+### Basic comparison
 
 ```
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
@@ -34,7 +34,7 @@ No configuration options.
 
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
 
-### Custom Dimensions
+### Custom dimensions
 
 ```
 [compare https://picsum.photos/id/10/600/400 https://picsum.photos/id/20/600/400 400 600]
@@ -47,4 +47,4 @@ No configuration options.
 - The embed must be on its own line
 - Exactly 2 image URLs are required (no more, no fewer)
 - The slider starts at 50% and uses a CSS custom property (`--value`) for positioning
-- No script injection required — uses an inline `oninput` handler
+- No script injection required; uses an inline `oninput` handler

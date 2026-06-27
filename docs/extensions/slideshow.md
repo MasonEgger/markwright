@@ -27,7 +27,7 @@ Height and width are optional trailing integers. They are distinguished from URL
 
 ## Examples
 
-### Basic Slideshow
+### Basic slideshow
 
 ```
 [slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
@@ -35,7 +35,7 @@ Height and width are optional trailing integers. They are distinguished from URL
 
 [slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
 
-### Custom Dimensions
+### Custom dimensions
 
 ```
 [slideshow https://picsum.photos/id/10/600/400 https://picsum.photos/id/20/600/400 400 600]

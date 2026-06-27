@@ -39,7 +39,7 @@ from flask import Flask
 app = Flask(__name__)
 ```
 
-## Secondary Labels
+## Secondary labels
 
 Add a secondary label inside the code block with `[secondary_label TEXT]`:
 
@@ -55,7 +55,7 @@ Hello, world!
 Hello, world!
 ```
 
-## Both Labels Together
+## Both labels together
 
 ````
 ```python
@@ -111,11 +111,11 @@ ssh user@production-server
 ssh user@production-server
 ```
 
-## Line Prefixes
+## Line prefixes
 
 Prefix flags go in the info string (after the backticks). They wrap each code line in `<ol><li>` with a `data-prefix` attribute.
 
-### Line Numbers
+### Line numbers
 
 ````
 ```line_numbers,python
@@ -139,7 +139,7 @@ def hello():
     return "Hello!"
 ```
 
-### Command Prefix (`$`)
+### Command prefix (`$`)
 
 Implicitly sets the language to bash:
 
@@ -155,7 +155,7 @@ sudo apt update
 sudo apt install nginx
 ```
 
-### Super User Prefix (`#`)
+### Super user prefix (`#`)
 
 Implicitly sets the language to bash:
 
@@ -169,7 +169,7 @@ systemctl restart nginx
 systemctl restart nginx
 ```
 
-### Custom Prefix
+### Custom prefix
 
 Implicitly sets the language to bash. Use `\s` for spaces:
 
@@ -185,7 +185,7 @@ SELECT * FROM users;
 SHOW TABLES;
 ```
 
-## Full Combination
+## Full combination
 
 All features can be combined:
 

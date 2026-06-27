@@ -30,11 +30,11 @@ No configuration options.
 | `left` | Left-align the tweet |
 | `center` | Center-align (default) |
 | `right` | Right-align the tweet |
-| *integer* | Width in pixels (clamped 250–550, default: 550) |
+| *integer* | Width in pixels (clamped 250-550, default: 550) |
 
 ## Examples
 
-### Basic Tweet
+### Basic tweet
 
 ```
 [twitter https://twitter.com/github/status/1234567890]
@@ -42,7 +42,7 @@ No configuration options.
 
 [twitter https://twitter.com/github/status/1234567890]
 
-### Dark Theme, Left-Aligned
+### Dark theme, left-aligned
 
 ```
 [twitter https://twitter.com/github/status/1234567890 dark left]
@@ -50,7 +50,7 @@ No configuration options.
 
 [twitter https://twitter.com/github/status/1234567890 dark left]
 
-### Custom Width
+### Custom width
 
 ```
 [twitter https://twitter.com/github/status/1234567890 400]
@@ -62,5 +62,5 @@ No configuration options.
 
 - The embed must be on its own line
 - `x.com` URLs are automatically converted to `twitter.com`
-- Width is clamped to 250–550px (Twitter's supported range)
+- Width is clamped to 250-550px (Twitter's supported range)
 - The Twitter widgets script is injected once per page

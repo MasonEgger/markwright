@@ -1,6 +1,6 @@
 # Demo
 
-A showcase of all do-markdown extensions on a single page.
+A demonstration of all do-markdown extensions on a single page.
 
 ## Highlight
 
@@ -16,7 +16,7 @@ def process(data):
     return result
 ```
 
-## Fence — Labels
+## Fence: labels
 
 ```python
 [label app.py]
@@ -25,14 +25,14 @@ from flask import Flask
 app = Flask(__name__)
 ```
 
-## Fence — Secondary Labels
+## Fence: secondary labels
 
 ```
 [secondary_label Output]
 Server started on port 8080
 ```
 
-## Fence — Environments
+## Fence: environments
 
 ```
 [environment local]
@@ -52,7 +52,7 @@ ssh deploy@staging.example.com
 ssh deploy@prod.example.com
 ```
 
-## Fence — Line Numbers
+## Fence: line numbers
 
 ```line_numbers,python
 from flask import Flask
@@ -64,7 +64,7 @@ def index():
     return "Hello, World!"
 ```
 
-## Fence — Command Prefix
+## Fence: command prefix
 
 ```command
 sudo apt update
@@ -72,14 +72,14 @@ sudo apt install nginx
 systemctl start nginx
 ```
 
-## Fence — Super User Prefix
+## Fence: super user prefix
 
 ```super_user
 systemctl restart nginx
 journalctl -u nginx -f
 ```
 
-## Fence — Custom Prefix
+## Fence: custom prefix
 
 ```custom_prefix(mysql>)
 SELECT * FROM users;
@@ -87,7 +87,7 @@ SHOW DATABASES;
 USE production;
 ```
 
-## Fence — Full Combination
+## Fence: full combination
 
 ```command
 [environment local]
@@ -117,6 +117,6 @@ systemctl restart nginx
 
 [slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
 
-## Image Compare
+## Image compare
 
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]

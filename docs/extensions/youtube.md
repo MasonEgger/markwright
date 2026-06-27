@@ -29,7 +29,7 @@ The aspect ratio is calculated automatically from the dimensions.
 
 ## Examples
 
-### Default Dimensions (480x270)
+### Default dimensions (480x270)
 
 ```
 [youtube dQw4w9WgXcQ]
@@ -37,7 +37,7 @@ The aspect ratio is calculated automatically from the dimensions.
 
 [youtube dQw4w9WgXcQ]
 
-### Custom Dimensions
+### Custom dimensions
 
 ```
 [youtube dQw4w9WgXcQ 360 640]
