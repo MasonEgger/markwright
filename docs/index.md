@@ -27,7 +27,7 @@ Or install from a local path:
 uv add --editable ../do-markdown
 ```
 
-!!! warning "MkDocs 2.0 compatibility"
+!!! warning "MkDocs 2.0 Compatibility"
     MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs. There is no migration path. This project pins **MkDocs 1.x** (`mkdocs>=1.6,<2`).
 
 ## Usage
@@ -59,7 +59,7 @@ markdown_extensions:
 
 Then use the custom syntax in your Markdown files. See each extension's documentation for syntax details and examples.
 
-### Standalone (without MkDocs)
+### Standalone (Without MkDocs)
 
 These extensions work with Python-Markdown directly. You can use them in any Python application (a Flask app, a CLI tool, a static site generator, or a simple script):
 

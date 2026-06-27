@@ -22,7 +22,7 @@ This has a \<^>highlighted word\<^> in it.
 
 Result: This has a <^>highlighted word<^> in it.
 
-## In inline code
+## In Inline Code
 
 ```
 Check the `config.\<^>timeout\<^>` value.
@@ -30,7 +30,7 @@ Check the `config.\<^>timeout\<^>` value.
 
 Result: Check the `config.<^>timeout<^>` value.
 
-## In fenced code blocks
+## In Fenced Code Blocks
 
 ````
 ```python
@@ -46,7 +46,7 @@ def greet(name):
     print(f"Hello, <^>{name}<^>!")
 ```
 
-## Multiple highlights
+## Multiple Highlights
 
 Multiple highlights work on the same line:
 

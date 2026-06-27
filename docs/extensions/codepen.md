@@ -42,7 +42,7 @@ Tab priority when multiple are specified: html > css > js.
 
 ## Examples
 
-### Basic embed
+### Basic Embed
 
 ```
 [codepen MattCowley vwPzeX]
@@ -50,7 +50,7 @@ Tab priority when multiple are specified: html > css > js.
 
 [codepen MattCowley vwPzeX]
 
-### Dark theme with CSS tab
+### Dark Theme with CSS Tab
 
 ```
 [codepen MattCowley vwPzeX dark css]
@@ -58,7 +58,7 @@ Tab priority when multiple are specified: html > css > js.
 
 [codepen MattCowley vwPzeX dark css]
 
-### Custom height, lazy, editable
+### Custom Height, Lazy, Editable
 
 ```
 [codepen MattCowley vwPzeX 400 lazy editable]

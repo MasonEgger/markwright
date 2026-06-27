@@ -33,7 +33,7 @@ No configuration options.
 
 ## Examples
 
-### Basic post
+### Basic Post
 
 ```
 [instagram https://www.instagram.com/p/CkQuv3_LRgS]
@@ -41,7 +41,7 @@ No configuration options.
 
 [instagram https://www.instagram.com/p/CkQuv3_LRgS]
 
-### With caption
+### With Caption
 
 ```
 [instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
@@ -49,7 +49,7 @@ No configuration options.
 
 [instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
 
-### Left-aligned with custom width
+### Left-Aligned with Custom Width
 
 ```
 [instagram https://www.instagram.com/p/CkQuv3_LRgS left 400]

@@ -34,7 +34,7 @@ No configuration options.
 
 ## Examples
 
-### Basic tweet
+### Basic Tweet
 
 ```
 [twitter https://twitter.com/github/status/1234567890]
@@ -42,7 +42,7 @@ No configuration options.
 
 [twitter https://twitter.com/github/status/1234567890]
 
-### Dark theme, left-aligned
+### Dark Theme, Left-Aligned
 
 ```
 [twitter https://twitter.com/github/status/1234567890 dark left]
@@ -50,7 +50,7 @@ No configuration options.
 
 [twitter https://twitter.com/github/status/1234567890 dark left]
 
-### Custom width
+### Custom Width
 
 ```
 [twitter https://twitter.com/github/status/1234567890 400]

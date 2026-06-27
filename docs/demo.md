@@ -16,7 +16,7 @@ def process(data):
     return result
 ```
 
-## Fence: labels
+## Fence: Labels
 
 ```python
 [label app.py]
@@ -25,14 +25,14 @@ from flask import Flask
 app = Flask(__name__)
 ```
 
-## Fence: secondary labels
+## Fence: Secondary Labels
 
 ```
 [secondary_label Output]
 Server started on port 8080
 ```
 
-## Fence: environments
+## Fence: Environments
 
 ```
 [environment local]
@@ -52,7 +52,7 @@ ssh deploy@staging.example.com
 ssh deploy@prod.example.com
 ```
 
-## Fence: line numbers
+## Fence: Line Numbers
 
 ```line_numbers,python
 from flask import Flask
@@ -64,7 +64,7 @@ def index():
     return "Hello, World!"
 ```
 
-## Fence: command prefix
+## Fence: Command Prefix
 
 ```command
 sudo apt update
@@ -72,14 +72,14 @@ sudo apt install nginx
 systemctl start nginx
 ```
 
-## Fence: super user prefix
+## Fence: Super User Prefix
 
 ```super_user
 systemctl restart nginx
 journalctl -u nginx -f
 ```
 
-## Fence: custom prefix
+## Fence: Custom Prefix
 
 ```custom_prefix(mysql>)
 SELECT * FROM users;
@@ -87,7 +87,7 @@ SHOW DATABASES;
 USE production;
 ```
 
-## Fence: full combination
+## Fence: Full Combination
 
 ```command
 [environment local]
@@ -117,6 +117,6 @@ systemctl restart nginx
 
 [slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
 
-## Image compare
+## Image Compare
 
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]

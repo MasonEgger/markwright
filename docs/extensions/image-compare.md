@@ -26,7 +26,7 @@ No configuration options.
 
 ## Examples
 
-### Basic comparison
+### Basic Comparison
 
 ```
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
@@ -34,7 +34,7 @@ No configuration options.
 
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
 
-### Custom dimensions
+### Custom Dimensions
 
 ```
 [compare https://picsum.photos/id/10/600/400 https://picsum.photos/id/20/600/400 400 600]
