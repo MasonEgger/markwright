@@ -1,5 +1,5 @@
 # ABOUTME: Command-line entry point for the mw markwright pipeline tool.
-# Builds the argparse parser and dispatches list/post; --version reports the package version.
+# Builds the argparse parser and dispatches list/pre/post; --version reports the package version.
 
 from __future__ import annotations
 
@@ -27,11 +27,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"mw {_package_version()}")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("list", help="List registered extensions and the stages each provides.")
+    pre_parser = subparsers.add_parser("pre", help="Expand markwright source directives read from stdin.")
+    _add_selection_flags(pre_parser)
     post_parser = subparsers.add_parser("post", help="Post-process rendered HTML read from stdin.")
-    post_parser.add_argument("--use", action="append", default=[], help="Restrict to the named extension (repeatable).")
-    post_parser.add_argument("--exclude", action="append", default=[], help="Drop the named extension (repeatable).")
+    _add_selection_flags(post_parser)
     post_parser.add_argument("--warn", action="store_true", help="Report skipped markers to stderr.")
     return parser
+
+
+def _add_selection_flags(subparser: argparse.ArgumentParser) -> None:
+    """Add the shared ``--use`` and ``--exclude`` selection flags to a subparser.
+
+    :param subparser: The subcommand parser to extend.
+    """
+    subparser.add_argument("--use", action="append", default=[], help="Restrict to the named extension (repeatable).")
+    subparser.add_argument("--exclude", action="append", default=[], help="Drop the named extension (repeatable).")
 
 
 def _run_list() -> int:
@@ -56,6 +66,19 @@ def _resolve_selection(args: argparse.Namespace) -> list[str] | None:
     except ValueError as selection_error:
         print(selection_error, file=sys.stderr)
         return None
+
+
+def _run_pre(args: argparse.Namespace) -> int:
+    """Expand source directives from stdin and write the result to stdout.
+
+    :param args: Parsed arguments carrying ``use`` and ``exclude``.
+    :returns: ``0`` on success, ``2`` if a selected extension name is unknown.
+    """
+    names = _resolve_selection(args)
+    if names is None:
+        return 2
+    sys.stdout.write(registry.run_pre(sys.stdin.read(), names))
+    return 0
 
 
 def _run_post(args: argparse.Namespace) -> int:
@@ -89,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
         return exit_error.code if isinstance(exit_error.code, int) else 2
     if args.command == "list":
         return _run_list()
+    if args.command == "pre":
+        return _run_pre(args)
     if args.command == "post":
         return _run_post(args)
     parser.print_usage()

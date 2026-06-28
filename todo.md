@@ -47,9 +47,9 @@ Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
 - [x] 4. `just check`
 
 ## Step 8: CLI `pre` Subcommand
-- [ ] 1. RED: TestCliPre (youtube expand, prose mark wrap, fence marker emit, --use/--exclude, unknown name exit 2)
-- [ ] 2. GREEN: pre handler via run_pre; add --use/--exclude (no --warn)
-- [ ] 3. `just check`
+- [x] 1. RED: TestCliPre (youtube expand, prose mark wrap, fence marker emit, --use/--exclude, unknown name exit 2)
+- [x] 2. GREEN: pre handler via run_pre; add --use/--exclude (no --warn)
+- [x] 3. `just check`
 
 ## Step 9: CLI `render` Subcommand
 - [ ] 1. RED: TestCliRender (matches in-process render, --use subset, unknown name exit 2)

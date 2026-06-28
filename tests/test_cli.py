@@ -119,3 +119,66 @@ class TestCliPost:
         captured = capsys.readouterr()
         assert exit_code == 2
         assert "bogus" in captured.err
+
+
+class TestCliPre:
+    """Tests for the pre subcommand: stdin to stdout source-stage expansion."""
+
+    def test_pre_expands_youtube_line_to_iframe(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"' in captured.out
+
+    def test_pre_wraps_prose_highlight_marker(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "Text with a <^>prose<^> marker.")
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "<mark>prose</mark>" in captured.out
+
+    def test_pre_fence_label_emits_mw_fence_comment_and_keeps_fence(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "```\n[label deploy.sh]\necho hi\n```")
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "<!-- mw-fence:" in captured.out
+        assert '"label": "deploy.sh"' in captured.out
+        assert "```" in captured.out
+        assert "echo hi" in captured.out
+
+    def test_pre_use_selects_only_named_stage(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
+        exit_code = main(["pre", "--use", "youtube"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "<iframe" in captured.out
+        assert "<mark>prose</mark>" not in captured.out
+
+    def test_pre_exclude_drops_named_stage(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
+        exit_code = main(["pre", "--exclude", "youtube"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "<iframe" not in captured.out
+        assert "<mark>prose</mark>" in captured.out
+
+    def test_pre_unknown_use_name_returns_two_with_stderr(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
+        exit_code = main(["pre", "--use", "bogus"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert "bogus" in captured.err
