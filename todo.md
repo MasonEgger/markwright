@@ -41,10 +41,10 @@ Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
 - [x] 5. `just check`
 
 ## Step 7: CLI `post` Subcommand
-- [ ] 1. RED: TestCliPost (stdin->stdout inject once, --use, --exclude, --warn stderr, no-warn silent, unknown name exit 2)
-- [ ] 2. GREEN: post handler (stdin, select, run_post, warnings->stderr); add --use/--exclude/--warn
-- [ ] 3. REFACTOR: factor stdin/stdout + selection-error helpers
-- [ ] 4. `just check`
+- [x] 1. RED: TestCliPost (stdin->stdout inject once, --use, --exclude, --warn stderr, no-warn silent, unknown name exit 2)
+- [x] 2. GREEN: post handler (stdin, select, run_post, warnings->stderr); add --use/--exclude/--warn
+- [x] 3. REFACTOR: factor stdin/stdout + selection-error helpers
+- [x] 4. `just check`
 
 ## Step 8: CLI `pre` Subcommand
 - [ ] 1. RED: TestCliPre (youtube expand, prose mark wrap, fence marker emit, --use/--exclude, unknown name exit 2)

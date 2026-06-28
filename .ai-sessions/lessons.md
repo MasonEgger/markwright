@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- When a REFACTOR prompt says "factor stdin/stdout helpers" but the project bans trivial stdlib wrappers, factor only the non-trivial shared logic (e.g. a `_resolve_selection` that calls `select_extensions` and prints the `ValueError` to stderr, returning `None` to signal exit 2) and leave `sys.stdin.read()`/`sys.stdout.write()` inline (2026-06-28)
 - Give an argparse-based `main(argv) -> int` a testable exit-code contract by wrapping `parser.parse_args` in `try/except SystemExit` and returning `exit_error.code`; this captures both the `action="version"` exit (0) and invalid-choice usage errors (2) without letting `SystemExit` escape to `capsys`-driven tests (2026-06-28)
 - mypy strict rejects indexing a `TypedDict` with a runtime/variable key (`spec[stage_key]` raises `literal-required`); to iterate over fields generically, pass literal-key accessor callables (`lambda spec: spec["pre"]`) instead of string key names (2026-06-28)
 - Keep a registry-facing stage function at a fixed signature (`apply_html(html, warnings=None)`) and route the in-process processor through the same private core (`_apply_marker(..., label_class, secondary_label_class)`) so configurable in-process options survive without giving the pure function config parameters (2026-06-28)
@@ -11,12 +12,13 @@
 - When renaming a project, check whether the old name is a substring of a name you must keep (`do-markdown` is inside the upstream `do-markdownit`); use a negative-lookahead replace `do-markdown(?!it)` so the attribution is not corrupted (2026-06-27)
 - Embed extensions that emit raw HTML must stash it via `self.md.htmlStash.store(...)`; returning raw HTML as preprocessor text lets Markdown keep parsing it (JS backticks became a `<code>` span and broke the image-compare slider; block elements got an invalid `<p>` wrap) (2026-06-27)
 - Diagnose render bugs by converting the case through the real extension stack and reading the HTML; it splits markdown-output bugs from MkDocs/Material CSS with evidence (2026-06-27)
-- A test can pass while the bug is live if it only asserts substrings that survive the corruption; write the RED assertion against the actual broken output (no `<code>`, no `<p><tag>`) (2026-06-27)
 
 ## CLI
+- When a REFACTOR prompt says "factor stdin/stdout helpers" but the project bans trivial stdlib wrappers, factor only the non-trivial shared logic (e.g. a `_resolve_selection` that calls `select_extensions` and prints the `ValueError` to stderr, returning `None` to signal exit 2) and leave `sys.stdin.read()`/`sys.stdout.write()` inline (2026-06-28)
 - Give an argparse-based `main(argv) -> int` a testable exit-code contract by wrapping `parser.parse_args` in `try/except SystemExit` and returning `exit_error.code`; this captures both the `action="version"` exit (0) and invalid-choice usage errors (2) without letting `SystemExit` escape to `capsys`-driven tests (2026-06-28)
 
 ## Testing
+- A test can pass while the bug is live if it only asserts substrings that survive the corruption; write the RED assertion against the actual broken output (no `<code>`, no `<p><tag>`) (2026-06-27)
 - When a coverage gap points at one line, trace it to the exact code path before writing the test — a same-looking input may exercise a different path (2026-06-26)
 - Adding a parallel code path for an existing behavior needs its own test even when an analogous test exists for the old path (2026-06-26)
 
