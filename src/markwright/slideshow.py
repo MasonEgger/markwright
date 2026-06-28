@@ -43,6 +43,38 @@ def _parse_slideshow_args(raw_args: str) -> tuple[list[str], int, int]:
     return urls, height, width
 
 
+def _render_match(line: str) -> str | None:
+    """Build the slideshow HTML for a standalone slideshow embed line.
+
+    Returns ``None`` when the line is not a slideshow embed or has fewer than
+    two URLs.
+
+    :param line: A single source line.
+    :returns: The slideshow HTML if the line is a valid embed, else ``None``.
+    """
+    slideshow_match = SLIDESHOW_RE.match(line.strip())
+    if not slideshow_match:
+        return None
+
+    urls, height, width = _parse_slideshow_args(slideshow_match.group(1))
+    if not urls:
+        return None
+
+    return _build_slideshow_html(urls, height, width)
+
+
+def expand_source(text: str) -> str:
+    """Expand standalone slideshow embed lines to HTML in raw source.
+
+    Used by the ``mw pre`` CLI stage. Emits the HTML inline without any
+    Python-Markdown stash placeholder.
+
+    :param text: The source text.
+    :returns: The text with standalone slideshow embeds replaced by HTML.
+    """
+    return "\n".join(_render_match(line) or line for line in text.split("\n"))
+
+
 class SlideshowPreprocessor(Preprocessor):
     """Replace [slideshow ...] lines with slideshow HTML.
 
@@ -57,15 +89,9 @@ class SlideshowPreprocessor(Preprocessor):
         """
         output: list[str] = []
         for line in lines:
-            stripped_line = line.strip()
-            slideshow_match = SLIDESHOW_RE.match(stripped_line)
-            if slideshow_match:
-                urls, height, width = _parse_slideshow_args(slideshow_match.group(1))
-                if urls:
-                    slideshow_html = _build_slideshow_html(urls, height, width)
-                    output.append(self.md.htmlStash.store(slideshow_html))
-                else:
-                    output.append(line)
+            slideshow_html = _render_match(line)
+            if slideshow_html is not None:
+                output.append(self.md.htmlStash.store(slideshow_html))
             else:
                 output.append(line)
         return output

@@ -23,6 +23,36 @@ SVG_ARROW = (
 )
 
 
+def _render_match(line: str) -> str | None:
+    """Build the image compare HTML for a standalone compare embed line.
+
+    :param line: A single source line.
+    :returns: The compare HTML if the line is a compare embed, else ``None``.
+    """
+    compare_match = COMPARE_RE.match(line.strip())
+    if not compare_match:
+        return None
+
+    left_url = compare_match.group(1)
+    right_url = compare_match.group(2)
+    height = int(compare_match.group(3)) if compare_match.group(3) else DEFAULT_HEIGHT
+    width = int(compare_match.group(4)) if compare_match.group(4) else DEFAULT_WIDTH
+
+    return _build_compare_html(left_url, right_url, height, width)
+
+
+def expand_source(text: str) -> str:
+    """Expand standalone compare embed lines to HTML in raw source.
+
+    Used by the ``mw pre`` CLI stage. Emits the HTML inline without any
+    Python-Markdown stash placeholder.
+
+    :param text: The source text.
+    :returns: The text with standalone compare embeds replaced by HTML.
+    """
+    return "\n".join(_render_match(line) or line for line in text.split("\n"))
+
+
 class ImageComparePreprocessor(Preprocessor):
     """Replace [compare ...] lines with image comparison HTML.
 
@@ -37,19 +67,12 @@ class ImageComparePreprocessor(Preprocessor):
         """
         output: list[str] = []
         for line in lines:
-            stripped_line = line.strip()
-            compare_match = COMPARE_RE.match(stripped_line)
-            if compare_match:
-                left_url = compare_match.group(1)
-                right_url = compare_match.group(2)
-                height = int(compare_match.group(3)) if compare_match.group(3) else DEFAULT_HEIGHT
-                width = int(compare_match.group(4)) if compare_match.group(4) else DEFAULT_WIDTH
-
-                compare_html = _build_compare_html(left_url, right_url, height, width)
-                # Stash the raw HTML so Markdown does not parse its contents. The
-                # oninput handler contains a JS backtick template literal that
-                # would otherwise be turned into an inline <code> span, and the
-                # block-level <div> would be wrapped in an invalid <p>.
+            # Stash the raw HTML so Markdown does not parse its contents. The
+            # oninput handler contains a JS backtick template literal that
+            # would otherwise be turned into an inline <code> span, and the
+            # block-level <div> would be wrapped in an invalid <p>.
+            compare_html = _render_match(line)
+            if compare_html is not None:
                 output.append(self.md.htmlStash.store(compare_html))
             else:
                 output.append(line)

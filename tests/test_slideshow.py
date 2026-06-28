@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import markdown
 
+from markwright.slideshow import expand_source
+
 
 def render_slideshow(source: str) -> str:
     """Render Markdown source with the slideshow extension loaded.
@@ -96,3 +98,35 @@ class TestSlideshowEdgeCases:
     def test_not_wrapped_in_paragraph(self) -> None:
         result = render_slideshow("[slideshow https://a.png https://b.png]")
         assert "<p><div" not in result
+
+
+class TestSlideshowExpandSource:
+    """Tests for the pure expand_source stage function."""
+
+    def test_expands_standalone_embed(self) -> None:
+        result = expand_source("[slideshow https://a.jpg https://b.jpg]")
+        assert '<div class="slideshow"' in result
+
+    def test_no_stash_placeholder(self) -> None:
+        result = expand_source("[slideshow https://a.jpg https://b.jpg]")
+        assert "\x02" not in result
+
+    def test_inline_embed_unchanged(self) -> None:
+        source = "text [slideshow https://a.jpg https://b.jpg] text"
+        assert expand_source(source) == source
+
+    def test_single_url_not_expanded(self) -> None:
+        source = "[slideshow https://a.jpg]"
+        assert expand_source(source) == source
+
+    def test_multiline_only_standalone_expanded(self) -> None:
+        source = "before line\n[slideshow https://a.jpg https://b.jpg]\nafter line"
+        result = expand_source(source)
+        lines = result.split("\n")
+        assert lines[0] == "before line"
+        assert lines[-1] == "after line"
+        assert '<div class="slideshow"' in result
+
+    def test_no_embed_passes_through(self) -> None:
+        source = "just some text\nmore text"
+        assert expand_source(source) == source

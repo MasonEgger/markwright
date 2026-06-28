@@ -3,10 +3,10 @@
 Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
 
 ## Step 1: Simple Embed Stage Functions
-- [ ] 1. RED: stage-function tests for youtube, slideshow, image_compare (new classes; existing untouched)
-- [ ] 2. GREEN: add `_render_match` + `expand_source`; refactor each Preprocessor to delegate (keep htmlStash)
-- [ ] 3. REFACTOR: no duplicated regex/builder between expand_source and the Preprocessor
-- [ ] 4. Existing in-process tests pass; `just check`
+- [x] 1. RED: stage-function tests for youtube, slideshow, image_compare (new classes; existing untouched)
+- [x] 2. GREEN: add `_render_match` + `expand_source`; refactor each Preprocessor to delegate (keep htmlStash)
+- [x] 3. REFACTOR: no duplicated regex/builder between expand_source and the Preprocessor
+- [x] 4. Existing in-process tests pass; `just check`
 
 ## Step 2: Script Embed Stage Functions
 - [ ] 1. RED: stage-function + idempotency + no-signature tests for codepen, twitter, instagram

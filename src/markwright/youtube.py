@@ -18,6 +18,46 @@ DEFAULT_HEIGHT = 270
 DEFAULT_WIDTH = 480
 
 
+def _render_match(line: str) -> str | None:
+    """Build the iframe HTML for a standalone YouTube embed line.
+
+    :param line: A single source line.
+    :returns: The iframe HTML if the line is a YouTube embed, else ``None``.
+    """
+    youtube_match = YOUTUBE_RE.match(line.strip())
+    if not youtube_match:
+        return None
+
+    video_id = youtube_match.group(1)
+    height = int(youtube_match.group(2)) if youtube_match.group(2) else DEFAULT_HEIGHT
+    width = int(youtube_match.group(3)) if youtube_match.group(3) else DEFAULT_WIDTH
+
+    encoded_id = urllib.parse.quote(video_id, safe="")
+    aspect_width, aspect_height = reduce_fraction(width, height)
+    aspect_ratio = f"{aspect_width}/{aspect_height}"
+
+    return (
+        f'<iframe src="https://www.youtube.com/embed/{encoded_id}"'
+        f' class="youtube" height="{height}" width="{width}"'
+        f' style="aspect-ratio: {aspect_ratio}" frameborder="0" allowfullscreen>\n'
+        f'    <a href="https://www.youtube.com/watch?v={encoded_id}"'
+        f' target="_blank">View YouTube video</a>\n'
+        f"</iframe>"
+    )
+
+
+def expand_source(text: str) -> str:
+    """Expand standalone YouTube embed lines to iframe HTML in raw source.
+
+    Used by the ``mw pre`` CLI stage. Unlike the preprocessor, this emits the
+    HTML inline without any Python-Markdown stash placeholder.
+
+    :param text: The source text.
+    :returns: The text with standalone YouTube embeds replaced by iframe HTML.
+    """
+    return "\n".join(_render_match(line) or line for line in text.split("\n"))
+
+
 class YouTubePreprocessor(Preprocessor):
     """Replace [youtube ...] lines with responsive iframe HTML.
 
@@ -32,25 +72,8 @@ class YouTubePreprocessor(Preprocessor):
         """
         output: list[str] = []
         for line in lines:
-            stripped_line = line.strip()
-            youtube_match = YOUTUBE_RE.match(stripped_line)
-            if youtube_match:
-                video_id = youtube_match.group(1)
-                height = int(youtube_match.group(2)) if youtube_match.group(2) else DEFAULT_HEIGHT
-                width = int(youtube_match.group(3)) if youtube_match.group(3) else DEFAULT_WIDTH
-
-                encoded_id = urllib.parse.quote(video_id, safe="")
-                aspect_width, aspect_height = reduce_fraction(width, height)
-                aspect_ratio = f"{aspect_width}/{aspect_height}"
-
-                iframe_html = (
-                    f'<iframe src="https://www.youtube.com/embed/{encoded_id}"'
-                    f' class="youtube" height="{height}" width="{width}"'
-                    f' style="aspect-ratio: {aspect_ratio}" frameborder="0" allowfullscreen>\n'
-                    f'    <a href="https://www.youtube.com/watch?v={encoded_id}"'
-                    f' target="_blank">View YouTube video</a>\n'
-                    f"</iframe>"
-                )
+            iframe_html = _render_match(line)
+            if iframe_html is not None:
                 output.append(self.md.htmlStash.store(iframe_html))
             else:
                 output.append(line)

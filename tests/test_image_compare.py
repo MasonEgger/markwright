@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import markdown
 
+from markwright.image_compare import expand_source
+
 
 def render_compare(source: str) -> str:
     """Render Markdown source with the image_compare extension loaded.
@@ -99,3 +101,31 @@ class TestImageCompareEdgeCases:
     def test_three_urls_not_matched(self) -> None:
         result = render_compare("[compare https://a.png https://b.png https://c.png]")
         assert '<div class="image-compare"' not in result
+
+
+class TestImageCompareExpandSource:
+    """Tests for the pure expand_source stage function."""
+
+    def test_expands_standalone_embed(self) -> None:
+        result = expand_source("[compare https://a.jpg https://b.jpg]")
+        assert '<div class="image-compare"' in result
+
+    def test_no_stash_placeholder(self) -> None:
+        result = expand_source("[compare https://a.jpg https://b.jpg]")
+        assert "\x02" not in result
+
+    def test_inline_embed_unchanged(self) -> None:
+        source = "text [compare https://a.jpg https://b.jpg] text"
+        assert expand_source(source) == source
+
+    def test_multiline_only_standalone_expanded(self) -> None:
+        source = "before line\n[compare https://a.jpg https://b.jpg]\nafter line"
+        result = expand_source(source)
+        lines = result.split("\n")
+        assert lines[0] == "before line"
+        assert lines[-1] == "after line"
+        assert '<div class="image-compare"' in result
+
+    def test_no_embed_passes_through(self) -> None:
+        source = "just some text\nmore text"
+        assert expand_source(source) == source

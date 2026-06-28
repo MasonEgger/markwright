@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import markdown
 
+from markwright.youtube import expand_source
+
 
 def render_youtube(source: str) -> str:
     """Render Markdown source with the YouTube extension loaded.
@@ -82,3 +84,32 @@ class TestYouTubeEdgeCases:
     def test_not_wrapped_in_paragraph(self) -> None:
         result = render_youtube("[youtube dQw4w9WgXcQ]")
         assert "<p><iframe" not in result
+
+
+class TestYouTubeExpandSource:
+    """Tests for the pure expand_source stage function."""
+
+    def test_expands_standalone_embed(self) -> None:
+        result = expand_source("[youtube dQw4w9WgXcQ]")
+        assert "<iframe" in result
+        assert "youtube.com/embed/dQw4w9WgXcQ" in result
+
+    def test_no_stash_placeholder(self) -> None:
+        result = expand_source("[youtube dQw4w9WgXcQ]")
+        assert "\x02" not in result
+
+    def test_inline_embed_unchanged(self) -> None:
+        source = "text [youtube abc] text"
+        assert expand_source(source) == source
+
+    def test_multiline_only_standalone_expanded(self) -> None:
+        source = "before line\n[youtube dQw4w9WgXcQ]\nafter line"
+        result = expand_source(source)
+        lines = result.split("\n")
+        assert lines[0] == "before line"
+        assert lines[-1] == "after line"
+        assert "<iframe" in lines[1]
+
+    def test_no_embed_passes_through(self) -> None:
+        source = "just some text\nmore text"
+        assert expand_source(source) == source
