@@ -7,7 +7,7 @@ Embeds tweets with configurable theme, alignment, and width. Accepts both `twitt
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=["do_markdown.twitter"])
+md = markdown.Markdown(extensions=["markwright.twitter"])
 html = md.convert("[twitter https://twitter.com/User/status/123]")
 ```
 

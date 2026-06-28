@@ -1,10 +1,10 @@
-# Spec: do-markdown pipeline CLI
+# Spec: markwright pipeline CLI
 
-A single command-line tool that exposes the do-markdown extensions as pre- and post-processing stages, so DigitalOcean-flavored markdown can be used in any toolchain, in any language, not just inside a Python-Markdown render.
+A single command-line tool that exposes the markwright extensions as pre- and post-processing stages, so DigitalOcean-flavored markdown can be used in any toolchain, in any language, not just inside a Python-Markdown render.
 
 ## Problem and context
 
-The do-markdown extensions are Python-Markdown extensions today.
+The markwright extensions are Python-Markdown extensions today.
 They only run inside a `markdown.Markdown` render, which means only Python consumers can use them.
 A friend running a Go/Hugo pipeline (and, more generally, anyone running a markdown toolchain in another language) wants to drop DO syntax into their existing chain.
 
@@ -45,9 +45,9 @@ The caller's renderer runs between them.
 
 ```mermaid
 flowchart LR
-    A[markdown source] --> B[do-markdown pre]
+    A[markdown source] --> B[markwright pre]
     B --> C[caller's renderer]
-    C --> D[do-markdown post]
+    C --> D[markwright post]
     D --> E[final HTML]
 ```
 
@@ -139,7 +139,7 @@ flowchart TD
 - `pre` composes the selected `pre` functions in priority order over the input; `post` composes the selected `post` functions; `render` builds a `markdown.Markdown` with the selected extensions (the existing path).
 - The `do-fence` marker format becomes a public contract once it crosses the pipeline boundary, so it gets a version field and a documented schema.
 
-Packaging: add a `[project.scripts]` entry point (`do-md = "do_markdown.cli:main"`).
+Packaging: add a `[project.scripts]` entry point (`do-md = "markwright.cli:main"`).
 Use stdlib `argparse`, consistent with the project's stdlib-first, low-dependency stance.
 
 ## Edge cases and failure modes

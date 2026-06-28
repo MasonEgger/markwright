@@ -4,7 +4,7 @@ Adds labels, secondary labels, environment classes, and line prefixes to fenced 
 
 ## Usage
 
-Load `do_markdown.fence` alongside `pymdownx.superfences` and `pymdownx.highlight`; the fence postprocessor rewrites the code-block HTML those produce.
+Load `markwright.fence` alongside `pymdownx.superfences` and `pymdownx.highlight`; the fence postprocessor rewrites the code-block HTML those produce.
 
 ```python
 import markdown
@@ -13,10 +13,10 @@ md = markdown.Markdown(
     extensions=[
         "pymdownx.superfences",
         "pymdownx.highlight",
-        "do_markdown.fence",
+        "markwright.fence",
     ],
     extension_configs={
-        "do_markdown.fence": {
+        "markwright.fence": {
             "allowed_environments": ["local", "second", "third", "fourth", "fifth"],
         },
     },

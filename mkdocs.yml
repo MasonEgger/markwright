@@ -1,7 +1,7 @@
-site_name: do-markdown
+site_name: markwright
 site_description: Python-Markdown extensions ported from DigitalOcean's do-markdownit
-repo_url: https://github.com/MasonEgger/do-markdown
-repo_name: MasonEgger/do-markdown
+repo_url: https://github.com/MasonEgger/markwright
+repo_name: MasonEgger/markwright
 
 theme:
   name: material
@@ -34,20 +34,20 @@ markdown_extensions:
   - attr_list
   - toc:
       permalink: true
-  - do_markdown.highlight
-  - do_markdown.fence:
+  - markwright.highlight
+  - markwright.fence:
       allowed_environments:
         - local
         - second
         - third
         - fourth
         - fifth
-  - do_markdown.youtube
-  - do_markdown.codepen
-  - do_markdown.twitter
-  - do_markdown.instagram
-  - do_markdown.slideshow
-  - do_markdown.image_compare
+  - markwright.youtube
+  - markwright.codepen
+  - markwright.twitter
+  - markwright.instagram
+  - markwright.slideshow
+  - markwright.image_compare
 
 extra_css:
   - stylesheets/extra.css

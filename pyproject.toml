@@ -1,5 +1,5 @@
 [project]
-name = "do-markdown"
+name = "markwright"
 version = "0.1.0"
 description = "Python-Markdown extensions ported from DigitalOcean's do-markdownit"
 readme = "README.md"

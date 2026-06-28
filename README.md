@@ -1,11 +1,11 @@
-# do-markdown
+# markwright
 
 A Python port of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) JavaScript library.
 
 These are [Python-Markdown](https://python-markdown.github.io/) extensions that bring DigitalOcean's markdown syntax (highlighted text, labeled code fences, and a set of media embeds) to any tool built on Python-Markdown, including [MkDocs](https://www.mkdocs.org/), Flask, or a plain script.
 The port maintains compatibility with the original `do-markdownit` HTML output, so rendered pages match what DigitalOcean produces.
 
-Full documentation and a live demo: https://masonegger.github.io/do-markdown/
+Full documentation and a live demo: https://masonegger.github.io/markwright/
 
 ## Features
 
@@ -23,19 +23,19 @@ Each extension is standalone and can be loaded on its own or alongside the other
 ## Installation
 
 ```bash
-uv add do-markdown
+uv add markwright
 ```
 
 or
 
 ```bash
-pip install do-markdown
+pip install markwright
 ```
 
 To work against a local checkout, install it editable:
 
 ```bash
-uv add --editable ../do-markdown
+uv add --editable ../markwright
 ```
 
 ## Usage
@@ -43,25 +43,25 @@ uv add --editable ../do-markdown
 ### With MkDocs
 
 Add the extensions to `mkdocs.yml`.
-Load `do_markdown.fence` after `pymdownx.superfences` and `pymdownx.highlight` so the code-block HTML is in the shape the fence postprocessor expects.
+Load `markwright.fence` after `pymdownx.superfences` and `pymdownx.highlight` so the code-block HTML is in the shape the fence postprocessor expects.
 
 ```yaml
 markdown_extensions:
   - pymdownx.superfences
   - pymdownx.highlight:
       pygments_lang_class: true
-  - do_markdown.highlight
-  - do_markdown.fence:
+  - markwright.highlight
+  - markwright.fence:
       allowed_environments:
         - local
         - second
         - third
-  - do_markdown.youtube
-  - do_markdown.codepen
-  - do_markdown.twitter
-  - do_markdown.instagram
-  - do_markdown.slideshow
-  - do_markdown.image_compare
+  - markwright.youtube
+  - markwright.codepen
+  - markwright.twitter
+  - markwright.instagram
+  - markwright.slideshow
+  - markwright.image_compare
 ```
 
 ### Standalone
@@ -74,14 +74,14 @@ import markdown
 md = markdown.Markdown(extensions=[
     "pymdownx.superfences",
     "pymdownx.highlight",
-    "do_markdown.highlight",
-    "do_markdown.fence",
-    "do_markdown.youtube",
-    "do_markdown.codepen",
-    "do_markdown.twitter",
-    "do_markdown.instagram",
-    "do_markdown.slideshow",
-    "do_markdown.image_compare",
+    "markwright.highlight",
+    "markwright.fence",
+    "markwright.youtube",
+    "markwright.codepen",
+    "markwright.twitter",
+    "markwright.instagram",
+    "markwright.slideshow",
+    "markwright.image_compare",
 ])
 
 html = md.convert("This has a <^>highlighted word<^> in it.")
@@ -94,7 +94,7 @@ Load only what you need:
 import markdown
 
 # Just YouTube embeds
-md = markdown.Markdown(extensions=["do_markdown.youtube"])
+md = markdown.Markdown(extensions=["markwright.youtube"])
 html = md.convert("[youtube dQw4w9WgXcQ]")
 ```
 
@@ -123,7 +123,7 @@ Slideshow:       [slideshow https://picsum.photos/id/10/480/270 https://picsum.p
 Image Compare:   [image_compare before.jpg after.jpg]
 ````
 
-See the [extension docs](https://masonegger.github.io/do-markdown/) for every flag and the exact HTML each one produces.
+See the [extension docs](https://masonegger.github.io/markwright/) for every flag and the exact HTML each one produces.
 
 ## Development
 
@@ -143,7 +143,7 @@ The tooling bar is strict: `mypy --strict`, a clean `ruff`, and full test covera
 
 ## License
 
-do-markdown is released under the [MIT License](LICENSE).
+markwright is released under the [MIT License](LICENSE).
 
 It is a port of [`do-markdownit`](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0.
 See the [NOTICE](NOTICE) file for attribution details.

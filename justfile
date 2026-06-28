@@ -1,4 +1,4 @@
-# ABOUTME: Task runner for do-markdown development workflows.
+# ABOUTME: Task runner for markwright development workflows.
 # Provides the default help menu plus install, test, lint, docs, and check commands.
 
 # Show this help menu (run `just` with no arguments)
@@ -11,11 +11,11 @@ install:
 
 # Run the test suite with coverage
 test:
-    uv run pytest --cov=do_markdown --cov-report=term-missing
+    uv run pytest --cov=markwright --cov-report=term-missing
 
 # Run the test suite verbosely with coverage
 test-verbose:
-    uv run pytest -v --cov=do_markdown --cov-report=term-missing
+    uv run pytest -v --cov=markwright --cov-report=term-missing
 
 # Check lint and formatting
 lint:

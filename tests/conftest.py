@@ -1,4 +1,4 @@
-# ABOUTME: Shared pytest fixtures for do-markdown extension tests.
+# ABOUTME: Shared pytest fixtures for markwright extension tests.
 # Provides pre-configured Markdown instances that mirror the real site stack.
 
 import markdown

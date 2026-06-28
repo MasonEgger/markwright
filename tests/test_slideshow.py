@@ -12,7 +12,7 @@ def render_slideshow(source: str) -> str:
     :param source: Markdown source text.
     :returns: Rendered HTML string.
     """
-    md = markdown.Markdown(extensions=["do_markdown.slideshow"])
+    md = markdown.Markdown(extensions=["markwright.slideshow"])
     return md.convert(source)
 
 
@@ -89,7 +89,7 @@ class TestSlideshowEdgeCases:
         assert '<div class="slideshow"' not in result
 
     def test_not_matched_inside_fence(self) -> None:
-        md = markdown.Markdown(extensions=["pymdownx.superfences", "pymdownx.highlight", "do_markdown.slideshow"])
+        md = markdown.Markdown(extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.slideshow"])
         result = md.convert("```\n[slideshow https://a.png https://b.png]\n```")
         assert '<div class="slideshow"' not in result
 

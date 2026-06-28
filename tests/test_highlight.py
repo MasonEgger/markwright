@@ -8,14 +8,14 @@ import markdown
 
 def _render(source: str) -> str:
     """Render Markdown source with the highlight extension loaded."""
-    md = markdown.Markdown(extensions=["do_markdown.highlight"])
+    md = markdown.Markdown(extensions=["markwright.highlight"])
     return md.convert(source)
 
 
 def _render_with_superfences(source: str) -> str:
     """Render with highlight + superfences, matching the real site stack."""
     md = markdown.Markdown(
-        extensions=["pymdownx.superfences", "pymdownx.highlight", "do_markdown.highlight"],
+        extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.highlight"],
         extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
     )
     return md.convert(source)

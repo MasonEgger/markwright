@@ -8,9 +8,9 @@ def render_fence(source: str, allowed_environments: list[str] | None = None) -> 
     """Render source with superfences, highlight, and fence extensions loaded."""
     extension_configs: dict[str, dict[str, object]] = {"pymdownx.highlight": {"pygments_lang_class": True}}
     if allowed_environments is not None:
-        extension_configs["do_markdown.fence"] = {"allowed_environments": allowed_environments}
+        extension_configs["markwright.fence"] = {"allowed_environments": allowed_environments}
     md = markdown.Markdown(
-        extensions=["pymdownx.superfences", "pymdownx.highlight", "do_markdown.fence"],
+        extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.fence"],
         extension_configs=extension_configs,
     )
     return md.convert(source)

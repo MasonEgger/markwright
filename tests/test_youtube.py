@@ -12,7 +12,7 @@ def render_youtube(source: str) -> str:
     :param source: Markdown source text.
     :returns: Rendered HTML string.
     """
-    md = markdown.Markdown(extensions=["do_markdown.youtube"])
+    md = markdown.Markdown(extensions=["markwright.youtube"])
     return md.convert(source)
 
 
@@ -70,7 +70,7 @@ class TestYouTubeEdgeCases:
         assert "<iframe" not in result
 
     def test_not_matched_inside_fence(self) -> None:
-        md = markdown.Markdown(extensions=["pymdownx.superfences", "pymdownx.highlight", "do_markdown.youtube"])
+        md = markdown.Markdown(extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.youtube"])
         result = md.convert("```\n[youtube abc]\n```")
         assert "<iframe" not in result
 

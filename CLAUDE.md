@@ -32,7 +32,7 @@ Python-Markdown extensions ported from DigitalOcean's [`do-markdownit`](https://
 
 ## Architecture
 
-Each extension is a standalone Python-Markdown extension in `src/do_markdown/` with a `makeExtension(**kwargs)` entry point. Extensions are loaded by name (e.g., `do_markdown.highlight`).
+Each extension is a standalone Python-Markdown extension in `src/markwright/` with a `makeExtension(**kwargs)` entry point. Extensions are loaded by name (e.g., `markwright.highlight`).
 
 **Three processor patterns:**
 
@@ -67,7 +67,7 @@ Each extension is a standalone Python-Markdown extension in `src/do_markdown/` w
 - `__init__.py` is **always empty**; never add anything to it
 - Every source file uses `from __future__ import annotations` as the first import
 - Type hints on everything, no `Any`; mypy strict is enforced
-- Absolute imports only (e.g., `from do_markdown._util import reduce_fraction`)
+- Absolute imports only (e.g., `from markwright._util import reduce_fraction`)
 - RST docstrings (`:param:`, `:returns:`) on public interfaces
 - `line-length = 120`, `target-version = "py314"`
 - Every source file starts with a 2-line `# ABOUTME:` comment

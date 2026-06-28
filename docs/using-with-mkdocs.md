@@ -1,6 +1,6 @@
 # Using with MkDocs
 
-do-markdown is a set of Python-Markdown extensions, so it works in any Python-Markdown consumer.
+markwright is a set of Python-Markdown extensions, so it works in any Python-Markdown consumer.
 This page covers the MkDocs case. Each extension page shows the plain Python-Markdown usage.
 
 To use the extensions in a MkDocs site, add them under `markdown_extensions` in `mkdocs.yml`.
@@ -11,20 +11,20 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.highlight:
       pygments_lang_class: true
-  - do_markdown.highlight
-  - do_markdown.fence:
+  - markwright.highlight
+  - markwright.fence:
       allowed_environments:
         - local
         - second
         - third
         - fourth
         - fifth
-  - do_markdown.youtube
-  - do_markdown.codepen
-  - do_markdown.twitter
-  - do_markdown.instagram
-  - do_markdown.slideshow
-  - do_markdown.image_compare
+  - markwright.youtube
+  - markwright.codepen
+  - markwright.twitter
+  - markwright.instagram
+  - markwright.slideshow
+  - markwright.image_compare
 ```
 
 The fence extension expects `pymdownx.superfences` and `pymdownx.highlight` to be loaded too.

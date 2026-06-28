@@ -7,7 +7,7 @@ Embeds YouTube videos as responsive iframes with automatic aspect ratio calculat
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=["do_markdown.youtube"])
+md = markdown.Markdown(extensions=["markwright.youtube"])
 html = md.convert("[youtube dQw4w9WgXcQ]")
 ```
 

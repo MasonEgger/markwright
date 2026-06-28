@@ -12,7 +12,7 @@ def render_compare(source: str) -> str:
     :param source: Markdown source text.
     :returns: Rendered HTML string.
     """
-    md = markdown.Markdown(extensions=["do_markdown.image_compare"])
+    md = markdown.Markdown(extensions=["markwright.image_compare"])
     return md.convert(source)
 
 
@@ -88,7 +88,7 @@ class TestImageCompareEdgeCases:
         assert '<div class="image-compare"' not in result
 
     def test_not_matched_inside_fence(self) -> None:
-        md = markdown.Markdown(extensions=["pymdownx.superfences", "pymdownx.highlight", "do_markdown.image_compare"])
+        md = markdown.Markdown(extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.image_compare"])
         result = md.convert("```\n[compare https://a.png https://b.png]\n```")
         assert '<div class="image-compare"' not in result
 

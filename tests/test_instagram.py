@@ -8,7 +8,7 @@ import markdown
 
 def render(source: str) -> str:
     """Render Markdown source with the Instagram extension loaded."""
-    md = markdown.Markdown(extensions=["do_markdown.instagram"])
+    md = markdown.Markdown(extensions=["markwright.instagram"])
     return md.convert(source)
 
 
@@ -114,7 +114,7 @@ class TestInstagramEdgeCases:
         assert "instagram-media" not in result
 
     def test_not_matched_inside_fence(self) -> None:
-        md = markdown.Markdown(extensions=["pymdownx.superfences", "do_markdown.instagram"])
+        md = markdown.Markdown(extensions=["pymdownx.superfences", "markwright.instagram"])
         result = md.convert("```\n[instagram https://www.instagram.com/p/ABC]\n```")
         assert "instagram-media" not in result
 
