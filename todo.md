@@ -58,10 +58,10 @@ Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
 - [x] 4. `just check`
 
 ## Step 10: Cross-Stage Round-Trip Integration Tests
-- [ ] 1. RED: tests/test_roundtrip.py (stub render; full-feature fixture pre|render|post == in-process; idempotency; comment-strip degradation)
-- [ ] 2. GREEN: adjust priorities/internals only as needed to match
-- [ ] 3. REFACTOR: encode fence/highlight post order explicitly if needed
-- [ ] 4. `just check`
+- [x] 1. RED: tests/test_roundtrip.py (stub render; full-feature fixture pre|render|post == in-process; idempotency; comment-strip degradation)
+- [x] 2. GREEN: adjust priorities/internals only as needed to match
+- [x] 3. REFACTOR: encode fence/highlight post order explicitly if needed
+- [x] 4. `just check`
 
 ## Step 11: Docs
 - [ ] 1. docs/cli.md (subcommands, flags, exit codes, pipeline example)
