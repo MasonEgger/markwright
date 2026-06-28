@@ -76,3 +76,23 @@ class TestDescribe:
         assert described["fence"] == ["pre", "post"]
         assert described["highlight"] == ["pre", "post"]
         assert described["codepen"] == ["pre", "post"]
+
+    def test_describe_handles_post_only_extension(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # No real extension is post-only (all have a pre stage), so exercise the
+        # pre-is-None branch of describe() with a synthetic post-only entry.
+        from markwright import registry
+
+        def _noop_post(html: str, warnings: list[str] | None = None) -> str:
+            return html
+
+        patched = dict(registry.REGISTRY)
+        patched["synthetic_post_only"] = {
+            "pre": None,
+            "post": _noop_post,
+            "pre_priority": 0,
+            "post_priority": 0,
+        }
+        monkeypatch.setattr(registry, "REGISTRY", patched)
+        monkeypatch.setattr(registry, "EXTENSION_NAMES", [*registry.EXTENSION_NAMES, "synthetic_post_only"])
+        described = dict(registry.describe())
+        assert described["synthetic_post_only"] == ["post"]

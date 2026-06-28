@@ -344,3 +344,54 @@ class TestFenceApplyHtml:
         for html_input in (malformed, bad_version, no_block):
             result = apply_html(html_input)
             assert "code-label" not in result
+
+
+class TestFenceBranchCoverage:
+    """Exercise the remaining fence branches: an unclosed fence, and markers whose
+    adjacent HTML is missing a <pre>, a <code>, a closing </code>, or a trailing
+    newline. Each must degrade without raising."""
+
+    def test_unclosed_fence_with_directive_still_emits_marker(self) -> None:
+        # No closing fence: the scan loop reaches end-of-input instead of breaking.
+        source = "```command\n[label deploy.sh]\nssh root@server"
+        result = expand_source(source)
+        assert "<!-- mw-fence:" in result
+        assert '"label": "deploy.sh"' in result
+        assert "ssh root@server" in result
+
+    def test_prefix_code_without_trailing_newline(self) -> None:
+        # Code content with no trailing newline before </code>.
+        html_input = (
+            '<!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$"} -->\n'
+            "<pre><code>echo hi</code></pre>"
+        )
+        result = apply_html(html_input)
+        assert '<li data-prefix="$">echo hi' in result
+
+    def test_environment_marker_with_code_but_no_pre(self) -> None:
+        # A <code> follows (passes the adjacency check) but there is no <pre> to class.
+        html_input = '<!-- mw-fence:{"version": 1, "environment": "local"} -->\n<code>x</code>'
+        result = apply_html(html_input)
+        assert "<!-- mw-fence:" not in result
+        assert "<code>x</code>" in result
+
+    def test_prefix_marker_with_pre_but_no_code(self) -> None:
+        # A <pre> follows but there is no <code> block to wrap.
+        html_input = '<!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$"} -->\n<pre>x</pre>'
+        result = apply_html(html_input)
+        assert 'class="prefixed command"' in result
+        assert "<ol>" not in result
+
+    def test_prefix_marker_with_unclosed_code(self) -> None:
+        # A <code> opens but never closes: nothing to wrap.
+        html_input = '<!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$"} -->\n<code>x'
+        result = apply_html(html_input)
+        assert "<!-- mw-fence:" not in result
+        assert "<ol>" not in result
+
+    def test_secondary_label_marker_with_pre_but_no_code(self) -> None:
+        # secondary_label present but no <code> to insert it after.
+        html_input = '<!-- mw-fence:{"version": 1, "secondary_label": "config"} -->\n<pre>y</pre>'
+        result = apply_html(html_input)
+        assert "<!-- mw-fence:" not in result
+        assert "secondary-code-label" not in result
