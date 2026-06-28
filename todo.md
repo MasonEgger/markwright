@@ -22,10 +22,10 @@ Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
 - [x] 5. Existing fence tests pass; `just check`
 
 ## Step 4: Highlight Stage Functions
-- [ ] 1. RED: TestHighlightApplyHtml + TestHighlightExpandSource (prose wrap, in-code untouched, inline-code untouched, backslash literal)
-- [ ] 2. GREEN: extract `apply_html` (Postprocessor delegates); add code-region-aware `expand_source`
-- [ ] 3. REFACTOR: share marker/backslash regexes; keep span-safe wrapper in apply_html only
-- [ ] 4. Existing highlight tests pass; `just check`
+- [x] 1. RED: TestHighlightApplyHtml + TestHighlightExpandSource (prose wrap, in-code untouched, inline-code untouched, backslash literal)
+- [x] 2. GREEN: extract `apply_html` (Postprocessor delegates); add code-region-aware `expand_source`
+- [x] 3. REFACTOR: share marker/backslash regexes; keep span-safe wrapper in apply_html only
+- [x] 4. Existing highlight tests pass; `just check`
 
 ## Step 5: Stage Registry and Selection
 - [ ] 1. RED: tests/test_registry.py (select default/use/exclude/unknown, run_pre, run_post, warnings threading, describe)

@@ -5,6 +5,8 @@ import re
 
 import markdown
 
+from markwright.highlight import apply_html, expand_source
+
 
 def _render(source: str) -> str:
     """Render Markdown source with the highlight extension loaded."""
@@ -143,3 +145,36 @@ class TestEdgeCases:
         result = _render("plain text with no markers")
         assert "<mark>" not in result
         assert "plain text with no markers" in result
+
+
+class TestHighlightApplyHtml:
+    """Test the pure ``apply_html`` HTML-stage transform (``mw post``)."""
+
+    def test_wraps_escaped_marker_run(self) -> None:
+        result = apply_html("a &lt;^&gt;word&lt;^&gt; b")
+        assert "<mark>word</mark>" in result
+
+    def test_backslash_escaped_marker_left_literal(self) -> None:
+        result = apply_html(r"a \&lt;^&gt;word\&lt;^&gt; b")
+        assert "<mark>" not in result
+        assert "&lt;^&gt;word&lt;^&gt;" in result
+
+
+class TestHighlightExpandSource:
+    """Test the pure ``expand_source`` source-stage transform (``mw pre``)."""
+
+    def test_wraps_prose_marker(self) -> None:
+        assert expand_source("a <^>word<^> b") == "a <mark>word</mark> b"
+
+    def test_marker_in_fenced_code_untouched(self) -> None:
+        source = "```\nfoo <^>x<^> bar\n```"
+        assert expand_source(source) == source
+
+    def test_marker_in_inline_code_untouched(self) -> None:
+        source = "use `<^>x<^>` here"
+        assert expand_source(source) == source
+
+    def test_backslash_escaped_prose_marker_left_literal(self) -> None:
+        result = expand_source(r"a \<^>x\<^> b")
+        assert "<mark>" not in result
+        assert "<^>x<^>" in result
