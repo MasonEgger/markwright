@@ -71,6 +71,6 @@ Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
 - [x] 5. `just docs-build` strict, no warnings
 
 ## Step 12: Packaging Smoke Test
-- [ ] 1. RED: tests/test_packaging.py (`mw --version` and `mw list` via subprocess return 0)
-- [ ] 2. GREEN: verify entry point; `uv sync` installs `mw`
-- [ ] 3. `just check`
+- [x] 1. RED: tests/test_packaging.py (`mw --version` and `mw list` via subprocess return 0)
+- [x] 2. GREEN: verify entry point; `uv sync` installs `mw`
+- [x] 3. `just check`
