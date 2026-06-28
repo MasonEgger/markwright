@@ -1,6 +1,6 @@
 # Demo
 
-A demonstration of all do-markdown extensions on a single page.
+A demonstration of all markwright extensions on a single page.
 
 ## Highlight
 

@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- When renaming a project, check whether the old name is a substring of a name you must keep (`do-markdown` is inside the upstream `do-markdownit`); use a negative-lookahead replace `do-markdown(?!it)` so the attribution is not corrupted (2026-06-27)
 - Embed extensions that emit raw HTML must stash it via `self.md.htmlStash.store(...)`; returning raw HTML as preprocessor text lets Markdown keep parsing it (JS backticks became a `<code>` span and broke the image-compare slider; block elements got an invalid `<p>` wrap) (2026-06-27)
 - Diagnose render bugs by converting the case through the real extension stack and reading the HTML; it splits markdown-output bugs from MkDocs/Material CSS with evidence (2026-06-27)
 - A test can pass while the bug is live if it only asserts substrings that survive the corruption; write the RED assertion against the actual broken output (no `<code>`, no `<p><tag>`) (2026-06-27)

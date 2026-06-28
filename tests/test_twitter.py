@@ -8,7 +8,7 @@ import markdown
 
 def render(source: str) -> str:
     """Render Markdown source with the Twitter extension loaded."""
-    md = markdown.Markdown(extensions=["do_markdown.twitter"])
+    md = markdown.Markdown(extensions=["markwright.twitter"])
     return md.convert(source)
 
 
@@ -117,7 +117,7 @@ class TestTwitterEdgeCases:
         assert "twitter-tweet" not in result
 
     def test_not_matched_inside_fence(self) -> None:
-        md = markdown.Markdown(extensions=["pymdownx.superfences", "do_markdown.twitter"])
+        md = markdown.Markdown(extensions=["pymdownx.superfences", "markwright.twitter"])
         result = md.convert("```\n[twitter https://twitter.com/U/status/1]\n```")
         assert "twitter-tweet" not in result
 

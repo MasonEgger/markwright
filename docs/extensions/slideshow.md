@@ -7,7 +7,7 @@ Creates image slideshows with left/right navigation arrows and scroll-snap behav
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=["do_markdown.slideshow"])
+md = markdown.Markdown(extensions=["markwright.slideshow"])
 html = md.convert("[slideshow https://example.com/a.jpg https://example.com/b.jpg]")
 ```
 

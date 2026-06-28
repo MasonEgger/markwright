@@ -7,7 +7,7 @@ Creates side-by-side image comparisons with an interactive slider control.
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=["do_markdown.image_compare"])
+md = markdown.Markdown(extensions=["markwright.image_compare"])
 html = md.convert("[compare https://example.com/before.jpg https://example.com/after.jpg]")
 ```
 

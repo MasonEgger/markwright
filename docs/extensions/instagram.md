@@ -7,7 +7,7 @@ Embeds Instagram posts with optional caption display, alignment, and width.
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=["do_markdown.instagram"])
+md = markdown.Markdown(extensions=["markwright.instagram"])
 html = md.convert("[instagram https://www.instagram.com/p/CkQuv3_LRgS]")
 ```
 

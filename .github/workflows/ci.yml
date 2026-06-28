@@ -23,7 +23,7 @@ jobs:
           python-version-file: ".python-version"
 
       - run: uv sync
-      - run: uv run pytest --cov=do_markdown --cov-report=term-missing
+      - run: uv run pytest --cov=markwright --cov-report=term-missing
       - run: uv run ruff check src/ tests/
       - run: uv run ruff format --check src/ tests/
       - run: uv run mypy --strict src/

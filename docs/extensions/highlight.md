@@ -8,7 +8,7 @@ Works in regular text, inline code, and fenced code blocks, anywhere that `pymdo
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=["do_markdown.highlight"])
+md = markdown.Markdown(extensions=["markwright.highlight"])
 html = md.convert("This has a \<^>highlighted word\<^> in it.")
 ```
 

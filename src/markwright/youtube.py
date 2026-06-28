@@ -10,7 +10,7 @@ from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
 
-from do_markdown._util import reduce_fraction
+from markwright._util import reduce_fraction
 
 YOUTUBE_RE = re.compile(r"^\[youtube (\S+?)(?:\s+(\d+))?(?:\s+(\d+))?\]$")
 

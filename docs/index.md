@@ -1,4 +1,4 @@
-# do-markdown
+# markwright
 
 A Python port of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) JavaScript library. These are [Python-Markdown](https://python-markdown.github.io/) extensions that can be used with any tool built on Python-Markdown, including [MkDocs](https://www.mkdocs.org/).
 
@@ -18,13 +18,13 @@ The original `do-markdownit` is licensed under the [Apache License 2.0](https://
 ## Installation
 
 ```bash
-uv add do-markdown
+uv add markwright
 ```
 
 Or install from a local path:
 
 ```bash
-uv add --editable ../do-markdown
+uv add --editable ../markwright
 ```
 
 !!! warning "MkDocs 2.0 Compatibility"
@@ -40,14 +40,14 @@ import markdown
 md = markdown.Markdown(extensions=[
     "pymdownx.superfences",
     "pymdownx.highlight",
-    "do_markdown.highlight",
-    "do_markdown.fence",
-    "do_markdown.youtube",
-    "do_markdown.codepen",
-    "do_markdown.twitter",
-    "do_markdown.instagram",
-    "do_markdown.slideshow",
-    "do_markdown.image_compare",
+    "markwright.highlight",
+    "markwright.fence",
+    "markwright.youtube",
+    "markwright.codepen",
+    "markwright.twitter",
+    "markwright.instagram",
+    "markwright.slideshow",
+    "markwright.image_compare",
 ])
 
 source = """
@@ -71,7 +71,7 @@ Using MkDocs? See [Using with MkDocs](using-with-mkdocs.md) for the `mkdocs.yml`
 
 ## Architecture
 
-Each extension is a standalone Python-Markdown extension loaded by name (e.g., `do_markdown.highlight`). The extensions use three processor patterns:
+Each extension is a standalone Python-Markdown extension loaded by name (e.g., `markwright.highlight`). The extensions use three processor patterns:
 
 1. **Fence** uses a Preprocessor (priority 40) that runs *before* `pymdownx.superfences` to extract directives. A Postprocessor (priority 25) injects labels, classes, and prefix markup into rendered HTML.
 
@@ -81,4 +81,4 @@ Each extension is a standalone Python-Markdown extension loaded by name (e.g., `
 
 ## License
 
-This project is a port of [do-markdownit](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0. See the [NOTICE](https://github.com/MasonEgger/do-markdown/blob/main/NOTICE) file for attribution details.
+This project is a port of [do-markdownit](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0. See the [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) file for attribution details.

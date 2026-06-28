@@ -7,7 +7,7 @@ Embeds CodePen pens with configurable theme, default tab, height, and behavior f
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=["do_markdown.codepen"])
+md = markdown.Markdown(extensions=["markwright.codepen"])
 html = md.convert("[codepen MattCowley vwPzeX]")
 ```
 

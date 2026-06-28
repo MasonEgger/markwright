@@ -1,4 +1,4 @@
-# ABOUTME: Shared utility functions for do-markdown extensions.
+# ABOUTME: Shared utility functions for markwright extensions.
 # Provides fraction reduction helper used by embed extensions.
 
 from __future__ import annotations

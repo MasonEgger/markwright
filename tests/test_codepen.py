@@ -8,7 +8,7 @@ import markdown
 
 def render(source: str) -> str:
     """Render Markdown source with the CodePen extension loaded."""
-    md = markdown.Markdown(extensions=["do_markdown.codepen"])
+    md = markdown.Markdown(extensions=["markwright.codepen"])
     return md.convert(source)
 
 
@@ -129,7 +129,7 @@ class TestCodePenEdgeCases:
         assert "data-user" not in result
 
     def test_not_matched_inside_fence(self) -> None:
-        md = markdown.Markdown(extensions=["pymdownx.superfences", "do_markdown.codepen"])
+        md = markdown.Markdown(extensions=["pymdownx.superfences", "markwright.codepen"])
         result = md.convert("```\n[codepen User Hash]\n```")
         assert "data-user" not in result
 
