@@ -1,11 +1,13 @@
 # ABOUTME: Command-line entry point for the mw markwright pipeline tool.
-# Builds the argparse parser and dispatches list/pre/post; --version reports the package version.
+# Builds the argparse parser and dispatches list/pre/post/render; --version reports the package version.
 
 from __future__ import annotations
 
 import argparse
 import sys
 from importlib.metadata import version
+
+import markdown
 
 from markwright import registry
 
@@ -32,6 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
     post_parser = subparsers.add_parser("post", help="Post-process rendered HTML read from stdin.")
     _add_selection_flags(post_parser)
     post_parser.add_argument("--warn", action="store_true", help="Report skipped markers to stderr.")
+    render_parser = subparsers.add_parser("render", help="Render Markdown from stdin to final HTML.")
+    _add_selection_flags(render_parser)
     return parser
 
 
@@ -99,6 +103,27 @@ def _run_post(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_render(args: argparse.Namespace) -> int:
+    """Render Markdown from stdin to final HTML using the in-process stack.
+
+    Builds a ``markdown.Markdown`` instance configured with ``pymdownx.superfences``
+    and ``pymdownx.highlight`` plus the selected ``markwright.*`` extensions, mirroring
+    the site stack so fence and highlight render correctly.
+
+    :param args: Parsed arguments carrying ``use`` and ``exclude``.
+    :returns: ``0`` on success, ``2`` if a selected extension name is unknown.
+    """
+    names = _resolve_selection(args)
+    if names is None:
+        return 2
+    instance = markdown.Markdown(
+        extensions=["pymdownx.superfences", "pymdownx.highlight", *(f"markwright.{name}" for name in names)],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    sys.stdout.write(instance.convert(sys.stdin.read()))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Parse ``argv`` and dispatch to the selected subcommand.
 
@@ -116,5 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         return _run_pre(args)
     if args.command == "post":
         return _run_post(args)
+    if args.command == "render":
+        return _run_render(args)
     parser.print_usage()
     return 2

@@ -52,10 +52,10 @@ Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
 - [x] 3. `just check`
 
 ## Step 9: CLI `render` Subcommand
-- [ ] 1. RED: TestCliRender (matches in-process render, --use subset, unknown name exit 2)
-- [ ] 2. GREEN: render handler builds markdown.Markdown (superfences + highlight + selected markwright.*)
-- [ ] 3. REFACTOR: all four subcommands share parser-builder + IO helpers
-- [ ] 4. `just check`
+- [x] 1. RED: TestCliRender (matches in-process render, --use subset, unknown name exit 2)
+- [x] 2. GREEN: render handler builds markdown.Markdown (superfences + highlight + selected markwright.*)
+- [x] 3. REFACTOR: all four subcommands share parser-builder + IO helpers
+- [x] 4. `just check`
 
 ## Step 10: Cross-Stage Round-Trip Integration Tests
 - [ ] 1. RED: tests/test_roundtrip.py (stub render; full-feature fixture pre|render|post == in-process; idempotency; comment-strip degradation)

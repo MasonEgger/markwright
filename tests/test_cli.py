@@ -6,10 +6,12 @@ from __future__ import annotations
 import io
 from importlib.metadata import version as package_version
 
+import markdown
 import pytest
 
 from markwright.cli import main
 from markwright.codepen import CODEPEN_SCRIPT
+from markwright.registry import EXTENSION_NAMES
 
 
 class TestCliVersion:
@@ -58,6 +60,20 @@ def _feed_stdin(monkeypatch: pytest.MonkeyPatch, text: str) -> None:
     :param text: Content the CLI handler will read from stdin.
     """
     monkeypatch.setattr("sys.stdin", io.StringIO(text))
+
+
+def _in_process_render(text: str, names: list[str]) -> str:
+    """Render ``text`` through the same in-process stack the render handler builds.
+
+    :param text: Markdown source text.
+    :param names: markwright extension names to load alongside the site stack.
+    :returns: Final HTML from the configured ``markdown.Markdown`` instance.
+    """
+    instance = markdown.Markdown(
+        extensions=["pymdownx.superfences", "pymdownx.highlight", *(f"markwright.{name}" for name in names)],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    return instance.convert(text)
 
 
 class TestCliPost:
@@ -179,6 +195,44 @@ class TestCliPre:
     ) -> None:
         _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
         exit_code = main(["pre", "--use", "bogus"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert "bogus" in captured.err
+
+
+class TestCliRender:
+    """Tests for the render subcommand: stdin Markdown to final HTML via the in-process stack."""
+
+    def test_render_matches_in_process_markwright_render(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        source = "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker."
+        _feed_stdin(monkeypatch, source)
+        exit_code = main(["render"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"' in captured.out
+        assert "<mark>prose</mark>" in captured.out
+        assert captured.out == _in_process_render(source, list(EXTENSION_NAMES))
+
+    def test_render_use_subset_loads_only_named_extension(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        source = "[youtube dQw4w9WgXcQ]\n\n```\n[label deploy.sh]\necho hi\n```"
+        _feed_stdin(monkeypatch, source)
+        exit_code = main(["render", "--use", "youtube"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "<iframe" in captured.out
+        # fence is not loaded, so the [label ...] directive is never styled into a label div.
+        assert "code-label" not in captured.out
+        assert captured.out == _in_process_render(source, ["youtube"])
+
+    def test_render_unknown_use_name_returns_two_with_stderr(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
+        exit_code = main(["render", "--use", "bogus"])
         captured = capsys.readouterr()
         assert exit_code == 2
         assert "bogus" in captured.err

@@ -12,7 +12,7 @@ This plan turns `spec.md` into TDD-sized steps. The strategy from the spec: refa
 - [ ] Step 6: CLI skeleton, `list`, `--version`, entry point
 - [ ] Step 7: CLI `post` subcommand (+ `--use`/`--exclude`/`--warn`)
 - [x] Step 8: CLI `pre` subcommand
-- [ ] Step 9: CLI `render` subcommand
+- [x] Step 9: CLI `render` subcommand
 - [ ] Step 10: Cross-stage round-trip integration tests
 - [ ] Step 11: Docs (CLI reference, pipeline guide, renderer contract)
 - [ ] Step 12: Packaging smoke test
