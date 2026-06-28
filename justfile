@@ -9,13 +9,13 @@ default:
 install:
     uv sync
 
-# Run the test suite with coverage
+# Run the test suite with branch coverage, failing under 100%
 test:
-    uv run pytest --cov=markwright --cov-report=term-missing
+    uv run pytest --cov=markwright --cov-branch --cov-fail-under=100 --cov-report=term-missing
 
-# Run the test suite verbosely with coverage
+# Run the test suite verbosely with branch coverage, failing under 100%
 test-verbose:
-    uv run pytest -v --cov=markwright --cov-report=term-missing
+    uv run pytest -v --cov=markwright --cov-branch --cov-fail-under=100 --cov-report=term-missing
 
 # Check lint and formatting
 lint:
