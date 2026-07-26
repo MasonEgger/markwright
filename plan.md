@@ -1,313 +1,293 @@
-# Implementation Plan: markwright Pipeline CLI (`mw`)
+# Remediation Plan: markwright step-55 Audit Fixes
 
-This plan turns `spec.md` into TDD-sized steps. The strategy from the spec: refactor each extension into pure stage functions (`expand_source(text) -> text`, `apply_html(html) -> html`), make the existing Python-Markdown `Extension`/processor classes thin adapters over those functions so every current test stays green, then build a stage registry and the `mw` CLI on top of the same functions.
+This plan turns the remediation `spec.md` (R1 through R11, plus Decisions D1, D2, D3) into TDD-sized steps.
+The build is complete; this cycle fixes the 12 defects step-55 confirmed and adds, to each, the regression test or probe that would have caught it.
+The prior pipeline-CLI plan is preserved in git history (`git show main:plan.md`); this remediation plan replaces it at the repo root for the audit cycle, the same way the remediation spec replaced the design spec.
+
+Every step is test-first, keeps `just check` green (100 percent line and branch coverage), and holds output to upstream `do-markdownit` parity unless a Decision documents a divergence.
 
 ## Current Status
 
-- [x] Step 1: Simple embed stage functions (youtube, slideshow, image_compare)
-- [x] Step 2: Script embed stage functions (codepen, twitter, instagram)
-- [x] Step 3: Fence stage functions, `mw-fence` marker, version validation
-- [x] Step 4: Highlight stage functions
-- [ ] Step 5: Stage registry and selection
-- [ ] Step 6: CLI skeleton, `list`, `--version`, entry point
-- [ ] Step 7: CLI `post` subcommand (+ `--use`/`--exclude`/`--warn`)
-- [x] Step 8: CLI `pre` subcommand
-- [x] Step 9: CLI `render` subcommand
-- [x] Step 10: Cross-stage round-trip integration tests
-- [ ] Step 11: Docs (CLI reference, pipeline guide, renderer contract)
-- [ ] Step 12: Packaging smoke test
+- [ ] Step 1: R1 — close the stored XSS in the fence marker comment (High, release blocker)
+- [ ] Step 2: R2 + R11 — packaging pass (runtime dep, publish metadata, clean-venv probe)
+- [ ] Step 3: R3 — guard zero and negative dimensions in the youtube embed
+- [ ] Step 4: R4 — unify the highlight regexes, tilde fences, and the literal-marker promise (D3 contingency)
+- [ ] Step 5: R7a — normalize the Instagram permalink (firm half of R7)
+- [ ] Step 6: R8 — match the compare SVG to upstream
+- [ ] Step 7: R9 — match the slideshow nav JavaScript to upstream
+- [ ] Step 8: R10 — fix the image_compare token in the README and docs
+- [ ] Step 9: D1 + R5 — decide and land single-image slideshow parity
+- [ ] Step 10: D2 + R6 + R7b — decide and land embed URL grammar parity
 
 Status: not started.
 
-## Architecture Decisions
+## Ordering and Dependencies
 
-- **Pure stage functions live in each extension module.** `expand_source(text: str) -> str` is the source-stage (`mw pre`) transform; `apply_html(html: str, warnings: list[str] | None = None) -> str` is the HTML-stage (`mw post`) transform. Only fence uses the `warnings` argument; the others accept and ignore it so the registry can call every post function with one signature.
-- **One shared per-match builder per embed.** A module-level `_render_match(line: str) -> str | None` returns the raw HTML for a matching standalone line or `None`. Both `expand_source` (inline text, for the CLI) and the existing Preprocessor (which still stashes via `self.md.htmlStash.store(...)`, for the in-process path) go through it. This keeps the htmlStash fix intact and avoids duplicating the regex and HTML builders.
-- **Script injection unifies on signature detection.** The post-stage `apply_html` scans for the embed's class signature and appends the script tag once, only if no matching script tag is already present (idempotent). The in-process Postprocessor delegates to the same `apply_html`, replacing the `found`-flag path. Existing "inject once" and "no script without embed" tests stay green.
-- **Highlight keeps its in-process InlineProcessor.** Prose highlighting during an in-process render still runs through the InlineProcessor. `expand_source` is new logic (prose-only, code-region-aware) used only by `mw pre`. `apply_html` is the current Postprocessor logic extracted into a pure function.
-- **The `mw-fence` marker is the only cross-tool contract.** `expand_source` emits `<!-- mw-fence:{JSON} -->` with `"version": 1`; `apply_html` validates it (skip + optional warning on malformed JSON, unsupported version, or no adjacent code block). This replaces the current internal `do-fence` comment.
-- **Registry composes by priority.** `src/markwright/registry.py` maps name to `{pre, post, pre_priority, post_priority}`. `pre` runs selected pre functions high-to-low priority; `post` runs selected post functions high-to-low. Priorities mirror the in-process processor priorities (fence pre 40, embeds 20, highlight pre 10; fence and highlight post 25, script injection 15).
-- **CLI is stdlib `argparse`.** `src/markwright/cli.py` exposes `main(argv: list[str] | None = None) -> int`. Subcommands read stdin and write stdout. Entry point `mw = "markwright.cli:main"`.
+- **R1 lands first.** It is the release blocker (stored XSS); nothing depends on it, but it ships ahead of everything else.
+- **R2 and R11 are one packaging pass**, both verified from the built wheel in a clean venv (spec Component Boundaries).
+- **Steps 1 through 8 are firm** ("change-code" or firm output/doc fixes) and proceed without any Decision.
+- **Steps 9 and 10 are brainstorm-gated.** D1 gates R5; D2 gates R6 and R7's grammar half. Each gated step resolves its Decision via `/bpe:brainstorm` and records the outcome in the `spec.md` Decisions section **before** writing the branch-specific code.
+- **D3 is folded into Step 4** as a contingency: the preferred resolution is to make the literal-marker promise true by unifying the regexes; D3 is only invoked if some path cannot deliver the literal marker under Python-Markdown.
+
+## Architecture Notes
+
+- **Two consumers, one set of pure stage functions** (`expand_source`, `apply_html`). Every fix lands in the shared stage function so the in-process render and the CLI stay in agreement; that shared path is exactly why several of these defects diverged across consumers (R4) and why each fix asserts on both.
+- **The `mw-fence` marker is a private, versioned cross-tool contract**, not upstream output. R1 may re-encode the payload freely as long as `apply_html` reads it back and fail-soft / `--warn` behavior is preserved.
+- **`reduce_fraction` in `_util.py` is shared by the embeds.** R3's guard can live there (fixes every caller) or in the youtube parser; the plan guards `reduce_fraction` and validates in youtube so no caller can trip it.
+- **The clean-venv install probe (R2) cannot run inside `just check`** (the dev group already has `pymdownx`, which is what masked the bug). It is a pytest marked `integration`, run by the CI integration job that already executes `tests/integration`, and skipped locally when `uv` is unavailable.
 
 ## Steps
 
-### Step 1: Simple Embed Stage Functions
+### Step 1: R1 — Close the Stored XSS in the Fence Marker Comment (High)
 
-**NOTE**: youtube, slideshow, and image_compare have a pre stage only (no post). Each already has a module-level HTML builder (`_build_*` or inline in `run`) and a compiled regex. The current Preprocessor stashes the built HTML. Preserve that; add the pure path beside it.
+**NOTE**: `fence.py:232` writes `f"<!-- {MARKER_NAME}:{json.dumps(payload)} -->"`. `json.dumps` leaves `<` and `>` literal, so a directive value containing `-->` closes the comment early; the truncated remainder becomes malformed JSON, `apply_html` drops the marker fail-soft, and the `html.escape` at `fence.py:351` never runs, leaving a live `<script>` in the output. The capture regexes (`LABEL_RE`, `SECONDARY_LABEL_RE`, `ENVIRONMENT_RE` at `fence.py:39-41`) use `(.+)` and store raw values. Chosen mechanism: escape `<` and `>` to their JSON `\uXXXX` forms in the serialized payload before writing at line 232. This is self-reversing (`json.loads` restores the characters on read, so `apply_html` needs no manual decode) and removes every literal `<`/`>` from inside the comment, so `-->` and `<!--` can never form. The existing `html.escape` at read time stays as defense in depth. Preserve `--warn` and fail-soft for genuinely malformed markers.
 
 ```text
-1. RED: Add stage-function tests. Do NOT modify existing test classes.
-   - In tests/test_youtube.py add class TestYouTubeExpandSource:
-     - Test expand_source("[youtube dQw4w9WgXcQ]") returns a string containing '<iframe' and 'youtube.com/embed/dQw4w9WgXcQ' and contains no Python-Markdown stash placeholder (assert '\x02' not in result)
-     - Test a line that is not exactly an embed ("text [youtube abc] text") is returned unchanged
-     - Test multi-line input expands only the standalone embed line and leaves other lines byte-for-byte unchanged
-     - Test input with no embed passes through unchanged
-   - In tests/test_slideshow.py add class TestSlideshowExpandSource (syntax "[slideshow https://a.jpg https://b.jpg]", expect '<div class="slideshow"')
-   - In tests/test_image_compare.py add class TestImageCompareExpandSource (syntax "[compare https://a.jpg https://b.jpg]", expect '<div class="image-compare"')
+1. RED: Write XSS regression tests in tests/test_fence.py. Add a new class TestFenceMarkerXss; do NOT modify existing classes.
+   - Define the step-55 probe input verbatim: a "[label foo --> <script>alert(1)</script>]" directive line above a fenced code block.
+   - Test expand_source(probe) emits an mw-fence comment whose serialized payload contains no literal "-->" and no literal "<script>" substring (assert "-->" appears only as the single comment terminator, and "<script>" is absent from the emitted marker line).
+   - Test the mw render path: render the probe through the in-process markwright render (use the existing render_fence helper / md_with_superfences fixture) and assert the output contains no live "<script>alert(1)</script>" (it appears only escaped, as "&lt;script&gt;", or not at all).
+   - Test the mw pre | post path: assert apply_html(stub_render(expand_source(probe))) over the probe leaves no live "<script>" (use the round-trip stub renderer from tests/test_roundtrip.py or a minimal comment-preserving stub).
+   - Test round-trip fidelity: a benign label containing a ">" ("[label a > b]") and one containing a "-" ("[label build-all]") still produce their label div correctly through expand_source + apply_html (the fix does not over-escape legitimate directives).
+   - Run the suite and confirm the two XSS tests FAIL against current code (live script present) and the benign tests pass.
 
-2. GREEN: Add the pure functions, minimal.
-   - In src/markwright/youtube.py:
-     - Add `_render_match(line: str) -> str | None`: strip the line, match YOUTUBE_RE; on match build and return the iframe HTML (move the body of the current run() match branch into here); else return None.
-     - Add `expand_source(text: str) -> str`: split text on "\n", replace each line with `_render_match(line) or line`, join on "\n".
-     - Refactor YouTubePreprocessor.run to call `_render_match`: for each line, if it returns HTML, append `self.md.htmlStash.store(html)`, else append the line. Behavior is unchanged.
-   - Repeat the same three additions in src/markwright/slideshow.py and src/markwright/image_compare.py, reusing their existing builders and regexes. For slideshow keep the "fewer than 2 URLs -> no match" rule inside `_render_match`.
+2. GREEN: Make the marker breakout-proof in src/markwright/fence.py.
+   - At line 232, escape the serialized payload for HTML-comment safety: after json.dumps(payload), replace "<" with "\\u003c" and ">" with "\\u003e" before interpolating into the comment. Keep it as a small named helper (e.g. _encode_marker_payload(payload: dict) -> str) so both the constant and the transform are in one place.
+   - Confirm the read side needs no change: COMMENT_RE captures the escaped JSON, json.loads decodes "\\u003c"/"\\u003e" back to "<"/">" automatically, and the existing html.escape at line 351 (and :379 for secondary_label, :147 for prefix) still escapes the applied directive text.
+   - Re-run: the two XSS tests now pass; the benign and all existing fence tests stay green.
 
-3. REFACTOR: Confirm expand_source and the Preprocessor share `_render_match` with no duplicated regex or builder logic.
+3. REFACTOR: Ensure the encode helper and COMMENT_RE/MARKER_NAME live together and the escaping is documented in the module header as part of the marker contract (payload is comment-safe, self-reversing).
 
-4. Verify the existing in-process tests for all three modules still pass, then run `just check`.
+4. Verify --warn and fail-soft are unaffected: run the existing malformed-marker / bad-version / no-block tests. Then run `just check`.
 ```
 
-### Step 2: Script Embed Stage Functions
+### Step 2: R2 + R11 — Packaging Pass: Runtime Dependency, Publish Metadata, Clean-Venv Probe (Medium-high + Low)
 
-**NOTE**: codepen, twitter, and instagram have a pre stage (expand) and a post stage (inject one `<script>`). Today the Preprocessor sets a `found` flag and the Postprocessor appends the script if `found`. Replace the post path with signature detection so the same `apply_html` serves the CLI and the in-process render.
+**NOTE**: `cli.py` builds the `render` pipeline with `pymdownx.superfences` and `pymdownx.highlight`, but `pyproject.toml` declares `pymdown-extensions>=10.5` only in the dev group (line 21), so `mw render` raises `ModuleNotFoundError` from the built wheel in a clean env. The in-process suite has `pymdownx` via dev, so a unit test cannot catch this; the install probe is the load-bearing regression. R11 rides along: the `uv_build>=0.9.17,<0.10.0` pin (line 31) excludes current uv and warns on build, and the package lacks `classifiers`, `[project.urls]`, and `keywords`.
 
 ```text
-1. RED: Add stage-function tests. Do NOT modify existing test classes.
-   - In tests/test_codepen.py add class TestCodePenStageFunctions:
-     - Test expand_source("[codepen MattCowley vwPzeX]") returns text containing 'class="codepen"' and 'data-slug-hash="vwPzeX"', no stash placeholder
-     - Test apply_html on HTML that contains 'class="codepen"' appends exactly one '<script ... ei.js ...>' (assert result.count("ei.js") == 1)
-     - Test apply_html is idempotent: apply_html(apply_html(html)) still contains the script exactly once
-     - Test apply_html on HTML with no codepen signature appends no script (assert "ei.js" not in result)
-     - Test apply_html accepts a warnings list argument and leaves it empty (signature injection never warns)
-   - Add the analogous class to tests/test_twitter.py (signature 'class="twitter-tweet"', script 'widgets.js') and tests/test_instagram.py (signature 'class="instagram-media"', script 'embed.js').
+1. RED: Write the clean-venv install probe.
+   - Create tests/integration/test_clean_install.py, marked with @pytest.mark.integration (the marker already exists in pyproject.toml).
+   - Skip the whole module if "uv" is not on PATH (shutil.which).
+   - Test build_and_render_in_clean_venv:
+     - Run "uv build" in a tmp dist dir; assert exit 0 AND assert the combined stdout/stderr contains no build-backend version warning (grep for "uv_build" + "warn"/"does not satisfy"/version-conflict text; assert absent).
+     - Create an isolated venv (python -m venv), pip install ONLY the built wheel (no dev group, no editable install).
+     - Run the installed "mw render" over a tiny document containing a [youtube dQw4w9WgXcQ] line via subprocess; assert exit 0 and stdout contains "<iframe" and no "ModuleNotFoundError".
+   - Run: pytest tests/integration/test_clean_install.py -m integration and confirm it FAILS against current pyproject (ModuleNotFoundError on render).
 
-2. GREEN: Add the pure functions and rewire the adapters.
-   - In src/markwright/codepen.py:
-     - Add `_render_match(line) -> str | None` (move the run() match-branch body here, reusing _parse_flags and CODEPEN_RE).
-     - Add `expand_source(text: str) -> str` (split/replace/join via _render_match).
-     - Add `apply_html(html: str, warnings: list[str] | None = None) -> str`: if the codepen class signature is present AND the script src is not already in html, return html + "\n" + CODEPEN_SCRIPT; otherwise return html unchanged.
-     - Refactor CodePenPreprocessor.run to use `_render_match` + `self.md.htmlStash.store(...)`.
-     - Refactor CodePenPostprocessor.run to `return apply_html(text)`. Remove the dependency on the preprocessor `found` flag (delete the field and its references only if nothing else uses them).
-   - Repeat for src/markwright/twitter.py and src/markwright/instagram.py.
+2. RED: Add an in-gate metadata test in tests/test_packaging.py (new class TestPublishMetadata):
+   - Using importlib.metadata.metadata("markwright"): assert at least one "Classifier" entry is present, at least one "Project-URL" entry is present, and "Keywords" is non-empty.
+   - Confirm this FAILS against current metadata.
 
-3. REFACTOR: Ensure each module has a single signature constant and script constant used by both apply_html and any test.
+3. GREEN: Edit pyproject.toml.
+   - Move "pymdown-extensions>=10.5" from the dev group into [project] dependencies (line 11-13 block), keeping the >=10.5 lower bound. Remove it from the dev group only if nothing else there needs it duplicated (dev may still resolve it transitively; do not double-declare).
+   - Widen/update the build pin at line 31 to admit current uv (e.g. "uv_build>=0.9.17,<0.11.0" or the current minor), so "uv build" no longer warns.
+   - Add non-empty classifiers, [project.urls], and keywords to [project]. Use accurate values: license Apache-2.0 classifier, Python 3.14 classifier, Topic :: Text Processing :: Markup :: Markdown; urls for Homepage/Repository/Documentation; keywords markdown, python-markdown, do-markdownit, mkdocs, hugo.
+   - Run "uv sync" so the lockfile reflects the moved dependency.
 
-4. Verify the existing script-injection tests (inject once for multiple embeds, no script without embed, not-matched-inside-fence) still pass, then run `just check`.
+4. GREEN: Re-run the metadata test (now passes) and the clean-install probe (now passes: mw render works from the wheel with no dev group, uv build is warning-free).
+
+5. REFACTOR: Confirm the CI integration job runs tests/integration (it already does for the Hugo test) so the clean-install probe is exercised in CI; no workflow change needed unless the job path-filters exclude the new file.
+
+6. Verify `just check` still passes (the clean-install test is marked integration and excluded from the gate; the metadata test runs in-gate).
 ```
 
-### Step 3: Fence Stage Functions, `mw-fence` Marker, Version Validation
+### Step 3: R3 — Guard Zero and Negative Dimensions in the youtube Embed (Medium-high)
 
-**NOTE**: fence.py currently emits an internal `<!-- do-fence:{JSON} -->` comment in the Preprocessor and reads it in the Postprocessor (COMMENT_RE). This step renames it to `mw-fence`, adds `"version": 1`, extracts the pure functions, and adds read-side validation with `--warn`-collectable messages.
+**NOTE**: `[youtube ID 0 0]` (or any zero height) reaches `reduce_fraction(width, height)` (`youtube.py:36`), which computes `divisor = math.gcd(0, 0) = 0` then `numerator // divisor` (`_util.py:16-17`), an unhandled ZeroDivisionError that aborts a whole MkDocs build in-process. Guard at both levels: make `reduce_fraction` total, and reject/normalize degenerate dimensions in the youtube parser. Chosen fallback: a zero or negative dimension in a youtube directive falls back to the default 16:9 aspect ratio (no raise, valid embed).
 
 ```text
-1. RED: Add stage-function and validation tests in tests/test_fence.py. Do NOT modify existing classes.
-   - Add class TestFenceExpandSource:
-     - Test expand_source on a fence with "[label deploy.sh]" emits a line '<!-- mw-fence:' and the JSON payload contains '"version": 1' and '"label": "deploy.sh"', and the directive line "[label deploy.sh]" is removed while the code lines and the fence markers remain
-     - Test a command fence emits '"prefix_type": "command"' and '"prefix_value": "$"'
-     - Test a plain fence with no directives emits no mw-fence comment and is unchanged
-   - Add class TestFenceApplyHtml:
-     - Test apply_html on rendered HTML that contains an mw-fence(label) comment immediately before a <pre><code> block injects the label div and removes the comment
-     - Test a command-prefix marker produces <ol><li data-prefix="$"> wrapping
-     - Test apply_html(html, warnings) appends a warning and skips styling when the marker JSON is malformed (e.g. "<!-- mw-fence:{not json -->")
-     - Test apply_html(html, warnings) appends a warning and skips styling when "version" is an unsupported value (e.g. 999)
-     - Test apply_html(html, warnings) appends a warning when a well-formed marker has no following code block
-     - Test apply_html(html) with warnings=None on those same malformed inputs is a silent no-op (no exception, marker left or removed but no styling)
+1. RED: Write the unit guard test in tests/test_util.py (create if absent), class TestReduceFractionDegenerate:
+   - Test reduce_fraction(0, 0) returns without raising and yields a documented sentinel (choose and assert: returns (0, 0) unchanged).
+   - Test reduce_fraction(16, 0) and reduce_fraction(0, 9) do not raise.
+   - Test reduce_fraction(-16, 9) and reduce_fraction(16, -9) do not raise.
+   - Confirm these FAIL against current _util.py (ZeroDivisionError / unexpected behavior).
 
-2. Document the marker contract:
-   - In src/markwright/fence.py update the module docstring/comment to state the marker is `<!-- mw-fence:{JSON} -->` with the v1 schema from spec.md.
+2. RED: Write the stage-level test in tests/test_youtube.py, class TestYouTubeDegenerateDimensions:
+   - Test expand_source("[youtube dQw4w9WgXcQ 0 0]") returns without raising and produces an iframe whose padding/aspect markup uses the default 16:9 ratio (assert the fallback ratio appears, not a 0-based value).
+   - Test a zero height ("[youtube ID 480 0]") and a negative dimension ("[youtube ID -1 9]") likewise return with the default ratio and no traceback.
+   - Test the existing valid case ("[youtube dQw4w9WgXcQ 800 450]") still yields its 16:9 markup unchanged.
+   - Confirm the degenerate cases FAIL against current code.
 
-3. GREEN: Implement.
-   - Change COMMENT_RE and the emitted comment to `mw-fence`. Add "version": 1 to the metadata dict before json.dumps.
-   - Add `expand_source(text: str) -> str`: run the existing directive/flag extraction over the text and return text with the mw-fence comment inserted and directive lines removed (reuse the existing preprocessor scanning logic; operate on text split into lines).
-   - Add `apply_html(html: str, warnings: list[str] | None = None) -> str`: the existing postprocessor transform, plus: wrap json.loads in a try/except (malformed -> if warnings is not None append a message, skip); check the parsed "version" == 1 (else warn + skip); if no <pre>/<code> follows the comment, warn + skip. Always remove the recognized comment.
-   - Make FencePreprocessor.run and FencePostprocessor.run thin adapters that delegate to expand_source / apply_html (the preprocessor still returns lines; join, transform, split, or call the shared extraction helper directly).
+3. GREEN: Implement the guards.
+   - In src/markwright/_util.py: at the top of reduce_fraction, if numerator == 0 or denominator == 0, return (numerator, denominator) unchanged (gcd is undefined; caller decides). Keep the type signature and RST docstring; document the zero behavior.
+   - In src/markwright/youtube.py _render_match: before calling reduce_fraction, if width <= 0 or height <= 0, substitute the module default dimensions (the same defaults used when the directive omits size) so the aspect ratio is valid.
 
-4. REFACTOR: Ensure the marker name and v1 version are single named constants (e.g. MARKER_NAME = "mw-fence", MARKER_VERSION = 1) used by both functions.
+4. REFACTOR: Keep one source of the default dimensions in youtube.py; do not duplicate the 16:9 literals.
 
-5. Verify all existing fence tests pass (they assert final HTML, which is unchanged), then run `just check`.
+5. Verify existing youtube and _util-dependent tests pass, then run `just check` (assert the new branches are covered: zero and negative both exercised).
 ```
 
-### Step 4: Highlight Stage Functions
+### Step 4: R4 — Unify the Highlight Regexes, Tilde Fences, and the Literal-Marker Promise (Medium; D3 contingency)
 
-**NOTE**: highlight.py has an InlineProcessor (in-process prose) and a Postprocessor (escaped/code markers). Keep the InlineProcessor. Add a pure `apply_html` (extract the Postprocessor logic) and a new `expand_source` (prose-only, skips fenced and inline code regions).
+**NOTE**: Two divergences, one fix (findings C1 and P3). (1) The base `_HIGHLIGHT_PATTERN` (`highlight.py:14`) lacks the `(?<!\\)` escape guard that `_ESCAPED_HIGHLIGHT_RE` (:17) and `_PROSE_HIGHLIGHT_RE` (:23) carry, so the in-process InlineProcessor wraps `\<^>x\<^>` as `\<mark>x\</mark>` while the CLI pre stage emits the literal, making the spec.md:200 literal-marker promise false. (2) `_CODE_REGION_RE` (:28-31) matches only backtick fences (` ``` `), so the pre stage highlights markers inside `~~~` tilde fences. Preferred resolution: unify so every consumer preserves the literal marker; D3 is the fallback only if some path cannot deliver it.
 
 ```text
-1. RED: Add tests in tests/test_highlight.py. Do NOT modify existing classes.
-   - Add class TestHighlightApplyHtml:
-     - Test apply_html("a &lt;^&gt;word&lt;^&gt; b") wraps the escaped run in <mark> (matches current postprocessor output)
-     - Test apply_html leaves a backslash-escaped marker (\\&lt;^&gt;) as a literal &lt;^&gt; with no <mark>
-   - Add class TestHighlightExpandSource:
-     - Test expand_source("a <^>word<^> b") returns 'a <mark>word</mark> b'
-     - Test a marker inside a fenced code block (```...<^>x<^>...```) is left untouched by expand_source (the post stage handles in-code)
-     - Test a marker inside an inline code span (`<^>x<^>`) is left untouched
-     - Test a backslash-escaped prose marker (\\<^>x\\<^>) is left as a literal <^> with no <mark>
+1. RED: Write the cross-consumer parity tests in tests/test_highlight.py; add new classes, do NOT modify existing ones.
+   - Add class TestHighlightConsumerParity with a parametrized helper that runs one input through all three consumers: (a) the in-process render (render_highlight / md fixture), (b) run_pre(text, ["highlight"]), (c) run_post(stub_render(run_pre(text, ["highlight"])), ["highlight"]) — the mw pre | post path.
+     - Test "a \<^>x\<^> b" produces a literal marker with NO <mark> on all three consumers (identical highlight result). Confirm this FAILS against current code (in-process emits \<mark>).
+     - Test "a <^>x<^> b" (unescaped) produces <mark>x</mark> on all three consumers (unchanged behavior).
+   - Add class TestHighlightTildeFence:
+     - Test expand_source("~~~\n<^>x<^>\n~~~") leaves the marker untouched (no <mark>), matching the existing backtick-fence behavior.
+     - Test the backtick case ("```\n<^>x<^>\n```") is still untouched (regression guard).
+   - Add class TestHighlightPatternGuards (code-level pin):
+     - Assert all three patterns carry the escape guard: that _HIGHLIGHT_PATTERN, _ESCAPED_HIGHLIGHT_RE.pattern, and _PROSE_HIGHLIGHT_RE.pattern each contain the "(?<!\\)" lookbehind (or a shared constant), so a future divergence fails loudly.
+   - If any existing test pins the old base-pattern behavior (e.g. an in-process test asserting \<mark> on an escaped marker), update it as part of this red step and note that the buggy expectation was corrected.
 
-2. GREEN: Implement.
-   - Add `apply_html(html: str, warnings: list[str] | None = None) -> str` containing the current HighlightPostprocessor.run body (escaped-run wrapping + backslash reveal). Ignore the warnings argument.
-   - Make HighlightPostprocessor.run delegate to apply_html.
-   - Add `expand_source(text: str) -> str`: scan text, identify fenced (triple-backtick) and inline (single-backtick) code regions, and wrap `<^>...<^>` in <mark> only in the regions OUTSIDE code, honoring the backslash escape. Leave in-code markers for the post stage.
+2. GREEN: Unify the contract in src/markwright/highlight.py.
+   - Add the "(?<!\\)" escape guard to _HIGHLIGHT_PATTERN (line 14) so the in-process InlineProcessor honors the backslash escape like the other two consumers. Factor the guard/marker into a shared constant if it reduces drift.
+   - Extend _CODE_REGION_RE (lines 28-31) so the "fence" alternative matches tilde fences as well as backtick fences (add a "~~~" fence branch alongside the "```" branch, same DOTALL/MULTILINE handling).
+   - Re-run: the parity and tilde tests pass; all three consumers agree.
 
-3. REFACTOR: Share the marker/backslash regexes between expand_source and apply_html where they overlap; keep the span-boundary-safe wrapper (_wrap_highlight_segments) used only by apply_html.
+3. D3 CHECKPOINT: Verify the literal-marker promise now holds on mw render, mw pre, and mw pre | post (the parity test is green).
+   - If every path delivers the literal marker: the spec.md:200 claim is true by behavior; ensure no CURRENT doc repeats a false claim — grep README.md and docs/ for the literal-marker wording and correct any that is now inaccurate. Record in the spec.md Decisions section (D3) that the promise was made true by unification.
+   - If some path CANNOT deliver the literal marker under Python-Markdown: STOP, run /bpe:brainstorm on D3, record the corrected promise in the spec.md Decisions section, reconcile the consumers on the achievable behavior, and update the tests to the corrected contract. The false claim must not survive either branch.
 
-4. Verify existing highlight tests pass, then run `just check`.
+4. REFACTOR: Keep the escaped, raw, and prose patterns sharing one guard source; keep the span-boundary-safe wrapper used only by apply_html.
+
+5. Verify existing highlight and round-trip tests pass, then run `just check` (new tilde and escape branches covered).
 ```
 
-### Step 5: Stage Registry and Selection
+### Step 5: R7a — Normalize the Instagram Permalink (Medium-low, Firm Half of R7)
 
-**NOTE**: First consumer-facing composition layer. No CLI yet; this is pure logic the CLI will call.
+**NOTE**: `instagram.py:87` reuses the raw input URL for `data-instgrm-permalink` (`escaped_url`), but upstream `instagram.js:170` forces `https://www.instagram.com/p/${post}`; the embed script (`embed.js`) needs the `www` host to resolve. This is the firm change-code (output format) half of R7. The shortcode-grammar half is D2-gated and lands in Step 10; split the test file accordingly.
 
 ```text
-1. RED: Create tests/test_registry.py:
-   - Test select_extensions(use=[], exclude=[]) returns all 8 extension names
-   - Test select_extensions(use=["youtube","highlight"], exclude=[]) returns exactly those two
-   - Test select_extensions(use=[], exclude=["youtube"]) returns all names except youtube
-   - Test select_extensions with an unknown name raises a ValueError naming the bad token
-   - Test run_pre composes selected pre functions in priority order: given input with a [youtube ...] line and a <^>prose<^> marker, run_pre expands the embed and wraps the prose mark
-   - Test run_post composes selected post functions: given HTML with a codepen signature and an escaped highlight marker, run_post injects the script once and wraps the mark
-   - Test run_post(html, names, warnings) threads the warnings list into the fence post function (a malformed mw-fence marker yields a warning entry)
-   - Test describe() returns, for each extension, its name and which stages (pre/post) it has
+1. RED: Write the permalink test in tests/test_instagram.py, class TestInstagramPermalinkNormalization:
+   - Test that for a valid input ("[instagram https://www.instagram.com/p/CkQuv3_LRgS]") the emitted data-instgrm-permalink attribute is exactly "https://www.instagram.com/p/CkQuv3_LRgS" (the normalized www form built from the extracted post id), regardless of the input host/scheme.
+   - Test that an input without the www host or with a trailing query/path still yields the normalized "https://www.instagram.com/p/${post}" permalink (post id extracted, canonical URL rebuilt).
+   - Confirm these FAIL against current code (raw input URL reused).
+   - Leave a placeholder note for the D2-gated shortcode-grammar tests (Step 10); do not add them here.
 
-2. GREEN: Create src/markwright/registry.py:
-   - Define EXTENSION_NAMES (the 8 names) and REGISTRY: dict[str, dict] mapping name -> {"pre": fn|None, "post": fn|None, "pre_priority": int, "post_priority": int}, importing expand_source/apply_html from each module. Priorities: fence pre 40; youtube/codepen/twitter/instagram/slideshow/image_compare pre 20; highlight pre 10. Post: fence 25, highlight 25, codepen/twitter/instagram 15; others None.
-   - Implement select_extensions(use, exclude) -> list[str] with validation.
-   - Implement run_pre(text, names) -> str: run each selected pre fn (skip None) over text in descending pre_priority order.
-   - Implement run_post(html, names, warnings=None) -> str: run each selected post fn (skip None) over html in descending post_priority order, passing warnings.
-   - Implement describe() -> list[tuple[str, list[str]]].
+2. GREEN: In src/markwright/instagram.py, extract the post id from the matched input and build data-instgrm-permalink as f"https://www.instagram.com/p/{post_id}" (attribute-escaped), replacing the raw escaped_url reuse at line 87. Do not change the accepted input grammar in this step.
 
-3. REFACTOR: Keep the registry declarative; no per-extension branching in run_pre/run_post.
+3. REFACTOR: Keep the canonical permalink format in one place (a module constant/template) shared with any test.
 
-4. Run `just check`.
+4. Verify existing instagram tests pass (update only the one that pins the raw-URL permalink, as part of the red step), then run `just check`.
 ```
 
-### Step 6: CLI Skeleton, `list`, `--version`, Entry Point
+### Step 6: R8 — Match the Compare SVG to Upstream (Low)
+
+**NOTE**: `image_compare.py:18-23` emits a `viewBox="0 0 100 100"` two-polygon SVG; upstream `compare.js:110` emits a `viewBox="0 0 512 512"` single-path handle icon. Output-format parity (Global Requirement 1). Copy the exact path data from `compare.js:110`.
 
 ```text
-1. RED: Create tests/test_cli.py:
-   - Test main(["--version"]) returns 0 and prints a version string containing the package version
-   - Test main(["list"]) returns 0 and prints every extension name with its stages (assert "youtube" and "fence" appear, and that a pre-only and a pre+post extension are labeled differently)
-   - Test main(["bogus"]) returns 2 (argparse usage error)
-   - Drive main via capsys for stdout/stderr capture.
+1. RED: In tests/test_image_compare.py add class TestCompareSvgUpstreamParity:
+   - Test the emitted compare HTML contains a single <svg ...> with viewBox="0 0 512 512" and exactly one <path ...> element (assert result.count("<path") == 1 and "<polygon" not in result).
+   - Test the path "d" attribute equals the exact upstream path string from compare.js:110.
+   - Confirm these FAIL against the current two-polygon markup.
 
-2. GREEN: Create src/markwright/cli.py:
-   - main(argv: list[str] | None = None) -> int using argparse with subparsers: pre, post, render, list; plus a top-level --version action.
-   - Implement only `list` (print registry.describe()) and `--version` (read importlib.metadata.version("markwright")) in this step. Leave pre/post/render parsers defined but their handlers raising NotImplementedError or returning a clear "not yet implemented" is NOT allowed; instead defer creating those handlers until their steps by registering the subparsers now and wiring handlers in Steps 7 to 9. For this step, register only list and version; add pre/post/render subparsers in their own steps.
-   - Return argparse's exit code conventions (0 success, 2 usage).
+2. GREEN: In src/markwright/image_compare.py, replace the two-polygon SVG constant (lines 18-23) with the upstream single-path viewBox="0 0 512 512" SVG, copying the path data verbatim from compare.js:110. Preserve the existing class attribute ("control-arrow") and any wrapper markup.
 
-3. Wire packaging:
-   - In pyproject.toml add [project.scripts] with `mw = "markwright.cli:main"`.
+3. REFACTOR: Keep the SVG as one module constant.
 
-4. REFACTOR: Factor a helper that builds the ArgumentParser so tests and main share it.
-
-5. Run `just check`.
+4. Verify existing image_compare tests pass (update the one that pins the old SVG as part of the red step), then run `just check`.
 ```
 
-### Step 7: CLI `post` Subcommand
+### Step 7: R9 — Match the Slideshow Nav JavaScript to Upstream (Low)
 
-**NOTE**: post is the complete path on its own (highlight + fence + script injection). Build it first of the transform subcommands.
+**NOTE**: `slideshow.py:113` emits `this.parentElement.querySelector('.slides').scrollBy(...)`; upstream `slideshow.js:112-113` emits a `getElementsByClassName('slides')[0].scrollLeft += / -= width` IIFE. Pure output-string parity (Global Requirement 1).
 
 ```text
-1. RED: Add to tests/test_cli.py class TestCliPost:
-   - Test main(["post"]) reads stdin and writes transformed HTML to stdout (feed HTML with a codepen signature; assert the script is injected once). Use monkeypatch to set sys.stdin to an io.StringIO and capture stdout.
-   - Test --use selects a subset (post --use highlight on HTML with both a codepen signature and an escaped mark injects NO script but DOES wrap the mark)
-   - Test --exclude removes an extension
-   - Test --warn on HTML containing a malformed mw-fence marker writes a warning to stderr, leaves stdout's body unchanged, and returns 0
-   - Test without --warn the same malformed input produces no stderr and returns 0
-   - Test an unknown --use name returns 2 and writes an error to stderr
+1. RED: In tests/test_slideshow.py add class TestSlideshowNavUpstreamParity:
+   - Test the emitted nav markup contains the upstream scrollLeft IIFE form: assert "getElementsByClassName" and "scrollLeft" appear and "scrollBy" does NOT, for both the previous (-=) and next (+=) buttons.
+   - Test the exact emitted onclick/handler string matches the upstream shape for a two-image slideshow.
+   - Confirm these FAIL against the current scrollBy form.
 
-2. GREEN:
-   - Add the `post` handler in cli.py: read sys.stdin (UTF-8), call registry.select_extensions(use, exclude) (translate ValueError to exit 2 + stderr), build warnings = [] if --warn else None, call registry.run_post(html, names, warnings), write stdout, then if warnings print each to stderr. Return 0.
-   - Add --use (append), --exclude (append), --warn (store_true) to the post subparser.
+2. GREEN: In src/markwright/slideshow.py, replace the scroll_js at line 113 (and its +/- usages around 113-115) with the upstream getElementsByClassName(...)[0].scrollLeft += width / -= width IIFE, porting the exact upstream string.
 
-3. REFACTOR: Factor stdin-read/stdout-write and selection-error handling into helpers reused by later subcommands.
+3. REFACTOR: Keep the nav handler string(s) as named constants shared by both buttons.
 
-4. Run `just check`.
+4. Verify existing slideshow tests pass (update any that pin the old nav string as part of the red step), then run `just check`.
 ```
 
-### Step 8: CLI `pre` Subcommand
+### Step 8: R10 — Fix the image_compare Token in the README and Docs (Low, Doc Fix)
+
+**NOTE**: The working author-facing token is `[compare ...]` (`COMPARE_RE`, `image_compare.py:13`); `image_compare` is the internal registry name only (`registry.py:45`). `README.md:141` tells the reader to write `[image_compare before.jpg after.jpg]`, which renders nothing when copy-pasted. Public prose follows the repo writing rules (no em/en dashes, straight quotes).
 
 ```text
-1. RED: Add to tests/test_cli.py class TestCliPre:
-   - Test main(["pre"]) expands a [youtube ...] line on stdin to iframe HTML on stdout
-   - Test pre wraps a standalone prose <^>mark<^> via the highlight pre stage
-   - Test pre on a fence with [label x] emits an mw-fence comment and keeps the fence
-   - Test --use / --exclude select the active pre stages
-   - Test an unknown --use name returns 2
+1. RED: Write the doc probe in tests/test_docs_tokens.py (create), class TestAuthorFacingCompareToken:
+   - Test a grep-style scan: read README.md and every file under docs/, assert the author-facing token "[image_compare" does not appear (the internal name may still appear in prose describing the registry, so scope the assertion to the directive-in-example form "[image_compare " with a trailing space/arg).
+   - Test that rendering "[compare before.jpg after.jpg]" through the in-process markwright render (or expand_source) produces the compare markup (a "<div class=\"image-compare\"" or the compare SVG), proving the corrected example works when copy-pasted.
+   - Confirm the grep test FAILS against current README.md:141.
 
-2. GREEN:
-   - Add the `pre` handler: read stdin, select_extensions, call registry.run_pre(text, names), write stdout, return 0. Reuse the helpers from Step 7. (`--warn` is not offered on pre.)
-   - Add --use/--exclude to the pre subparser.
+2. GREEN: Edit README.md line 141: change "[image_compare before.jpg after.jpg]" to "[compare before.jpg after.jpg]". Scan docs/ for any other reader-facing "[image_compare ..." example and correct it to "[compare ...".
+   - If this remediation spec.md carries a Stage Matrix reference using the internal token, correct it to the author-facing token and note the correction in the spec.md Decisions section (the frozen design-spec row stays in git history untouched).
 
-3. Run `just check`.
+3. REFACTOR: None (doc-only).
+
+4. Verify `just check` still passes (docs edits do not break the gate) and, if the docs build is part of verification, `just docs-build --strict` is clean.
 ```
 
-### Step 9: CLI `render` Subcommand
+### Step 9: D1 + R5 — Decide and Land Single-Image Slideshow Parity (Medium-low, Brainstorm-Gated)
 
-**NOTE**: render uses the existing in-process Python-Markdown path, mirroring the site stack so fence and highlight render correctly.
+**NOTE**: `slideshow.py:37` requires `len(urls) >= 2`, dropping a single-image slideshow; upstream `slideshow.js:82` rejects only `!images.length`. This step is gated on Decision D1 (restore `>= 1` for strict parity, or keep `>= 2` as a documented design choice). Do NOT change the code before D1 is recorded.
 
 ```text
-1. RED: Add to tests/test_cli.py class TestCliRender:
-   - Test main(["render"]) on stdin markdown containing a [youtube ...] line and a <^>mark<^> produces final HTML with the iframe and a <mark> (assert against the in-process markwright render of the same input)
-   - Test render --use youtube only loads youtube (a fence directive is NOT styled)
-   - Test an unknown --use name returns 2
+1. DECIDE: Resolve D1 via /bpe:brainstorm. Record the outcome (code parity vs documented divergence) in the spec.md Decisions section before writing any branch code.
 
-2. GREEN:
-   - Add the `render` handler: read stdin, select_extensions, build a markdown.Markdown with extensions ["pymdownx.superfences", "pymdownx.highlight"] (configured pygments_lang_class=True) plus "markwright.<name>" for each selected name, convert, write stdout, return 0.
-   - Add --use/--exclude to the render subparser.
+2. RED (branch on D1):
+   - If CODE PARITY (>= 1): in tests/test_slideshow.py add class TestSingleImageSlideshow:
+     - Test expand_source("[slideshow https://a.jpg]") produces the same slideshow markup shape as the two-image case (a "<div class=\"slideshow\"" with one slide), matching what upstream would emit.
+     - Test the existing two-image case is unchanged.
+     - Update the existing test that pins ">= 2 drops single image" to the new accepting behavior (part of the red step).
+     - Confirm the single-image test FAILS against current code.
+   - If DOCUMENTED DIVERGENCE (keep >= 2): in tests/test_slideshow.py add class TestSlideshowMinimumImages:
+     - Test expand_source("[slideshow https://a.jpg]") returns the line unchanged (single image rejected), pinning >= 2 as intentional.
+     - And update docs/extensions/slideshow.md (or the relevant doc) to state the two-image minimum and the reason (a slideshow needs at least two slides).
 
-3. REFACTOR: Confirm all four subcommands share the parser-builder and IO helpers.
+3. GREEN (branch on D1):
+   - If code parity: change slideshow.py line 37 to len(urls) < 1 (accept one or more), leaving the rest of the builder unchanged.
+   - If documented divergence: no code change; ensure the doc states the minimum and the test pins it.
 
-4. Run `just check`.
+4. Verify existing slideshow tests pass, then run `just check`.
 ```
 
-### Step 10: Cross-Stage Round-Trip Integration Tests
+### Step 10: D2 + R6 + R7b — Decide and Land Embed URL Grammar Parity (Medium-low, Brainstorm-Gated)
 
-**NOTE**: This is the safety net that proves pre + an external render + post equals the in-process render, and that priority ordering is correct.
-
-```text
-1. RED: Create tests/test_roundtrip.py:
-   - Define a stub_render(markdown_text) -> html that runs markdown.Markdown(extensions=["pymdownx.superfences","pymdownx.highlight"], extension_configs={"pymdownx.highlight":{"pygments_lang_class":True}}).convert (a generic renderer with raw-HTML and comment passthrough, NO markwright extensions).
-   - For a fixture document exercising every feature (a labeled command fence, an environment fence, line numbers, a youtube embed, a codepen embed, prose <^>highlight<^>, and in-code <^>highlight<^>):
-     - Test that run_post(stub_render(run_pre(doc, all)), all, None) equals the in-process markwright render of doc (the `mw render` path). Normalize only insignificant whitespace if necessary; prefer an exact match.
-   - Test idempotency at the integration level: running post twice over the rendered output does not double-inject any script and does not change a second time.
-   - Test graceful degradation: a renderer stub that strips HTML comments (post-process the stub output to delete <!-- ... -->) yields unstyled fences but raises no error and still injects embed scripts.
-
-2. GREEN: Adjust stage-priority values or function internals only as needed to make the round-trip match. No new features.
-
-3. REFACTOR: If the fixture reveals ordering coupling between fence and highlight post, encode the intended order explicitly in the registry priorities and note it.
-
-4. Run `just check`.
-```
-
-### Step 11: Docs
+**NOTE**: The Twitter regex (`twitter.py:14`) and the Instagram regex (`instagram.py:14`) require full URLs; upstream (`twitter.js:89`, `instagram.js:89`) accepts scheme-less, `www.`-optional, and bare `user/status/id` or shortcode forms. D2 decides once for BOTH embeds (restore the permissive grammar, or keep the stricter grammar as a documented input contract). R7's permalink half already landed in Step 5 and is NOT part of this decision.
 
 ```text
-1. Write docs/cli.md:
-   - Document `mw pre|post|render|list`, the flags (--use, --exclude, --warn, --version), stdin/stdout filter behavior, exit codes, and UTF-8.
-   - Show the canonical pipeline: `mw pre < in.md | some-renderer | mw post > out.html`.
-2. Write docs/pipeline.md (pipeline integration guide):
-   - The pre/render/post model, when to run only post vs both stages, and worked Hugo and plain-Unix examples.
-3. Write docs/renderer-requirements.md:
-   - The three renderer requirements (raw-HTML passthrough, comment preservation, span-based highlighting), the `mw-fence` marker contract and v1 schema, and which features degrade if a requirement is unmet.
-4. Update mkdocs.yml nav to add a "CLI" section with these three pages.
-5. Use Title Case headings and the project writing style. Run `just docs-build` (strict) and confirm no warnings.
-```
+1. DECIDE: Resolve D2 via /bpe:brainstorm. Record the outcome (code parity vs documented narrowing) in the spec.md Decisions section before writing any branch code.
 
-### Step 12: Packaging Smoke Test
+2. RED (branch on D2), Twitter — tests/test_twitter.py class TestTwitterUrlGrammar:
+   - If CODE PARITY: test each upstream-accepted form produces the expected blockquote: scheme-less ("[twitter twitter.com/user/status/123]"), www-prefixed ("[twitter https://www.twitter.com/user/status/123]"), and bare ("[twitter user/status/123]"). Confirm they FAIL against the current regex.
+   - If DOCUMENTED NARROWING: test the required full-URL grammar is enforced (bare/scheme-less forms are rejected / left unchanged), pinning the narrowing, and update docs/extensions/twitter.md to state the accepted grammar.
 
-```text
-1. RED: Create tests/test_packaging.py:
-   - Test that the installed console script runs: subprocess.run(["mw","--version"], capture_output=True, text=True) returns code 0 and stdout contains the version. (Mark or skip gracefully if the script is not on PATH in the test environment; prefer invoking via `python -m markwright.cli` as a fallback assertion of the same main.)
-   - Test `mw list` over subprocess returns 0 and lists extensions.
-2. GREEN: Ensure the [project.scripts] entry from Step 6 is correct; `uv sync` installs `mw`. Fix any entry-point wiring needed to make the smoke test pass.
-3. Run `just check`.
+3. RED (branch on D2), Instagram — tests/test_instagram.py class TestInstagramShortcodeGrammar:
+   - If CODE PARITY: test that a bare shortcode ("[instagram CkQuv3_LRgS]") and scheme-less/host-optional forms produce the embed, AND that the permalink is still normalized to https://www.instagram.com/p/${post} (the Step 5 behavior holds for the new input forms). Confirm they FAIL against the current regex.
+   - If DOCUMENTED NARROWING: test the full-URL requirement is enforced and update docs/extensions/instagram.md.
+
+4. GREEN (branch on D2):
+   - If code parity: widen TWITTER_RE (twitter.py:14) and INSTAGRAM_RE (instagram.py:14) to make scheme, "www.", and the URL prefix optional and to accept the bare user/status/id and shortcode forms, porting the upstream grammar. Re-derive the post id extraction so R7's permalink normalization still emits the canonical www URL for the new input shapes.
+   - If documented narrowing: no regex change; ensure both docs state the grammar and the tests pin it.
+
+5. REFACTOR: If both embeds share the same optional-scheme/optional-www structure, factor the common URL-grammar fragment so the two regexes stay in agreement (they diverged the same way; keep them fixed the same way).
+
+6. Verify existing twitter and instagram tests pass (update any that pinned the old grammar as part of the red step), then run `just check`.
 ```
 
 ## Implementation Guidelines
 
 - Load the `python` skill before writing any code each step.
-- Work strictly RED then GREEN then REFACTOR. Write the failing test first and watch it fail for the right reason before implementing.
-- Do not modify existing per-extension test classes; they pin the in-process behavior the adapters must preserve. Add new classes alongside them.
-- Keep adapters thin: a Preprocessor/Postprocessor body should be a delegation to the pure function (plus the htmlStash wrapping for embed pre), not a second implementation.
-- Test only markwright logic: stage transforms, selection rules, warning conditions, CLI wiring, and the round-trip equivalence. Do not test Python-Markdown, argparse, or pygments behavior.
-- `just check` (pytest with 100% coverage, ruff, mypy strict) must pass before a step is considered complete. `just docs-build` must pass after Step 11.
+- Work strictly RED then GREEN then REFACTOR. Write the failing test first and watch it fail for the right reason (the actual defect) before implementing. Where an existing test encodes the buggy behavior, updating it is part of the red step (Global Requirement 4).
+- Every fix carries the regression test or probe that would have caught it. The gate missed all 12 because no test fed the triggering input; do not let a fix land without that input under test.
+- Hold every diff to upstream parity (Global Requirement 1) and the security rule (Global Requirement 2): no author-controlled directive text may produce live HTML or script at any stage.
+- Do not modify existing per-extension test classes that pin unchanged in-process behavior; add new classes alongside them. The exception is a test that encodes a defect being fixed, which the red step updates deliberately.
+- Coverage stays at 100 percent line AND branch. New branches (the R1 payload escaping, the R3 zero and negative guards, the R4 tilde and escape paths) carry their own cases; a line-only pass is not enough.
+- The brainstorm-gated branches (D1, D2, and the D3 contingency) must have their Decision recorded in the spec.md Decisions section before the branch code lands.
+- Test only markwright logic. Do not test Python-Markdown, pymdownx, argparse, or pygments behavior.
+- `just check` (pytest with 100 percent coverage, ruff, mypy strict) must pass before a step is considered complete. The clean-install probe (R2) runs in the CI integration job, not the local gate.
 - Every source file keeps its `# ABOUTME:` header, `from __future__ import annotations`, full type hints (no `Any`), absolute imports, and RST docstrings.
+- Public prose (README, docs) follows the repo writing rules: no em-dashes or en-dashes, straight quotes, plain voice.
 
 ## Success Metrics
 
-- `mw pre | <renderer> | mw post` reproduces the in-process markwright render for the full-feature fixture (Step 10).
-- `mw post` alone fully styles externally rendered HTML, including in-code highlights and one-time script injection.
-- `--use` / `--exclude` select stages correctly; unknown names exit 2 with a stderr message.
-- `--warn` reports malformed payloads, unsupported versions, and unmatched markers to stderr while leaving stdout and the exit code unchanged.
-- The `mw-fence` v1 marker round-trips through a comment-preserving renderer and degrades to a silent no-op through a comment-stripping one.
-- All existing extension tests stay green; coverage stays at 100%; mypy strict and ruff stay clean.
-- The installed `mw` console script runs (Step 12).
+- The two step-55 XSS probes render inert on both the `mw render` and `mw pre | render | mw post` paths, committed as regression tests that fail against pre-fix code (R1).
+- `mw render` runs from the built wheel in a clean venv with no dev group; `uv build` is warning-free; the package carries classifiers, urls, and keywords (R2, R11).
+- No youtube dimension input (zero, negative) raises; the fallback aspect ratio is asserted (R3).
+- `\<^>` renders as a literal marker identically across `mw render`, `mw pre`, and `mw pre | post`; markers inside tilde fences are left for the post stage; the three patterns share one escape guard; the literal-marker promise is true or D3 records the corrected promise (R4).
+- The Instagram `data-instgrm-permalink` is the normalized `https://www.instagram.com/p/${post}` form (R7a).
+- The compare SVG matches upstream (`viewBox 0 0 512 512`, single path); the slideshow nav JS matches upstream's `scrollLeft` IIFE (R8, R9).
+- No reader-facing doc instructs `[image_compare ...]`; the corrected `[compare ...]` example renders when copy-pasted (R10).
+- D1, D2, and D3 are resolved and recorded before R5, the R6/R7 grammar half, and the R4 fallback land; the chosen branch is under test (Steps 4, 9, 10).
+- All existing extension tests stay green; coverage stays at 100 percent; mypy strict and ruff stay clean; `just check` passes after every step.
