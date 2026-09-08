@@ -10,7 +10,19 @@ requires-python = ">=3.14"
 license = "MIT"
 dependencies = [
     "markdown>=3.4",
+    "pymdown-extensions>=10.5",
 ]
+keywords = ["markdown", "python-markdown", "do-markdownit", "mkdocs", "hugo"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+
+[project.urls]
+Homepage = "https://github.com/MasonEgger/markwright"
+Repository = "https://github.com/MasonEgger/markwright"
+Documentation = "https://masonegger.github.io/markwright/"
 
 [project.scripts]
 mw = "markwright.cli:main"
@@ -18,7 +30,6 @@ mw = "markwright.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "pymdown-extensions>=10.5",
     "ruff>=0.5",
     "mypy>=1.10",
     "pytest-cov>=7.0",
@@ -28,7 +39,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.17,<0.10.0"]
+requires = ["uv_build>=0.9.17,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.pytest.ini_options]

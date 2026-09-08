@@ -18,6 +18,12 @@
 # that directive. The post stage applies whatever fields it recognizes and skips a
 # marker (fail-soft, optionally warning) when the JSON is malformed, the version is
 # unsupported, or no code block follows.
+#
+# The serialized payload is comment-safe: ``_encode_marker_payload`` escapes every
+# literal ``<``/``>`` in the JSON to its ``\uXXXX`` form before it is written between
+# ``<!--`` and ``-->``, so a directive value containing ``-->`` can never close the
+# comment early. The transform is self-reversing: ``json.loads`` restores the
+# characters on read, so the post stage needs no manual decode step.
 
 from __future__ import annotations
 
@@ -41,6 +47,22 @@ SECONDARY_LABEL_RE = re.compile(r"^\[secondary_label (.+)\]$")
 ENVIRONMENT_RE = re.compile(r"^\[environment (.+)\]$")
 COMMENT_RE = re.compile(rf"<!-- {MARKER_NAME}:(.*?) -->")
 CUSTOM_PREFIX_RE = re.compile(r"^custom_prefix\((.+)\)$")
+
+
+def _encode_marker_payload(payload: dict[str, object]) -> str:
+    """Serialize a marker payload for safe embedding inside an HTML comment.
+
+    ``json.dumps`` leaves ``<`` and ``>`` as literal characters, so a directive
+    value containing ``-->`` would close the comment early and inject live
+    markup. Escaping both to their JSON ``\\uXXXX`` forms removes every literal
+    ``<``/``>`` from the comment body, so ``-->`` and ``<!--`` can never form
+    inside it. ``json.loads`` restores the original characters on read, so this
+    is self-reversing and requires no read-side change.
+
+    :param payload: The marker payload to serialize.
+    :returns: JSON text with every literal ``<`` and ``>`` unicode-escaped.
+    """
+    return json.dumps(payload).replace("<", "\\u003c").replace(">", "\\u003e")
 
 
 def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
@@ -229,7 +251,7 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
         if metadata:
             payload: dict[str, object] = {"version": MARKER_VERSION}
             payload.update(metadata)
-            output.append(f"<!-- {MARKER_NAME}:{json.dumps(payload)} -->")
+            output.append(f"<!-- {MARKER_NAME}:{_encode_marker_payload(payload)} -->")
 
         output.append(fence_line)
         output.extend(content_lines)

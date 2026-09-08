@@ -1,256 +1,347 @@
-# Spec: markwright Pipeline CLI
+# markwright Remediation Specification
 
-A single command-line tool that exposes the markwright extensions as pre- and post-processing stages, so their markdown syntax works in any toolchain or language, beyond the Python-Markdown render they require today.
+## Overview
 
-## Problem and Context
+markwright ports DigitalOcean's `do-markdownit` (JavaScript / markdown-it, Apache 2.0) into a set of Python-Markdown extensions plus an `mw` command-line tool that exposes those extensions as pre and post filter stages.
+The build is complete and the design spec it was built from is preserved in git at `git show main:spec.md`.
+A portfolio review on 2026-07-02 raised candidate findings against the built code.
+Adversarial verification (step 55, `.ai-sessions/step-55-do-markdown-verified.md`) confirmed 12 defects with exact file and line references and refuted none.
+This document defines the required behavior for fixing every confirmed defect.
 
-The markwright extensions are Python-Markdown extensions today.
-They only run inside a `markdown.Markdown` render, which means only Python consumers can use them.
-A friend running a Go/Hugo pipeline (and, more generally, anyone running a markdown toolchain in another language) wants to drop markwright syntax into their existing chain.
+The bar for this repository is a publish-candidate.
+markwright is meant to be installed from a wheel and dropped into anyone's markdown toolchain, so two of the confirmed defects are release blockers on their face: a stored cross-site scripting hole through the fence marker (R1), and an `mw render` that dies with `ModuleNotFoundError` in every clean install (R2).
+The project already has a gate, `just check` (test, lint, typecheck, with 100 percent line and branch coverage; CLAUDE.md:20,30).
+That gate is green on the current tree and it missed all 12 of these.
+It missed them because none of the confirmed defects had a test that fed the triggering input: no XSS probe through the fence marker, no clean-venv install check, no zero-dimension embed, no cross-consumer highlight comparison.
+Every requirement below therefore carries a regression test or probe that would have caught the defect, so the gate that let these through starts catching their class.
 
-Markdown toolchains commonly compose ordered steps that each transform a document and pass it on.
-The natural integration point for an external tool is a pair of filters: a pre stage that runs on markdown source before the core renderer, and a post stage that runs on the rendered HTML after it.
-This spec defines a single CLI that provides both stages, lets the user pick which extensions run, and makes no assumptions about which renderer sits in the middle.
+The design spec is not edited.
+It stays in git history at `git show main:spec.md` and this remediation spec replaces it at the repo root for the audit cycle.
+Citations of the form "spec.md:N" refer to that frozen file (`git show main:spec.md` line N).
+One design-spec claim is now false (the literal-marker promise at spec.md:200); R4 makes it true or corrects it.
+The parity decisions that the verifier flagged as "change-spec defensible" are not written as blind code requirements; they are routed to the Decisions section below for `/bpe:brainstorm`.
 
-This is deliberately renderer-agnostic.
-Hugo was the motivating example, but the tool special-cases nothing about Hugo.
+## Scope
 
-## Goals
+In scope: the 12 confirmed defects, their regression tests, the one false design-spec claim, and the two documentation fixes.
+Out of scope: the concurred non-defects (step-55 note, "Non-defects" section), new extensions, and refactors beyond what a fix requires.
 
-- One CLI binary with subcommands for the pre stage, the post stage, and a standalone full render.
-- Let the caller select individual extensions to run (`--use youtube --use highlight`), defaulting to all.
-- Behave as a Unix filter: read stdin, write stdout, composable in any pipe.
-- Stay renderer-agnostic: the pre and post stages coordinate through markers that survive a normal markdown render, not through knowledge of the renderer.
-- Reuse the existing, tested extension logic without changing its behavior inside Python-Markdown.
-- Preserve the project bar: mypy strict, ruff clean, 100% test coverage.
+Severity triage used for ordering:
 
-## Non-Goals
+- High (R1): a stored XSS hole; any directive value can inject live script into the output.
+- Medium-high (R2, R3): a shipped subcommand is dead in every clean install, or aborts a whole build on a benign input.
+- Medium (R4, R5): two consumers of the same feature disagree and the design spec promises behavior the code does not deliver.
+- Medium-low (R6, R7, R8): upstream-parity narrowing on the embeds, part firm and part pending a Decision.
+- Low (R9, R10, R11): output-format parity drift, a copy-paste-breaking doc error, and packaging polish.
 
-- Not a port to Go or Goldmark. This wraps the existing Python code.
-- Not a format-neutral AST. Output is HTML, the same as the extensions produce now. Multi-format output is a separate, larger project and is out of scope.
-- Not a markdown parser. The core markdown-to-HTML step is the caller's renderer; this tool only brackets it.
-- Not Hugo-specific. No shortcode emission, no Hugo config coupling, no `public/` directory walking baked in.
+## Available Tooling
 
-## Users and Use Cases
+Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goal` runs.
+`/bpe:plan` propagates these to per-section declarations in plan.md.
 
-1. A Go/Hugo author who wants markwright code labels, environments, line prefixes, and `<^>highlight<^>` in their content, plus the embeds.
-2. A Node/unified author who wants to bracket their remark pipeline with markwright syntax support.
-3. A plain Unix pipeline: `mw pre < in.md | some-renderer | mw post > out.html`.
-4. A Python consumer who keeps using the extensions in-process and ignores the CLI entirely (unchanged path).
+**Skills:**
+- python:python (modern Pythonic style, strict type hints, uv workflows, pytest)
 
-## Design Overview
+**Notes:** there is no Temporal in this repo; do not attach the Temporal MCP or the temporal-developer skill.
+The repo gate is `just check` (CLAUDE.md:20): `just test` (pytest, 100 percent line and branch coverage, `--cov-branch --cov-fail-under=100`), `just lint` (ruff check plus ruff format --check), `just typecheck` (mypy --strict).
+The Hugo integration test is excluded from the gate and run via `just test-integration` (CLAUDE.md:30,94).
+Validator should hold every diff to the parity rule (Global Requirement 1) and to the security rule (Global Requirement 2).
 
-The core idea is that every markwright feature decomposes into at most two pure string transforms: a source-stage transform (markdown text in, markdown-plus-HTML text out) and an HTML-stage transform (rendered HTML in, rendered HTML out).
-The caller's renderer runs between them.
+## Global Requirements
 
-```mermaid
-flowchart LR
-    A[markdown source] --> B[mw pre]
-    B --> C[caller's renderer]
-    C --> D[mw post]
-    D --> E[final HTML]
-```
+These apply to every requirement below.
 
-The pre stage expands source-level syntax (the embeds) and extracts fence directives into a marker comment.
-The renderer turns markdown into HTML, passing through the raw HTML and the marker comments.
-The post stage applies the HTML-level transforms (highlight, fence labels and prefixes) and injects any one-time embed scripts.
+1. **Upstream parity.** Output must match `do-markdownit` unless a Decision below explicitly documents a divergence (CLAUDE.md:34).
+   Where a requirement's direction is "change-code", the fix restores upstream behavior; where a Decision resolves "change-spec", the divergence is documented, not silently kept.
+2. **Security.** No author-controlled directive text may produce live HTML or script in the output of any stage.
+   Directive values are data, not markup.
+3. **Gates.** `just check` (test, lint, typecheck; 100 percent line and branch coverage) passes after every requirement.
+4. **Test-first.** Each fix starts with a failing test or probe that reproduces the defect, then the fix makes it pass.
+   Where an existing test encodes the buggy behavior, updating it is part of the red step.
+5. **Coverage stays at 100 percent.** New branches (the zero-dimension guard, the payload escaping) carry their own cases; a line-only pass is not enough (CLAUDE.md:30,95).
+6. **Spec citations.** "spec.md:N" means `git show main:spec.md` line N.
+   The design spec file is not edited; the one false claim it contains is resolved in R4.
+7. **Public prose.** All README and docs edits follow the repo writing rules: no em-dashes or en-dashes, straight quotes, plain voice.
 
-### Stage Matrix
+## Requirements
 
-Derived from the current extension registrations.
+### R1: Close the Stored XSS in the Fence Marker Comment (High)
 
-| Extension | Pre stage (source to source+HTML) | Post stage (HTML to HTML) | Cross-stage coordination |
-|---|---|---|---|
-| youtube | expand `[youtube ...]` to iframe HTML | none | none |
-| slideshow | expand `[slideshow ...]` to markup | none | none |
-| image_compare | expand `[image_compare ...]` to markup | none | none |
-| codepen | expand `[codepen ...]` to embed markup | inject `ei.js` once | post detects `class="codepen"` |
-| twitter | expand `[twitter ...]` to blockquote | inject `widgets.js` once | post detects `class="twitter-tweet"` |
-| instagram | expand `[instagram ...]` to blockquote | inject `embed.js` once | post detects `class="instagram-media"` |
-| fence | extract directives and flags to `<!-- mw-fence:{JSON} -->`, keep the fence | apply label divs, CSS classes, `<ol><li data-prefix>` | the `mw-fence` comment |
-| highlight | optional: wrap prose `<^>...<^>` in `<mark>`, skipping code regions | wrap remaining `&lt;^&gt;...&lt;^&gt;` runs in `<mark>`, span-safe | markers left for post |
+**Defect.** `fence.py:232` serializes the fence directives as `f"<!-- {MARKER_NAME}:{json.dumps(payload)} -->"`.
+`json.dumps` does not escape `>`, `<`, or `-`, so a directive value containing the literal ` --> ` closes the HTML comment early.
+The capture regexes at `fence.py:39-43` (`LABEL_RE`, `SECONDARY_LABEL_RE`, `ENVIRONMENT_RE`) use `(.+)`, which matches `>` and `-`, and the raw values are stored unescaped at `fence.py:208` (label), `:212` (secondary_label), `:216` (environment), and `:72` (custom_prefix).
+When the payload breaks the comment, `COMMENT_RE` (`fence.py:42`) captures a truncated group, that group is malformed JSON, and the post stage drops the marker fail-soft (the `json.JSONDecodeError` branch).
+The `html.escape` at `fence.py:351` never runs because it is only reached after a successful parse.
+Verified both paths: `mw render` on the step-55 probe emits a live `<script>alert(1)</script>` at the top of the document, and `mw pre | render | mw post` leaves the live `<script>` after post.
+The reproduced probe is in the step-55 verification scratchpad (`verify-55/h1_input.md`, `h1_render.out`, `h1_post.out`).
 
-Two coordination mechanisms, both renderer-agnostic:
+**Root cause.** The marker uses HTML-comment encoding but serializes author-controlled text into it without escaping the comment's terminating sequence, and the only escaping in the pipeline (`fence.py:351`) sits after the parse that the breakout defeats.
 
-- Script injection uses signature detection. The post stage scans the rendered HTML for the embed's class signature and appends the matching script tag exactly once. This needs no marker from the pre stage, so it also works on hand-authored embeds.
-- Fence styling uses a marker comment. The pre stage encodes directives as `<!-- mw-fence:{JSON} -->`, which a conformant renderer passes through untouched. The post stage reads the comment and styles the adjacent code block.
+**Required behavior.** No directive value can break out of the `mw-fence` marker comment.
+An author who writes ` --> `, `<script>`, or any other markup inside a label, secondary_label, environment, or custom_prefix directive gets that text treated as inert data at every stage.
+The implementer chooses the mechanism; any of these satisfies the requirement:
 
-### How Highlight Runs in Both Stages
+- Escape `>` and `-` (or the ` --> ` sequence) in the serialized payload before it is written at `fence.py:232`, and reverse the escaping on read in the post stage.
+- Move off HTML-comment encoding to a marker that cannot be closed by author text (for example a hidden element carrying a `data-mw-fence` attribute, already contemplated in the design spec's Future Directions).
+- Escape or reject the directive text before serialization, at the capture points (`fence.py:208,212,216,72`).
 
-Highlight participates in both stages, and the caller chooses which to run.
+Whichever mechanism is chosen, the post stage still applies the directives to legitimate input unchanged, and the `--warn` and fail-soft behavior for genuinely malformed markers is preserved.
 
-- The post stage is the complete path on its own. After an external render, both prose and code markers surface as escaped text (`&lt;^&gt;...&lt;^&gt;`), so a single post transform handles both, using the span-boundary-safe wrapping that keeps `<mark>` from crossing syntax-highlight `<span>` tokens. The post stage accepts markers in both escaped (`&lt;^&gt;`) and raw (`<^>`) form, since renderers differ in how they emit an unrecognized angle sequence.
-- The pre stage is an opt-in convenience for callers who want prose highlights resolved to `<mark>` before render. It wraps `<^>...<^>` only outside fenced and inline code regions and leaves the in-code markers untouched for the post stage, because highlighting inside code requires the post-render span handling. Pre-stage `<mark>` is raw HTML and so depends on the renderer passthrough requirement below.
+**Acceptance criteria.**
+- The two reproduced probes render inert: the `mw render` path and the `mw pre | render | mw post` path over the step-55 XSS input (`verify-55/h1_input.md`) produce output with no live `<script>` tag and no comment breakout.
+- Both probes are committed as pytest regression tests (one per path) that assert the injected `<script>` appears only as escaped text or not at all, and fail against the pre-fix code.
+- A round-trip test asserts a benign label containing a `>` or a `-` still styles its code block correctly (the fix does not over-escape legitimate directives).
+- `just check` passes.
 
-Running both stages is safe and idempotent: pre resolves prose, post resolves whatever markers remain (the in-code ones). Running only post does everything. Running only pre does prose only.
+**Test notes.** The step-55 probe input is `[label foo --> <script>alert(1)</script>]` above a fenced block; reuse it verbatim so the regression matches the reproduced finding.
+Assert on both consumers, since the two paths reach the marker differently.
 
-## CLI Contract
+### R2: Add pymdown-extensions to Runtime Dependencies (Medium-high)
 
-The command is `mw`.
+**Defect.** `cli.py:119-121` builds the `render` pipeline with `pymdownx.superfences` and `pymdownx.highlight`.
+`pyproject.toml:11-13` declares only `markdown>=3.4` as a runtime dependency; `pymdown-extensions` is in the dev dependency group.
+Verified against the built wheel in a clean uv venv: `mw list`, `mw pre`, and `mw post` work, but `mw render` raises `ModuleNotFoundError: No module named 'pymdownx'`.
+The README standalone and MkDocs examples fail identically.
+The package is not publishable as-is.
 
-```
-mw pre    [--use NAME ...] [--exclude NAME ...]
-mw post   [--use NAME ...] [--exclude NAME ...] [--warn]
-mw render [--use NAME ...] [--exclude NAME ...]
-mw list
-mw --version
-```
+**Root cause.** A runtime import path depends on a package that is declared only for development.
 
-- `pre` reads markdown, writes markdown with embedded HTML and marker comments.
-- `post` reads HTML, writes HTML with markwright styling and scripts applied.
-- `render` runs the full markdown-to-HTML pipeline in one shot, using the existing Python-Markdown path. This is the standalone renderer for callers who do not have their own.
-- `list` prints every extension with the stage(s) it participates in.
+**Required behavior.** `mw render` works from the built wheel in a clean environment with no dev group installed.
+`pymdown-extensions` moves to the runtime `dependencies` in `pyproject.toml` with an appropriate lower bound.
 
-Behavior:
+**Acceptance criteria.**
+- A clean-venv check installs the built wheel with no dev dependencies and runs `mw render` over a small document successfully (no `ModuleNotFoundError`).
+- The check is encoded so it can run in CI (a script or a test that builds the wheel, installs it into an isolated venv, and asserts `mw render` exits 0).
+- `pymdown-extensions` no longer appears only in the dev group; it is a runtime dependency.
+- `just check` passes.
 
-- The MVP is a pure stdin-to-stdout filter. Every transform subcommand reads stdin and writes stdout, so it composes in any pipe. File arguments and in-place batch editing are deferred to a later enhancement and are explicitly out of MVP scope.
-- `--use` is repeatable and selects extensions; the default is all extensions. `--exclude` removes from the selected set.
-- Selection order does not matter; stages always run in the extensions' defined priority order, matching the in-process behavior.
-- Input and output are UTF-8.
-- Exit codes: 0 on success, 1 on input or IO error, 2 on usage error (argparse default).
-- Errors go to stderr and fail loud; the tool does not silently swallow a bad selection or malformed input.
+**Test notes.** The clean-venv reproduction is in the step-55 scratchpad (`verify-55/cleanvenv`, `dist/markwright-0.1.0-py3-none-any.whl`).
+The in-process test suite already has pymdownx via the dev group, so a unit test alone cannot catch this; the install check is the load-bearing regression.
 
-### The `--warn` Flag
+### R3: Guard Zero and Negative Dimensions in the youtube Embed (Medium-high)
 
-`--warn` is a `post` diagnostic. When set, the post stage writes advisory warnings to stderr for markers and signatures it sees but cannot fully apply. It changes no output and does not affect the exit code (warnings stay advisory; exit 0).
+**Defect.** `[youtube ID 0 0]`, or any zero height, triggers an unhandled `ZeroDivisionError`.
+`youtube.py:36` calls `reduce_fraction(width, height)`, which reaches `_util.py:17`: `numerator // divisor` where `divisor = math.gcd(0, 0) = 0`, a division by zero.
+Verified traceback in `mw pre` and `mw render`; run in-process inside a MkDocs build, it aborts the whole build.
+The 100 percent coverage gate never feeds a zero dimension, so it did not catch this.
 
-It reports only what a post-only filter can actually detect:
+**Root cause.** `reduce_fraction` assumes a nonzero gcd, and the youtube parser passes author-supplied dimensions straight through without validating them.
 
-- A malformed `mw-fence` JSON payload (skipped, not executed).
-- A marker whose `version` the running tool does not support.
-- A marker with no adjacent code block to style.
+**Required behavior.** A zero or negative width or height in a `[youtube ...]` directive does not raise.
+The fix guards the degenerate input in `reduce_fraction` or in the youtube parser (for example, fall back to the default aspect ratio, or reject the directive as invalid input); either is acceptable as long as no input produces an unhandled exception.
 
-It cannot report the comment-stripping case. Once a renderer drops the `mw-fence` comment, the post stage has no evidence the directive ever existed, so a stripped marker is silently absent rather than a detectable skip. That failure mode is covered by the documented renderer-requirements contract below, not by runtime detection. Without `--warn`, all of these conditions are a silent graceful no-op (the default).
+**Acceptance criteria.**
+- A pytest case feeds `[youtube ID 0 0]` (and a zero height, and a negative dimension) through the youtube stage and asserts it returns without raising.
+- The chosen fallback is asserted (a valid aspect ratio, or a documented rejection), not just the absence of a traceback.
+- The existing valid-dimension cases still pass.
+- `just check` passes.
 
-### Renderer Requirements (Documented Contract)
+**Test notes.** Cover both `reduce_fraction(0, 0)` at the unit level and the `[youtube ID 0 0]` directive at the stage level, since the guard could live in either place.
 
-For the pre and post stages to round-trip correctly, the caller's renderer between them must:
+### R4: Unify the Two Highlight Regexes and Make the Literal-Marker Promise True (Medium)
 
-1. Pass raw HTML blocks through (needed for expanded embeds). Renderers that strip raw HTML by default require their passthrough option enabled.
-2. Preserve HTML comments (needed for the `mw-fence` marker). A renderer that drops comments disables fence styling but does not break anything else.
-3. Wrap syntax-highlighted code tokens in tags (needed for in-code highlight). Any Pygments- or Chroma-style highlighter qualifies.
+**Defect.** Two divergences in the `<^>...<^>` highlight feature, one fix.
+First, the escape guard is inconsistent across consumers: `_ESCAPED_HIGHLIGHT_RE` (`highlight.py:16`, post stage) and `_PROSE_HIGHLIGHT_RE` (`highlight.py:23`, pre stage) both carry the `(?<!\\)` guard, but the base `_HIGHLIGHT_PATTERN` at `highlight.py:14` lacks it.
+On input `a \<^>x\<^> b`, the two consumers disagree: `mw render` emits `\<mark>x\</mark>` while `mw pre` and `mw pre | post` emit the literal `a <^>x<^> b`.
+Because the in-process render does not preserve the `\<^>` escape as a literal marker, the design-spec claim at spec.md:200 ("The `\<^>` escape survives both stages and renders as a literal marker, as it does in-process today") is false.
+Second, the pre stage highlights markers inside tilde-delimited code fences: `_CODE_REGION_RE` at `highlight.py:28-31` recognizes only backtick fences, so `~~~ ... <^>x<^> ... ~~~` emits `<mark>` inside code while the backtick fence is correctly skipped.
+Verified both.
+(Findings C1 and P3.)
 
-These are stated plainly in the docs so a user can predict which features survive their specific chain.
-The post stage degrades gracefully: if a marker or signature is absent, that feature is a no-op rather than an error.
+**Root cause.** The highlight feature grew three regexes that should share one contract; the escape guard and the code-region awareness were added to some consumers and not others.
 
-## Marker Contract (`mw-fence`)
+**Required behavior.** The escape guard and the code-region skipping are unified so every highlight consumer agrees on the same two rules: `\<^>` is a literal escaped marker that is never wrapped, and markers inside any fenced code region (backtick or tilde) are left for the post stage, never highlighted by the pre stage.
+`_CODE_REGION_RE` recognizes tilde fences as well as backtick fences.
+The spec.md:200 literal-marker promise is made true: the escape renders as a literal marker consistently across `mw render`, `mw pre`, and `mw pre | post`.
+If parity with the in-process render cannot deliver the literal marker on every path, the requirement is instead to record the corrected promise in the Decisions section (D3) and reconcile the two consumers on the achievable behavior; the false claim must not survive either way.
 
-The fence directives travel from `pre` to `post` as an HTML comment placed immediately before the fence: `<!-- mw-fence:{JSON} -->`.
-The fence itself is left intact, so the caller's renderer still sees and syntax-highlights the real code; there is no placeholder and no rewritten language token.
-Post associates a marker with the code block that immediately follows it, the same adjacency rule the in-process postprocessor already uses.
-This comment is the only cross-tool surface, so its shape is a versioned contract.
+**Acceptance criteria.**
+- A pytest case asserts `a \<^>x\<^> b` produces identical highlight output across `mw render`, `mw pre`, and `mw pre | post` (a literal marker, no `<mark>`), and fails against the pre-fix code.
+- A pytest case asserts `<^>x<^>` inside a `~~~` tilde fence is not wrapped by the pre stage, matching the backtick-fence behavior.
+- The three regexes share the escape guard (no consumer lacks it); a code-level or table-driven test pins that the escaped, raw, and base patterns agree.
+- Either the literal-marker behavior at spec.md:200 holds on every path, or Decision D3 records the corrected promise; no doc contains a false literal-marker claim.
+- `just check` passes.
 
-### v1 Payload
+**Test notes.** Drive all three consumers from one parametrized test so a future divergence fails loudly.
+The step-55 note records the exact divergent outputs to assert against.
 
-```json
-{
-  "version": 1,
-  "label": "deploy.sh",
-  "secondary_label": "optional second label",
-  "environment": "local",
-  "prefix_type": "command",
-  "prefix_value": "$"
-}
-```
+### R5: Restore or Document Single-Image Slideshow Parity (Medium-low)
 
-`version` is an integer and the only required field.
-Every other field is optional and present only when the author used that directive.
-`prefix_type` is one of `line_numbers`, `command`, `super_user`, or `custom_prefix`; `prefix_value` carries the rendered prefix (`$`, `#`, or custom text) and is absent for `line_numbers`.
-Post applies whatever fields are present and ignores any it does not recognize.
+**Defect.** `slideshow.py:37` requires `len(urls) >= 2`, so a single-image slideshow is dropped.
+Upstream `slideshow.js:82` rejects only `!images.length`, accepting one or more images.
+(Finding C2.)
 
-### Versioning Policy
+**Root cause.** The port tightened the minimum image count from one to two.
 
-Best-effort, backward compatible, and fail-soft:
+**Required behavior.** Resolve per Decision D1 below.
+If D1 chooses code parity, `slideshow.py:37` accepts one or more images (`len(urls) >= 1`), matching upstream.
+If D1 chooses to document the divergence, the design intent (a slideshow needs at least two slides) is stated in the slideshow docs and this stays as a deliberate, recorded difference.
+Do not change the code blindly ahead of D1.
 
-- The schema grows additively. New optional fields do not bump `version`; only a breaking change (a removed field or a changed meaning) does.
-- Post reads any marker whose `version` it knows (currently only `1`) and ignores unknown fields, so a newer `pre` that only added fields still works with an older `post`.
-- A marker whose `version` is greater than post knows is skipped as a no-op and reported under `--warn`. Post never guesses at a schema it does not know.
-- A malformed payload (invalid JSON, or a missing or wrongly typed required field for the claimed version) is skipped, never executed, and reported under `--warn`.
+**Acceptance criteria.**
+- If code parity: a pytest case asserts a single-image `[slideshow URL]` produces the same markup shape upstream would, and the two-image case is unchanged.
+- If documented divergence: the slideshow docs state the two-image minimum and the reason, and a test pins the `>= 2` behavior as intentional.
+- `just check` passes.
 
-This mirrors the project-wide rule that an unreadable or absent marker degrades to a no-op rather than an error.
+**Test notes.** Blocked on D1; land the Decision first.
 
-## Implementation Strategy
+### R6: Restore or Document Twitter URL Grammar Parity (Medium-low)
 
-Refactor each extension into pure, stage-tagged functions, then make the existing `Extension` classes thin adapters over them.
-This keeps every current test green and adds a second consumer (the CLI) over the same logic.
+**Defect.** The Twitter directive regex mandates a scheme, forbids `www.`, and requires a full URL.
+Upstream `twitter.js:89` makes the scheme, `www.`, and prefix optional and accepts a bare `user/status/id`.
+(Finding C3.)
 
-```mermaid
-flowchart TD
-    F[pure stage functions per extension] --> A[Python-Markdown adapters]
-    F --> C[CLI subcommands]
-    A --> T1[existing extension tests stay green]
-    C --> T2[new CLI and stage-function tests]
-```
+**Root cause.** The port narrowed the accepted input grammar.
 
-- Each module exposes functions such as `expand_source(text) -> text` and/or `apply_html(html) -> html`.
-- A registry maps extension name to `{pre: fn | None, post: fn | None, priority: int}`.
-- `pre` composes the selected `pre` functions in priority order over the input; `post` composes the selected `post` functions; `render` builds a `markdown.Markdown` with the selected extensions (the existing path).
-- The `mw-fence` marker format becomes a public contract once it crosses the pipeline boundary, so it gets a `version` field and a documented schema.
+**Required behavior.** Resolve per Decision D2 below (paired with R7's regex half).
+If D2 chooses code parity, the Twitter regex accepts the optional scheme, optional `www.`, and bare `user/status/id` forms upstream accepts.
+If D2 chooses to keep the stricter grammar, the accepted input is documented in the twitter docs as a deliberate narrowing.
+Do not change the code blindly ahead of D2.
 
-Packaging: add a `[project.scripts]` entry point (`mw = "markwright.cli:main"`).
-Use stdlib `argparse`, consistent with the project's stdlib-first, low-dependency stance.
+**Acceptance criteria.**
+- If code parity: pytest cases assert each upstream-accepted form (scheme-less, `www.`-prefixed, bare `user/status/id`) produces the expected blockquote, and fail against the pre-fix regex.
+- If documented divergence: the twitter docs state the required URL grammar, and a test pins it.
+- `just check` passes.
 
-## Edge Cases and Failure Modes
+**Test notes.** Blocked on D2; pair with R7.
 
-- Empty input produces empty output, no error.
-- Input with no markwright syntax passes through unchanged at every stage.
-- `post` run on HTML the `pre` stage never touched still injects scripts for hand-authored embeds via signature detection.
-- Idempotency: running `post` twice must not double-inject a script (detect an already-present script tag) or double-wrap a mark (the markers are gone after the first pass). This is a tested requirement.
-- A renderer that strips HTML comments leaves fence code blocks unstyled; the post stage skips them silently. This case is undetectable by `--warn` (the marker is simply gone) and is documented in the renderer-requirements contract.
-- The `\<^>` escape survives both stages and renders as a literal marker, as it does in-process today.
-- Malformed or adversarial marker comments are validated before use; a bad JSON payload is skipped, not executed, and reported under `--warn`.
+### R7: Fix the Instagram Permalink and Resolve Shortcode Grammar Parity (Medium-low)
 
-## Testing Approach
+**Defect.** Two divergences.
+First, output format: `instagram.py:87` reuses the raw input URL for `data-instgrm-permalink`, while upstream `instagram.js:170` forces `https://www.instagram.com/p/${post}`.
+The upstream embed script (`embed.js`) needs the `www` host, so the raw-URL permalink is an output-format defect.
+Second, input grammar: the Instagram regex at `instagram.py:15` requires a full URL and rejects the shortcodes upstream `instagram.js:89` accepts.
+(Finding C4.)
 
-- Keep the existing per-extension tests unchanged; they pin the in-process behavior the adapters must preserve.
-- Add stage-function tests that call the pure `expand_source` / `apply_html` functions directly.
-- Add CLI tests that drive each subcommand over stdin and assert stdout, plus selection flags and exit codes.
-- Add `--warn` tests: a malformed payload, an unsupported version, and a marker with no matching code block each emit a stderr warning while leaving stdout and the exit code unchanged.
-- Add a round-trip integration test: `pre` output fed through a minimal stub renderer (a real Python-Markdown render with raw-HTML and comment passthrough) and then `post`, asserting the final HTML matches the in-process `render`.
-- Maintain 100% coverage; `just check` stays the gate.
+**Root cause.** The port both changed the emitted permalink and narrowed the accepted input, the same grammar narrowing as R6.
 
-## Milestones
+**Required behavior.** The permalink half is firm change-code (output format, Global Requirement 1): `instagram.py:87` emits `https://www.instagram.com/p/${post}` for `data-instgrm-permalink`, matching upstream, so the embed script resolves.
+The shortcode-acceptance half is input grammar and is resolved per Decision D2 (paired with R6): if D2 chooses code parity, the regex accepts bare shortcodes as upstream does; if D2 keeps the stricter grammar, the accepted input is documented.
 
-1. Refactor extensions into pure stage functions plus thin adapters. No behavior change, all existing tests green.
-2. Stage registry and the `list` subcommand.
-3. `post` subcommand: highlight, fence apply, signature-based script injection, and the `--warn` diagnostics, with tests.
-4. `pre` subcommand: embed expansion, fence directive extraction, with tests.
-5. `render` subcommand over the existing pipeline, with tests.
-6. Cross-stage round-trip integration tests.
-7. Docs: CLI reference, pipeline integration guide, the renderer-requirements contract.
-8. Packaging: console-script entry point and a smoke test that the installed command runs.
+**Acceptance criteria.**
+- A pytest case asserts the emitted `data-instgrm-permalink` is the normalized `https://www.instagram.com/p/${post}` form for a valid input, and fails against the pre-fix code.
+- The shortcode-grammar cases follow D2 (parity test or documented-narrowing test), same shape as R6.
+- `just check` passes.
 
-## Risks
+**Test notes.** Split the test file into the firm permalink assertion (land now) and the D2-gated grammar assertions (land with the Decision).
 
-- Renderer assumptions (HTML passthrough, comment survival, span-based highlighting) will not hold in every chain. Mitigate with the documented contract, graceful degradation, and the `--warn` mode that reports markers the post stage cannot apply.
-- The refactor could regress tested behavior. Mitigate by keeping adapters thin and running `just check` at each milestone.
-- The `mw-fence` marker becomes a cross-tool contract. Mitigate by versioning the payload and validating it on read.
-- One-time script injection is easy to get wrong (double injection, wrong order). Mitigate with idempotency tests and a single, central injection step in `post`.
+### R8: Match the Compare SVG to Upstream (Low)
 
-## Future Directions (Deferred, Not in Scope for MVP)
+**Defect.** `image_compare.py:18-23` emits a `viewBox 0 0 100 100` two-polygon SVG; upstream `compare.js:110` emits a `viewBox 0 0 512 512` single-path SVG.
+(Finding C5.)
 
-The MVP emits HTML.
-The refactor into pure stage functions over each construct's structured form is chosen partly to keep other render targets open without a teardown later.
+**Root cause.** The port drew a different handle icon than upstream.
 
-- Agent-readable output. A static site that serves raw markdown to LLM agents wants the markwright syntax resolved into something legible, since `[youtube abc]` and `<^>foo<^>` are presentational noise an agent cannot interpret. This is a clean-text or clean-markdown render target (for example `[youtube abc]` to a plain `Video: <url>` line, `<^>name<^>` to just `name`), not a data format. It is a second serializer over the same structured constructs.
-- Structured JSON of the markwright constructs, for tools that want to inspect what syntax is present rather than consume HTML. Cheap on the current substrate because the data already exists internally (embed flag dicts, the fence metadata that is already JSON-serialized into its marker).
-- A format-neutral whole-document AST with JSON serialization and multi-format rendering. This is a foundation change, not an output mode; it would mean reimplementing the features as `markdown-it-py` plugins (the Python port of the same `markdown-it` engine the original do-markdownit is built on), and is tracked only as a possible long-term direction.
-- A marker encoding that survives comment-stripping renderers. The MVP carries fence directives in an HTML comment, which a strict sanitizer can drop. If a real chain needs it, a passthrough-element encoding (a hidden element with a `data-mw-fence` attribute, riding the raw-HTML passthrough the embeds already require) can carry the same payload past comment stripping. Deferred until a user's renderer actually requires it; the comment stays the default.
+**Required behavior.** The emitted compare SVG matches upstream: `viewBox 0 0 512 512`, single path (Global Requirement 1, output format).
 
-The design rule that preserves all three: stage functions must not bury a construct's structured data inside an HTML string before it is needed. Keep the structured form reachable; let serialization be the last step.
+**Acceptance criteria.**
+- A pytest case asserts the emitted SVG has the upstream `viewBox` and path, and fails against the pre-fix two-polygon markup.
+- `just check` passes.
 
-## Resolved Decisions
+**Test notes.** Copy the exact path data from `compare.js:110`.
 
-- CLI command name is `mw`.
-- The fence marker is an HTML comment with a versioned JSON payload placed before the fence (see Marker Contract). Its policy is best-effort and fail-soft: unknown fields are ignored, and an unsupported `version` or malformed payload is skipped and warned, never guessed.
-- `--warn` is in the MVP. It is a `post`-stage diagnostic that reports only detectable problems (malformed marker JSON, an unsupported marker version, or a marker with no matching code block). Comment-stripping is undetectable by a post-only filter and is covered by the renderer-requirements contract instead.
-- The MVP is stdin-to-stdout only. File arguments and in-place `--write` are deferred.
-- The pre stage requires the caller's renderer to allow raw HTML passthrough; there is no placeholder-rehydrate mode in the MVP. This is stated in the renderer-requirements contract.
-- Highlight participates in both stages: an opt-in pre mode for prose and a complete post mode that also covers in-code highlights.
+### R9: Match the Slideshow Nav JavaScript to Upstream (Low)
+
+**Defect.** `slideshow.py:113-115` emits `parentElement.querySelector('.slides').scrollBy(+/-width, 0)`; upstream `slideshow.js:112-113` emits a `getElementsByClassName[0].scrollLeft += / -= width` IIFE.
+(Finding C6.)
+
+**Root cause.** The port rewrote the nav handler instead of porting it.
+
+**Required behavior.** The emitted nav JavaScript matches upstream's `scrollLeft` IIFE form (Global Requirement 1, output format).
+
+**Acceptance criteria.**
+- A pytest case asserts the emitted nav script matches the upstream shape, and fails against the pre-fix `scrollBy` form.
+- `just check` passes.
+
+**Test notes.** Assert on the emitted string; this is a pure output comparison.
+
+### R10: Fix the image_compare Token in the Spec and README (Low, Doc Fix)
+
+**Defect.** The author-facing token is `[compare ...]` (`image_compare.py:13`, `docs/extensions/image-compare.md:19`), matching upstream.
+The registered name `image_compare` (`registry.py:45`) is internal only.
+The design-spec Stage Matrix at spec.md:66 and `README.md:141` tell the reader to write `[image_compare ...]`, which renders nothing when copy-pasted.
+(Finding C7.)
+
+**Root cause.** The Stage Matrix and README used the internal registry name instead of the author-facing token.
+
+**Required behavior.** The reader-facing examples use the working `[compare ...]` token.
+`README.md:141` is corrected to `[compare ...]`.
+The old design-spec Stage Matrix row at spec.md:66 stays frozen in history; since this remediation spec replaces spec.md at the root, any surviving Stage Matrix reference here uses the correct token, and the correction is noted in the Decisions section.
+
+**Acceptance criteria.**
+- `README.md:141` reads `[compare before.jpg after.jpg]` (or equivalent), and a copy-paste of that example through `mw render` produces the compare markup.
+- No reader-facing doc instructs the author to write `[image_compare ...]`; a grep over `README.md` and `docs/` for the author-facing `[image_compare` token returns nothing.
+- `just check` passes (docs edits do not break the gate).
+
+**Test notes.** Pure doc fix; the grep probe plus a render of the corrected example is the test.
+
+### R11: Fix the Packaging Polish for Publish (Low)
+
+**Defect.** `pyproject.toml:31` pins `uv_build>=0.9.17,<0.10.0`, which excludes the installed uv 0.10.9 and makes `uv build` warn.
+The package also lacks `classifiers`, `[project.urls]`, and `keywords`.
+(Finding P4.)
+
+**Root cause.** The build-backend pin was written against an older uv and the publish metadata was never filled in.
+
+**Required behavior.** `uv build` runs without the version-pin warning, and the package carries the metadata a publish expects.
+Widen or update the `uv_build` pin to admit current uv, and add `classifiers`, `[project.urls]`, and `keywords` to `[project]`.
+
+**Acceptance criteria.**
+- `uv build` completes with no build-backend version warning.
+- `pyproject.toml` has non-empty `classifiers`, `[project.urls]`, and `keywords`.
+- `just check` passes.
+
+**Test notes.** Land with R2 (both are packaging changes verified from the built wheel).
+
+## Decisions
+
+These parity items carry a "change-spec defensible" direction from the step-55 verification.
+They are not written as blind code requirements; each needs a decision before its requirement's code path is chosen.
+Route them through `/bpe:brainstorm`.
+
+- **D1 (drives R5): single-image slideshow.** Upstream accepts one or more images; markwright requires two (`slideshow.py:37` vs `slideshow.js:82`).
+  Decide: restore `>= 1` for strict upstream parity, or keep `>= 2` as a deliberate design choice (a slideshow needs at least two slides) and document it.
+  The verifier called the change-spec (document) direction acceptable and change-code the strict-parity option.
+- **D2 (drives R6 and R7's grammar half): embed URL grammar.** Upstream accepts scheme-less, `www.`-optional, and bare `user/status/id` or shortcode forms for Twitter and Instagram; markwright's regexes require full URLs (`twitter.js:89`, `instagram.js:89` vs the twitter regex, `instagram.py:15`).
+  Decide once for both embeds: restore the permissive upstream grammar (change-code, the verifier's preferred direction), or keep the stricter full-URL grammar as a documented input contract (change-spec, defensible).
+  R7's permalink half (`data-instgrm-permalink` normalization) is not part of this decision; it is firm change-code regardless.
+- **D3 (drives R4's fallback): the literal-marker promise.** spec.md:200 promises `\<^>` renders as a literal marker consistently, which the in-process render does not currently deliver.
+  Preferred resolution is to make it true (unify the regexes so every path preserves the literal marker).
+  If some path cannot deliver it under Python-Markdown, decide the corrected promise here and reconcile the consumers on the achievable behavior.
 
 ## Open Questions
 
-None block the MVP. The two earlier questions are now settled:
+None block the fixes.
+The three Decisions above gate only R5, the grammar half of R6 and R7, and the fallback branch of R4; the firm requirements (R1, R2, R3, the R4 unification, R7's permalink, R8, R9, R10, R11) proceed without them.
 
-- Marker version policy: resolved as best-effort and fail-soft (see Marker Contract). The only forward-looking piece, the exact policy when a real v2 marker ships, does not affect the v1 MVP.
-- Surviving comment-stripping renderers: a parked enhancement (see Future Directions), not an MVP gap.
+## Component Boundaries
+
+Each requirement is independently implementable, with these batching notes:
+
+- R1 stands alone and lands first; it is the release blocker.
+- R2 and R11 are one packaging pass, both verified from the built wheel in a clean venv.
+- R4 unifies three regexes across two consumers; land C1 and P3 together since they share the fix.
+- R6 and R7's grammar half share Decision D2; land them together once D2 resolves.
+- R8, R9, and R10 are independent low-severity output and doc fixes.
+
+## Verification
+
+The cycle is done when:
+
+1. Every acceptance criterion above has a passing test or probe, observed failing first where behavior changed.
+2. `just check` passes (test, lint, typecheck; 100 percent line and branch coverage).
+3. The two XSS probes (R1) render inert and are committed as regression tests.
+4. The clean-venv `mw render` check (R2) passes against a freshly built wheel with no dev dependencies.
+5. Decisions D1, D2, and D3 are resolved before R5, the R6/R7 grammar half, and the R4 fallback land.
+
+## Review Record
+
+Kept for auditability of the step-55 verification (`.ai-sessions/step-55-do-markdown-verified.md`): 12 confirmed, 0 refuted.
+
+Concurred non-defects (no requirement issued):
+
+- Slideshow and compare image `src` values are not scheme-validated, but they are attribute-escaped and sit in a non-navigation context.
+- Twitter and Instagram scripts drop `type="text/javascript"`; the v1 plan omitted it deliberately, a strict-parity nit only.
+- `requires-python >= 3.14` with 3.10-compatible code is deliberate.
+- The deselected integration test runs in CI.
+- `uv build` is otherwise correct (the only issue is the version pin, R11).
