@@ -5,10 +5,10 @@ Steps 4-10 are withheld: Step 4 folds in the D3 contingency and Steps 9-10 are h
 The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in git history (`git log -- todo.md`); this file now tracks the remediation cycle instead.
 
 ## Step 1: R1 — Close the Stored XSS in the Fence Marker Comment (High)
-- [ ] 1. RED: add `TestFenceMarkerXss` to `tests/test_fence.py` with the step-55 probe (`[label foo --> <script>alert(1)</script>]`); assert no live `-->` breakout or live `<script>` on the `mw render` path and the `mw pre | post` path; add benign `>` / `-` round-trip cases; confirm the XSS cases FAIL against current code
-- [ ] 2. GREEN: escape `<` / `>` to `\uXXXX` in the serialized marker payload at `fence.py:232` via a small `_encode_marker_payload` helper; confirm `json.loads` round-trips it with no read-side change needed
-- [ ] 3. REFACTOR: keep the encode helper next to `COMMENT_RE`/`MARKER_NAME`; document the comment-safe, self-reversing contract in the module header
-- [ ] 4. Verify `--warn` / fail-soft (malformed marker, bad version, no-block) tests still pass; `just check`
+- [x] 1. RED: add `TestFenceMarkerXss` to `tests/test_fence.py` with the step-55 probe (`[label foo --> <script>alert(1)</script>]`); assert no live `-->` breakout or live `<script>` on the `mw render` path and the `mw pre | post` path; add benign `>` / `-` round-trip cases; confirm the XSS cases FAIL against current code
+- [x] 2. GREEN: escape `<` / `>` to `\uXXXX` in the serialized marker payload at `fence.py:232` via a small `_encode_marker_payload` helper; confirm `json.loads` round-trips it with no read-side change needed
+- [x] 3. REFACTOR: keep the encode helper next to `COMMENT_RE`/`MARKER_NAME`; document the comment-safe, self-reversing contract in the module header
+- [x] 4. Verify `--warn` / fail-soft (malformed marker, bad version, no-block) tests still pass; `just check`
 
 ## Step 2: R2 + R11 — Packaging Pass: Runtime Dependency, Publish Metadata, Clean-Venv Probe (Medium-high + Low)
 - [ ] 1. RED: add `tests/integration/test_clean_install.py` (marked `integration`, skip if `uv` missing) that builds the wheel, installs it in an isolated venv with no dev group, and asserts `mw render` on a `[youtube ...]` doc exits 0 with no `ModuleNotFoundError`; also assert `uv build` emits no build-backend version warning

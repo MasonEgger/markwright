@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- Escaping `<`/`>` to their JSON `\uXXXX` forms after `json.dumps` is a general technique for embedding data inside an HTML comment (`<!-- ... -->`): it removes every literal `<`/`>` from the payload so `-->`/`<!--` can never form inside it, and `json.loads` decodes `\uXXXX` transparently, so the read side needs no change (2026-09-08)
 - When a `plan.md` is replaced or regenerated mid-cycle (a spec/plan swap for a remediation pass, a re-scope), regenerate `todo.md` in the same commit; `/bpe:goal` pre-flight only checks for zero unchecked items, so a `todo.md` left over from a prior, already-completed plan passes the "has unchecked items" check as fully done and silently blocks the loop (2026-09-07)
 - `mkdocs build --strict` exits 0 on a clean build but Material for MkDocs prints a red MkDocs-2.0 promotional banner to stderr that is not a strict warning; verify success by the exit code plus `grep -iE "^WARNING|^ERROR"` rather than eyeballing colored output (2026-06-28)
 - An "A render equals B render" equivalence test can pass vacuously when both sides degrade identically (mis-placed fence directives rendered as inert prose in both paths); pair it with a presence-assertion test confirming each feature actually appears in the output. When only inter-block whitespace differs, normalize by collapsing blank lines *outside* `<pre>` (stash pre blocks first) so significant code-block whitespace is preserved (2026-06-28)
@@ -11,7 +12,6 @@
 - Keep a registry-facing stage function at a fixed signature (`apply_html(html, warnings=None)`) and route the in-process processor through the same private core (`_apply_marker(..., label_class, secondary_label_class)`) so configurable in-process options survive without giving the pure function config parameters (2026-06-28)
 - Script-embed postprocessors can drop the `found` flag and detect their class signature in the rendered HTML instead: the raw-HTML restore postprocessor (priority 30) runs before script injection (priority 15), so the stashed embed HTML is already in the text; `SIGNATURE in html and SCRIPT not in html` makes injection idempotent and shares one path with the `mw post` CLI stage (2026-06-28)
 - Design diagnostics around locally observable state: a post-only filter cannot detect what an upstream stage stripped (a removed HTML comment leaves no trace), so `mw --warn` reports only the malformed or unsupported markers it can actually see (2026-06-27)
-- Commit the spec/plan/todo artifacts before `/bpe:goal`; it refuses on a dirty tree and on a non-gitignored `goal.md`, and a clean tree keeps the run's "git status empty" completion condition valid (2026-06-27)
 
 ## CLI
 - When a REFACTOR prompt says "factor stdin/stdout helpers" but the project bans trivial stdlib wrappers, factor only the non-trivial shared logic (e.g. a `_resolve_selection` that calls `select_extensions` and prints the `ValueError` to stderr, returning `None` to signal exit 2) and leave `sys.stdin.read()`/`sys.stdout.write()` inline (2026-06-28)
@@ -35,6 +35,10 @@
 
 ## Git
 - When renaming a project, check whether the old name is a substring of a name you must keep (`do-markdown` is inside the upstream `do-markdownit`); use a negative-lookahead replace `do-markdown(?!it)` so the attribution is not corrupted (2026-06-27)
+- Commit the spec/plan/todo artifacts before `/bpe:goal`; it refuses on a dirty tree and on a non-gitignored `goal.md`, and a clean tree keeps the run's "git status empty" completion condition valid (2026-06-27)
+
+## Security
+- Escaping `<`/`>` to their JSON `\uXXXX` forms after `json.dumps` is a general technique for embedding data inside an HTML comment (`<!-- ... -->`): it removes every literal `<`/`>` from the payload so `-->`/`<!--` can never form inside it, and `json.loads` decodes `\uXXXX` transparently, so the read side needs no change (2026-09-08)
 
 ## Python-Markdown
 - Keep a registry-facing stage function at a fixed signature (`apply_html(html, warnings=None)`) and route the in-process processor through the same private core (`_apply_marker(..., label_class, secondary_label_class)`) so configurable in-process options survive without giving the pure function config parameters (2026-06-28)
