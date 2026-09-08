@@ -19,8 +19,8 @@ The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in gi
 - [x] 6. Verify `just check` stays green (clean-install probe stays excluded via the `integration` marker; metadata test runs in-gate)
 
 ## Step 3: R3 — Guard Zero and Negative Dimensions in the youtube Embed (Medium-high)
-- [ ] 1. RED: add `TestReduceFractionDegenerate` to `tests/test_util.py` (create if absent) covering `(0, 0)`, `(16, 0)`, `(0, 9)`, `(-16, 9)`, `(16, -9)`; none may raise; confirm FAIL against current `_util.py`
-- [ ] 2. RED: add `TestYouTubeDegenerateDimensions` to `tests/test_youtube.py` for `[youtube ID 0 0]`, a zero height, and a negative dimension, each asserting the default 16:9 fallback markup with no traceback; confirm existing valid-dimension case still passes; confirm degenerate cases FAIL against current code
-- [ ] 3. GREEN: in `_util.py`, make `reduce_fraction` return `(numerator, denominator)` unchanged when either is zero (document the zero behavior); in `youtube.py` `_render_match`, substitute the module default dimensions when width or height is `<= 0` before calling `reduce_fraction`
-- [ ] 4. REFACTOR: keep the 16:9 default dimensions declared once in `youtube.py`
-- [ ] 5. Verify existing youtube / `_util` tests pass and new zero/negative branches are covered; `just check`
+- [x] 1. RED: add `TestReduceFractionDegenerate` to `tests/test_util.py` (create if absent) covering `(0, 0)`, `(16, 0)`, `(0, 9)`, `(-16, 9)`, `(16, -9)`; none may raise; confirm FAIL against current `_util.py`
+- [x] 2. RED: add `TestYouTubeDegenerateDimensions` to `tests/test_youtube.py` for `[youtube ID 0 0]`, a zero height, and a negative dimension, each asserting the default 16:9 fallback markup with no traceback; confirm existing valid-dimension case still passes; confirm degenerate cases FAIL against current code
+- [x] 3. GREEN: in `_util.py`, make `reduce_fraction` return `(numerator, denominator)` unchanged when either is zero (document the zero behavior); in `youtube.py` `_render_match`, substitute the module default dimensions when width or height is `<= 0` before calling `reduce_fraction`
+- [x] 4. REFACTOR: keep the 16:9 default dimensions declared once in `youtube.py`
+- [x] 5. Verify existing youtube / `_util` tests pass and new zero/negative branches are covered; `just check`
