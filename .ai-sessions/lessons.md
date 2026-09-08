@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- A unit test suite cannot detect a runtime dependency declared only in a dev dependency group, because the dev group is already installed in the environment the unit suite runs in; only a clean-venv install probe from the built wheel (no dev group) reproduces the missing-import failure, so it belongs in the integration suite, not the unit gate (2026-09-08)
 - Escaping `<`/`>` to their JSON `\uXXXX` forms after `json.dumps` is a general technique for embedding data inside an HTML comment (`<!-- ... -->`): it removes every literal `<`/`>` from the payload so `-->`/`<!--` can never form inside it, and `json.loads` decodes `\uXXXX` transparently, so the read side needs no change (2026-09-08)
 - When a `plan.md` is replaced or regenerated mid-cycle (a spec/plan swap for a remediation pass, a re-scope), regenerate `todo.md` in the same commit; `/bpe:goal` pre-flight only checks for zero unchecked items, so a `todo.md` left over from a prior, already-completed plan passes the "has unchecked items" check as fully done and silently blocks the loop (2026-09-07)
 - `mkdocs build --strict` exits 0 on a clean build but Material for MkDocs prints a red MkDocs-2.0 promotional banner to stderr that is not a strict warning; verify success by the exit code plus `grep -iE "^WARNING|^ERROR"` rather than eyeballing colored output (2026-06-28)
@@ -11,13 +12,13 @@
 - mypy strict rejects indexing a `TypedDict` with a runtime/variable key (`spec[stage_key]` raises `literal-required`); to iterate over fields generically, pass literal-key accessor callables (`lambda spec: spec["pre"]`) instead of string key names (2026-06-28)
 - Keep a registry-facing stage function at a fixed signature (`apply_html(html, warnings=None)`) and route the in-process processor through the same private core (`_apply_marker(..., label_class, secondary_label_class)`) so configurable in-process options survive without giving the pure function config parameters (2026-06-28)
 - Script-embed postprocessors can drop the `found` flag and detect their class signature in the rendered HTML instead: the raw-HTML restore postprocessor (priority 30) runs before script injection (priority 15), so the stashed embed HTML is already in the text; `SIGNATURE in html and SCRIPT not in html` makes injection idempotent and shares one path with the `mw post` CLI stage (2026-06-28)
-- Design diagnostics around locally observable state: a post-only filter cannot detect what an upstream stage stripped (a removed HTML comment leaves no trace), so `mw --warn` reports only the malformed or unsupported markers it can actually see (2026-06-27)
 
 ## CLI
 - When a REFACTOR prompt says "factor stdin/stdout helpers" but the project bans trivial stdlib wrappers, factor only the non-trivial shared logic (e.g. a `_resolve_selection` that calls `select_extensions` and prints the `ValueError` to stderr, returning `None` to signal exit 2) and leave `sys.stdin.read()`/`sys.stdout.write()` inline (2026-06-28)
 - Give an argparse-based `main(argv) -> int` a testable exit-code contract by wrapping `parser.parse_args` in `try/except SystemExit` and returning `exit_error.code`; this captures both the `action="version"` exit (0) and invalid-choice usage errors (2) without letting `SystemExit` escape to `capsys`-driven tests (2026-06-28)
 
 ## Testing
+- A unit test suite cannot detect a runtime dependency declared only in a dev dependency group, because the dev group is already installed in the environment the unit suite runs in; only a clean-venv install probe from the built wheel (no dev group) reproduces the missing-import failure, so it belongs in the integration suite, not the unit gate (2026-09-08)
 - An "A render equals B render" equivalence test can pass vacuously when both sides degrade identically; pair it with a presence-assertion test confirming each feature actually lands in the output. When only inter-block whitespace differs, normalize by collapsing blank lines outside `<pre>` (stash pre blocks first) to keep significant code-block whitespace intact (2026-06-28)
 - A test can pass while the bug is live if it only asserts substrings that survive the corruption; write the RED assertion against the actual broken output (no `<code>`, no `<p><tag>`) (2026-06-27)
 - When a coverage gap points at one line, trace it to the exact code path before writing the test — a same-looking input may exercise a different path (2026-06-26)

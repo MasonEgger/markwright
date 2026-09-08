@@ -11,12 +11,12 @@ The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in gi
 - [x] 4. Verify `--warn` / fail-soft (malformed marker, bad version, no-block) tests still pass; `just check`
 
 ## Step 2: R2 + R11 — Packaging Pass: Runtime Dependency, Publish Metadata, Clean-Venv Probe (Medium-high + Low)
-- [ ] 1. RED: add `tests/integration/test_clean_install.py` (marked `integration`, skip if `uv` missing) that builds the wheel, installs it in an isolated venv with no dev group, and asserts `mw render` on a `[youtube ...]` doc exits 0 with no `ModuleNotFoundError`; also assert `uv build` emits no build-backend version warning
-- [ ] 2. RED: add `TestPublishMetadata` to `tests/test_packaging.py` asserting non-empty Classifier, Project-URL, and Keywords via `importlib.metadata.metadata("markwright")`; confirm both new tests FAIL against current `pyproject.toml`
-- [ ] 3. GREEN: move `pymdown-extensions>=10.5` from the dev group to `[project] dependencies`; widen the `uv_build` pin to admit current uv; add classifiers, `[project.urls]`, and keywords; run `uv sync`
-- [ ] 4. GREEN: re-run the metadata test and the clean-install probe; both pass
-- [ ] 5. REFACTOR: confirm the CI integration job already runs `tests/integration` (no workflow change needed unless path-filtered)
-- [ ] 6. Verify `just check` stays green (clean-install probe stays excluded via the `integration` marker; metadata test runs in-gate)
+- [x] 1. RED: add `tests/integration/test_clean_install.py` (marked `integration`, skip if `uv` missing) that builds the wheel, installs it in an isolated venv with no dev group, and asserts `mw render` on a `[youtube ...]` doc exits 0 with no `ModuleNotFoundError`; also assert `uv build` emits no build-backend version warning
+- [x] 2. RED: add `TestPublishMetadata` to `tests/test_packaging.py` asserting non-empty Classifier, Project-URL, and Keywords via `importlib.metadata.metadata("markwright")`; confirm both new tests FAIL against current `pyproject.toml`
+- [x] 3. GREEN: move `pymdown-extensions>=10.5` from the dev group to `[project] dependencies`; widen the `uv_build` pin to admit current uv; add classifiers, `[project.urls]`, and keywords; run `uv sync`
+- [x] 4. GREEN: re-run the metadata test and the clean-install probe; both pass
+- [x] 5. REFACTOR: confirm the CI integration job already runs `tests/integration` (no workflow change needed unless path-filtered)
+- [x] 6. Verify `just check` stays green (clean-install probe stays excluded via the `integration` marker; metadata test runs in-gate)
 
 ## Step 3: R3 — Guard Zero and Negative Dimensions in the youtube Embed (Medium-high)
 - [ ] 1. RED: add `TestReduceFractionDegenerate` to `tests/test_util.py` (create if absent) covering `(0, 0)`, `(16, 0)`, `(0, 9)`, `(-16, 9)`, `(16, -9)`; none may raise; confirm FAIL against current `_util.py`
