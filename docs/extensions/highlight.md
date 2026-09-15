@@ -60,5 +60,6 @@ Result: Both <^>first<^> and <^>second<^> are highlighted.
 
 ## Escaping
 
-Prefix a marker with a backslash (`\<^>`) inside code to show it literally instead of applying a highlight.
+Prefix a marker with a backslash (`\<^>`) to show it literally instead of applying a highlight.
+This works consistently in regular text, inline code, and fenced code blocks, and produces the same literal marker whether you render in-process or through the `mw pre | post` pipeline.
 This is how the code samples above print the raw `<^>` syntax.

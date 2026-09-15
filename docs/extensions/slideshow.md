@@ -21,7 +21,7 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| URLs | required (2+) | Image URLs (at least 2 required) |
+| URLs | required (1+) | Image URLs (one or more) |
 | `HEIGHT` | `270` | Slideshow height in pixels |
 | `WIDTH` | `480` | Slideshow width in pixels |
 
@@ -48,7 +48,7 @@ Height and width are optional trailing integers. They are distinguished from URL
 ## Notes
 
 - The embed must be on its own line
-- At least 2 image URLs are required
+- At least one image URL is required (a single-image slideshow is valid, matching upstream `do-markdownit`)
 - Navigation arrows appear on left and right sides
 - Uses CSS scroll-snap for smooth slide transitions
 - No script injection required

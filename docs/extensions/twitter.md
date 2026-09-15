@@ -1,6 +1,6 @@
 # Twitter
 
-Embeds tweets with configurable theme, alignment, and width. Accepts both `twitter.com` and `x.com` URLs, canonicalizing to `twitter.com`.
+Embeds tweets with configurable theme, alignment, and width. Accepts `twitter.com` and `x.com` references in several forms (full URL, scheme-less, or a bare `user/status/id`), canonicalizing the output to `twitter.com`.
 
 ## Usage
 
@@ -21,7 +21,18 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `URL` | required | Tweet URL (`twitter.com` or `x.com`) |
+| `URL` | required | Tweet reference: a full URL, a scheme-less URL, or a bare `user/status/id` (`twitter.com` or `x.com`) |
+
+### Accepted URL forms
+
+All of these resolve to the same tweet:
+
+```
+[twitter https://twitter.com/User/status/123]
+[twitter https://x.com/User/status/123]
+[twitter twitter.com/User/status/123]
+[twitter User/status/123]
+```
 
 ### Flags
 
