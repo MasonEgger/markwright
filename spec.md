@@ -302,12 +302,15 @@ Route them through `/bpe:brainstorm`.
 - **D1 (drives R5): single-image slideshow.** Upstream accepts one or more images; markwright requires two (`slideshow.py:37` vs `slideshow.js:82`).
   Decide: restore `>= 1` for strict upstream parity, or keep `>= 2` as a deliberate design choice (a slideshow needs at least two slides) and document it.
   The verifier called the change-spec (document) direction acceptable and change-code the strict-parity option.
+  Resolved 2026-09-14 (Mason): restore `>= 1` for upstream parity. R5 is change-code (relax the `slideshow.py:37` guard to accept a single URL).
 - **D2 (drives R6 and R7's grammar half): embed URL grammar.** Upstream accepts scheme-less, `www.`-optional, and bare `user/status/id` or shortcode forms for Twitter and Instagram; markwright's regexes require full URLs (`twitter.js:89`, `instagram.js:89` vs the twitter regex, `instagram.py:15`).
   Decide once for both embeds: restore the permissive upstream grammar (change-code, the verifier's preferred direction), or keep the stricter full-URL grammar as a documented input contract (change-spec, defensible).
   R7's permalink half (`data-instgrm-permalink` normalization) is not part of this decision; it is firm change-code regardless.
+  Resolved 2026-09-14 (Mason): restore the permissive upstream grammar for both embeds. R6 and R7's grammar half are change-code (widen the twitter and instagram regexes to accept scheme-less, `www.`-optional, and bare `user/status/id` or shortcode forms).
 - **D3 (drives R4's fallback): the literal-marker promise.** spec.md:200 promises `\<^>` renders as a literal marker consistently, which the in-process render does not currently deliver.
   Preferred resolution is to make it true (unify the regexes so every path preserves the literal marker).
   If some path cannot deliver it under Python-Markdown, decide the corrected promise here and reconcile the consumers on the achievable behavior.
+  No Mason decision needed up front: this lands in Step 4 as an in-code unification, and escalates to a recorded corrected promise here only if a path cannot deliver the literal marker.
 
 ## Open Questions
 
