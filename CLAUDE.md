@@ -33,7 +33,7 @@ Run the CLI from a checkout: `uv run mw <pre|post|render|list>` (a stdin-to-stdo
 
 markwright is a set of Python-Markdown extensions ported from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (JavaScript/markdown-it, Apache 2.0), plus an `mw` command-line tool that exposes the same extensions as pre/post filter stages so the syntax works in any toolchain (Hugo, a plain Unix pipe, etc.), not only an in-process Python-Markdown render. The bundled MkDocs Material site in `docs/` is both documentation and a live demo. The upstream name `do-markdownit` appears in attribution (NOTICE, README) and must be preserved; the package and the CLI use the `markwright` / `mw` brand.
 
-CI (GitHub Actions) has two jobs that both run on push and PR to main: `check` (unit tests + lint + typecheck) and `integration` (installs Hugo, runs `tests/integration`). The `deploy` job (docs to GitHub Pages) needs both and runs only on push to main. The `gh-pages` branch is auto-managed build output, force-pushed by `mkdocs gh-deploy`; never commit to it, merge it, or delete it.
+CI (GitHub Actions, `ci.yml`) runs on push and PR to main: `test` (unit tests across Python 3.11 through 3.14 via a matrix), `lint` (ruff plus mypy strict, run once), and `integration` (installs Hugo, runs `tests/integration`). The `deploy` job (docs to GitHub Pages) needs all three and runs only on push to main. A separate `workflow.yml` publishes to PyPI via trusted publishing when a GitHub Release is published. The `gh-pages` branch is auto-managed build output, force-pushed by `mkdocs gh-deploy`; never commit to it, merge it, or delete it.
 
 ## Architecture
 
@@ -79,7 +79,7 @@ The registry's stage priorities mirror these so the CLI composes stages in the s
 - Type hints on everything, no `Any`; mypy strict is enforced
 - Absolute imports only (e.g., `from markwright._util import reduce_fraction`)
 - RST docstrings (`:param:`, `:returns:`) on public interfaces
-- `line-length = 120`, `target-version = "py314"`
+- `line-length = 120`, `target-version = "py311"` (published floor is Python 3.11; mypy also targets 3.11, while local dev runs the newest via `.python-version`)
 - Every source file starts with a 2-line `# ABOUTME:` comment
 - **Descriptive variable names always**: single-letter variables are NEVER allowed (`line_index` not `i`, `label_match` not `m`, `mark_element` not `el`)
 - No trivial wrappers: call `html.escape()` directly, don't wrap stdlib functions
@@ -97,6 +97,6 @@ The registry's stage priorities mirror these so the CLI composes stages in the s
 
 ## Plan & Progress Tracking
 
-- `spec.md`, `plan.md`, `todo.md` (repo root): the **completed** `mw` pipeline CLI work (a 12-step TDD plan, all items checked). Read `spec.md` for the design rationale, the marker contract, and the renderer requirements.
+- `spec.md`, `plan.md`, `todo.md` (repo root): the **completed** step-55 remediation cycle (requirements R1 through R11, all steps checked). Read `spec.md` for the remediation rationale, the marker contract, the parity Decisions (D1, D2, D3), and the renderer requirements. The earlier `mw` pipeline CLI spec/plan are preserved in git history (the remediation spec cites them as `git show main:spec.md`).
 - `.ai-sessions/v1-init/{plan,todo}.md`: the archived v1 extension plan with the HTML Output Contracts. Both v1 and v2 are done.
 - `.ai-sessions/`: session summaries (read the most recent for context). `.ai-sessions/lessons.md` accumulates cross-session lessons.
