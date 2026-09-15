@@ -94,9 +94,32 @@ class TestSlideshowMinImages:
         assert 'alt="Slide #1"' in result
         assert 'alt="Slide #2"' in result
 
-    def test_single_image_not_matched(self) -> None:
+    def test_single_image_matched(self) -> None:
+        # Corrected per D1 (spec.md Decisions, 2026-09-14): upstream slideshow.js:82
+        # rejects only zero images, so a single image is accepted for code parity.
         result = render_slideshow("[slideshow https://a.png]")
-        assert '<div class="slideshow"' not in result
+        assert '<div class="slideshow"' in result
+        assert 'alt="Slide #1"' in result
+
+
+class TestSingleImageSlideshow:
+    """Tests for single-image slideshow parity (D1, spec.md Decisions, 2026-09-14)."""
+
+    def test_single_image_produces_one_slide(self) -> None:
+        result = expand_source("[slideshow https://a.jpg]")
+        assert '<div class="slideshow"' in result
+        assert 'alt="Slide #1"' in result
+        assert 'alt="Slide #2"' not in result
+
+    def test_two_image_case_unchanged(self) -> None:
+        result = expand_source("[slideshow https://a.jpg https://b.jpg]")
+        assert '<div class="slideshow"' in result
+        assert 'alt="Slide #1"' in result
+        assert 'alt="Slide #2"' in result
+
+    def test_zero_urls_still_rejected(self) -> None:
+        source = "[slideshow 225 400]"
+        assert expand_source(source) == source
 
 
 class TestSlideshowEdgeCases:
@@ -135,9 +158,11 @@ class TestSlideshowExpandSource:
         source = "text [slideshow https://a.jpg https://b.jpg] text"
         assert expand_source(source) == source
 
-    def test_single_url_not_expanded(self) -> None:
-        source = "[slideshow https://a.jpg]"
-        assert expand_source(source) == source
+    def test_single_url_expanded(self) -> None:
+        # Corrected per D1 (spec.md Decisions, 2026-09-14): a single-image slideshow
+        # is now accepted for upstream code parity.
+        result = expand_source("[slideshow https://a.jpg]")
+        assert '<div class="slideshow"' in result
 
     def test_multiline_only_standalone_expanded(self) -> None:
         source = "before line\n[slideshow https://a.jpg https://b.jpg]\nafter line"

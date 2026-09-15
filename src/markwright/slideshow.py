@@ -20,10 +20,11 @@ def _parse_slideshow_args(raw_args: str) -> tuple[list[str], int, int]:
     """Parse slideshow arguments into URLs and optional dimensions.
 
     Separates URLs from trailing integer arguments (height, width).
-    Requires at least 2 URLs.
+    Requires at least 1 URL, matching upstream slideshow.js:82 (which
+    rejects only zero images).
 
     :param raw_args: The raw argument string after 'slideshow'.
-    :returns: Tuple of (urls, height, width). Returns empty urls list if fewer than 2 URLs.
+    :returns: Tuple of (urls, height, width). Returns empty urls list if there are no URLs.
     """
     parts = raw_args.split()
 
@@ -34,7 +35,7 @@ def _parse_slideshow_args(raw_args: str) -> tuple[list[str], int, int]:
 
     urls = parts
 
-    if len(urls) < 2:
+    if len(urls) < 1:
         return [], DEFAULT_HEIGHT, DEFAULT_WIDTH
 
     height = trailing_ints[0] if len(trailing_ints) >= 1 else DEFAULT_HEIGHT

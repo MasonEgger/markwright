@@ -58,9 +58,9 @@ The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in gi
 - [x] 3. Verify `just check` passes and `just docs-build` is clean (strict)
 
 ## Step 9: R5: Land Single-Image Slideshow Parity (Medium-low; D1 resolved: accept 1+)
-- [ ] 1. RED: add `TestSingleImageSlideshow` to `tests/test_slideshow.py` asserting `expand_source("[slideshow https://a.jpg]")` produces the slideshow markup shape (a `<div class="slideshow">` with one slide) and the two-image case is unchanged; update the existing test that pins ">= 2 drops single image" to the new accepting behavior (part of the red step); confirm the single-image test FAILS against current code
-- [ ] 2. GREEN: relax the `slideshow.py:37` guard from `len(urls) < 2` to `len(urls) < 1` (accept one or more), leaving the rest of the builder unchanged
-- [ ] 3. Verify existing slideshow tests pass; `just check`
+- [x] 1. RED: add `TestSingleImageSlideshow` to `tests/test_slideshow.py` asserting `expand_source("[slideshow https://a.jpg]")` produces the slideshow markup shape (a `<div class="slideshow">` with one slide) and the two-image case is unchanged; update the existing test that pins ">= 2 drops single image" to the new accepting behavior (part of the red step); confirm the single-image test FAILS against current code
+- [x] 2. GREEN: relax the `slideshow.py:37` guard from `len(urls) < 2` to `len(urls) < 1` (accept one or more), leaving the rest of the builder unchanged
+- [x] 3. Verify existing slideshow tests pass; `just check`
 
 ## Step 10: R6 + R7b: Land Permissive Embed URL Grammar Parity (Medium-low; D2 resolved: permissive)
 - [ ] 1. RED (Twitter): add `TestTwitterUrlGrammar` to `tests/test_twitter.py` asserting each upstream-accepted form produces the expected blockquote: scheme-less (`[twitter twitter.com/user/status/123]`), www-prefixed (`[twitter https://www.twitter.com/user/status/123]`), and bare (`[twitter user/status/123]`); confirm FAIL against the current regex
