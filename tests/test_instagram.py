@@ -125,6 +125,56 @@ class TestInstagramEdgeCases:
         assert "<p><div" not in result
 
 
+class TestInstagramPermalinkNormalization:
+    """Tests for the normalized data-instgrm-permalink attribute (R7a)."""
+
+    def test_permalink_normalized_for_www_url(self) -> None:
+        result = render("[instagram https://www.instagram.com/p/CkQuv3_LRgS]")
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+    def test_permalink_normalized_without_www_host(self) -> None:
+        result = render("[instagram https://instagram.com/p/CkQuv3_LRgS]")
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+    def test_permalink_normalized_for_bare_shortcode(self) -> None:
+        result = render("[instagram CkQuv3_LRgS]")
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+
+class TestInstagramShortcodeGrammar:
+    """Tests for the permissive upstream shortcode grammar (R6, D2: full parity).
+
+    Scheme, ``www.``, the host, and the ``p/`` path segment are all optional,
+    so inputs ranging from a bare shortcode up to a full
+    ``https://www.instagram.com/p/<shortcode>`` all match, and the permalink
+    stays normalized to the canonical ``www`` URL (R7a) for every input shape.
+    """
+
+    def test_bare_shortcode(self) -> None:
+        result = render("[instagram CkQuv3_LRgS]")
+        assert '<blockquote class="instagram-media"' in result
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+    def test_scheme_less_host_with_path(self) -> None:
+        result = render("[instagram instagram.com/p/CkQuv3_LRgS]")
+        assert '<blockquote class="instagram-media"' in result
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+    def test_www_host_with_path(self) -> None:
+        result = render("[instagram www.instagram.com/p/CkQuv3_LRgS]")
+        assert '<blockquote class="instagram-media"' in result
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+    def test_bare_shortcode_visible_href_is_canonical(self) -> None:
+        """A bare shortcode has no URL to reuse for the visible anchor, so it
+
+        must be built from the canonical non-www form instead, matching
+        upstream's ``https://instagram.com/p/<post>`` anchor.
+        """
+        result = render("[instagram CkQuv3_LRgS]")
+        assert '<a href="https://instagram.com/p/CkQuv3_LRgS">View post</a>' in result
+
+
 class TestInstagramStageFunctions:
     """Tests for the pure expand_source and apply_html stage functions."""
 

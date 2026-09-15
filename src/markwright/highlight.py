@@ -11,22 +11,25 @@ from markdown.extensions import Extension
 from markdown.inlinepatterns import InlineProcessor
 from markdown.postprocessors import Postprocessor
 
-_HIGHLIGHT_PATTERN = r"<\^>(.*?)<\^>"
-# Markers are HTML-escaped to ``&lt;^&gt;`` inside code. A backslash before a
-# marker (``\<^>``) escapes it, so neither lookbehind-guarded marker matches.
-_ESCAPED_HIGHLIGHT_RE = re.compile(r"(?<!\\)&lt;\^&gt;(.*?)(?<!\\)&lt;\^&gt;")
+# A backslash before a marker (``\<^>``) escapes it. Every consumer (the
+# in-process InlineProcessor, the escaped post-stage regex, and the prose
+# pre-stage regex) shares this guard so the escape survives as a literal
+# marker no matter which stage resolves it.
+_ESCAPE_GUARD = r"(?<!\\)"
+_HIGHLIGHT_PATTERN = rf"{_ESCAPE_GUARD}<\^>(.*?){_ESCAPE_GUARD}<\^>"
+# Markers are HTML-escaped to ``&lt;^&gt;`` inside code.
+_ESCAPED_HIGHLIGHT_RE = re.compile(rf"{_ESCAPE_GUARD}&lt;\^&gt;(.*?){_ESCAPE_GUARD}&lt;\^&gt;")
 _BACKSLASH_MARKER_RE = re.compile(r"\\&lt;\^&gt;")
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 # Source-stage (``mw pre``) markers operate on raw, un-escaped text. They mirror
-# the escaped post-stage regexes above: a backslash before a marker escapes it.
-_PROSE_HIGHLIGHT_RE = re.compile(r"(?<!\\)<\^>(.*?)(?<!\\)<\^>")
-_PROSE_BACKSLASH_MARKER_RE = re.compile(r"\\<\^>")
-# Code regions the pre stage must skip: fenced code blocks and inline code
-# spans. Markers inside code are HTML-escaped during rendering and handled by
-# :func:`apply_html` in the post stage instead.
+# the escaped post-stage regex above.
+_PROSE_HIGHLIGHT_RE = re.compile(rf"{_ESCAPE_GUARD}<\^>(.*?){_ESCAPE_GUARD}<\^>")
+# Code regions the pre stage must skip: fenced code blocks (backtick or tilde)
+# and inline code spans. Markers inside code are HTML-escaped during rendering
+# and handled by :func:`apply_html` in the post stage instead.
 _CODE_REGION_RE = re.compile(
-    r"(?P<fence>^```[^\n]*\n.*?^```)|(?P<inline>`[^`\n]*`)",
+    r"(?P<fence>^```[^\n]*\n.*?^```|^~~~[^\n]*\n.*?^~~~)|(?P<inline>`[^`\n]*`)",
     re.DOTALL | re.MULTILINE,
 )
 
@@ -78,25 +81,34 @@ def apply_html(html: str, warnings: list[str] | None = None) -> str:
 
 
 def _highlight_prose(segment: str) -> str:
-    """Wrap prose ``<^>...<^>`` markers in ``<mark>``, honoring backslash escapes.
+    """Wrap unescaped prose ``<^>...<^>`` markers in ``<mark>``.
+
+    Backslash-escaped markers are left untouched here, mirroring how code
+    regions are handled: the renderer HTML-escapes them and :func:`apply_html`
+    reveals the literal marker in the post stage. Resolving the escape in this
+    stage instead would strip the backslash before the renderer sees it, and
+    the renderer's own HTML-escaping of the exposed marker would then be
+    indistinguishable from a genuine unescaped marker once it reaches
+    :func:`apply_html`.
 
     :param segment: A run of source text known to be outside any code region.
-    :returns: The segment with un-escaped markers wrapped and backslash-escaped
-        markers revealed as a literal ``<^>``.
+    :returns: The segment with unescaped markers wrapped in ``<mark>``;
+        backslash-escaped markers are unchanged.
     """
-    marked = _PROSE_HIGHLIGHT_RE.sub(r"<mark>\1</mark>", segment)
-    return _PROSE_BACKSLASH_MARKER_RE.sub("<^>", marked)
+    return _PROSE_HIGHLIGHT_RE.sub(r"<mark>\1</mark>", segment)
 
 
 def expand_source(text: str) -> str:
     """Wrap prose highlight markers in ``<mark>`` outside code regions.
 
-    The source-stage transform for ``mw pre``. Fenced code blocks and inline
-    code spans are left untouched: their markers are HTML-escaped during
-    rendering and converted by :func:`apply_html` in the post stage.
+    The source-stage transform for ``mw pre``. Fenced code blocks, inline code
+    spans, and backslash-escaped prose markers are left untouched: they are
+    HTML-escaped during rendering and resolved by :func:`apply_html` in the
+    post stage.
 
     :param text: Raw Markdown source.
-    :returns: Source with prose ``<^>...<^>`` markers wrapped in ``<mark>``.
+    :returns: Source with unescaped prose ``<^>...<^>`` markers wrapped in
+        ``<mark>``.
     """
     result_parts: list[str] = []
     last_end = 0

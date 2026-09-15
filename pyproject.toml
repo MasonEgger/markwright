@@ -6,11 +6,28 @@ readme = "README.md"
 authors = [
     { name = "Mason Egger", email = "mason@masonegger.com" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE", "LICENSE-Apache-2.0", "NOTICE"]
 dependencies = [
     "markdown>=3.4",
+    "pymdown-extensions>=10.5",
 ]
+keywords = ["markdown", "python-markdown", "do-markdownit", "mkdocs", "hugo"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+
+[project.urls]
+Homepage = "https://github.com/MasonEgger/markwright"
+Repository = "https://github.com/MasonEgger/markwright"
+Documentation = "https://masonegger.github.io/markwright/"
 
 [project.scripts]
 mw = "markwright.cli:main"
@@ -18,7 +35,6 @@ mw = "markwright.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "pymdown-extensions>=10.5",
     "ruff>=0.5",
     "mypy>=1.10",
     "pytest-cov>=7.0",
@@ -28,7 +44,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.17,<0.10.0"]
+requires = ["uv_build>=0.9.17,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.pytest.ini_options]
@@ -38,7 +54,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
@@ -46,4 +62,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
 strict = true
-python_version = "3.14"
+python_version = "3.11"

@@ -128,6 +128,35 @@ class TestTwitterEdgeCases:
         assert "<p><div" not in result
 
 
+class TestTwitterUrlGrammar:
+    """Tests for the permissive upstream URL grammar (R6, D2: full parity).
+
+    Scheme, ``www.``, and the host itself are all optional, so inputs
+    ranging from a bare ``user/status/id`` up to a full
+    ``https://www.twitter.com/user/status/id`` all match.
+    """
+
+    def test_scheme_less_host(self) -> None:
+        result = render("[twitter twitter.com/User/status/123]")
+        assert "https://twitter.com/User/status/123" in result
+        assert '<blockquote class="twitter-tweet"' in result
+
+    def test_www_prefixed_host(self) -> None:
+        result = render("[twitter https://www.twitter.com/User/status/123]")
+        assert "https://twitter.com/User/status/123" in result
+        assert '<blockquote class="twitter-tweet"' in result
+
+    def test_xcom_host(self) -> None:
+        result = render("[twitter https://x.com/User/status/123]")
+        assert "https://twitter.com/User/status/123" in result
+        assert '<blockquote class="twitter-tweet"' in result
+
+    def test_bare_user_status_id(self) -> None:
+        result = render("[twitter User/status/123]")
+        assert "https://twitter.com/User/status/123" in result
+        assert '<blockquote class="twitter-tweet"' in result
+
+
 class TestTwitterStageFunctions:
     """Tests for the pure expand_source and apply_html stage functions."""
 

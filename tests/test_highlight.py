@@ -5,7 +5,14 @@ import re
 
 import markdown
 
-from markwright.highlight import apply_html, expand_source
+from markwright import registry
+from markwright.highlight import (
+    _ESCAPED_HIGHLIGHT_RE,
+    _HIGHLIGHT_PATTERN,
+    _PROSE_HIGHLIGHT_RE,
+    apply_html,
+    expand_source,
+)
 
 
 def _render(source: str) -> str:
@@ -21,6 +28,20 @@ def _render_with_superfences(source: str) -> str:
         extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
     )
     return md.convert(source)
+
+
+def _stub_render(markdown_text: str) -> str:
+    """Render Markdown through superfences and highlight only, preserving raw HTML.
+
+    Stands in for an external renderer (the ``mw pre | post`` path) that knows
+    nothing about markwright directives, mirroring ``tests/test_roundtrip.py``'s
+    ``stub_render``.
+    """
+    instance = markdown.Markdown(
+        extensions=["pymdownx.superfences", "pymdownx.highlight"],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    return instance.convert(markdown_text)
 
 
 class TestInlineHighlight:
@@ -175,6 +196,73 @@ class TestHighlightExpandSource:
         assert expand_source(source) == source
 
     def test_backslash_escaped_prose_marker_left_literal(self) -> None:
-        result = expand_source(r"a \<^>x\<^> b")
-        assert "<mark>" not in result
-        assert "<^>x<^>" in result
+        """Escaped prose markers are left untouched by the pre stage.
+
+        Corrected expectation (Step 4 unification): earlier this stripped the
+        backslash immediately, revealing a bare ``<^>x<^>``. That bare marker
+        is indistinguishable from a genuine unescaped one once a downstream
+        renderer HTML-escapes it, so ``apply_html`` would wrongly highlight it.
+        The pre stage now leaves the escape for the post stage to resolve,
+        mirroring code-region handling.
+        """
+        source = r"a \<^>x\<^> b"
+        assert expand_source(source) == source
+
+
+class TestHighlightConsumerParity:
+    """Cross-consumer parity: ``mw render``, ``mw pre``, and ``mw pre | post`` agree.
+
+    Every consumer must treat an escaped marker (``\\<^>``) as a literal, never
+    highlighted, and an unescaped marker (``<^>``) as a highlight, regardless of
+    which stage resolves it.
+    """
+
+    def _consumers(self, source: str) -> dict[str, str]:
+        """Render ``source`` through all three highlight consumers.
+
+        :param source: Prose Markdown source containing a highlight marker.
+        :returns: A mapping of consumer name to its rendered output.
+        """
+        pre_output = registry.run_pre(source, ["highlight"])
+        return {
+            "in-process": _render(source),
+            "mw pre": pre_output,
+            "mw pre | post": registry.run_post(_stub_render(pre_output), ["highlight"]),
+        }
+
+    def test_escaped_marker_is_literal_on_every_consumer(self) -> None:
+        outputs = self._consumers(r"a \<^>x\<^> b")
+        for consumer, result in outputs.items():
+            assert "<mark>" not in result, f"{consumer} produced <mark> for an escaped marker: {result!r}"
+
+    def test_unescaped_marker_is_highlighted_on_every_consumer(self) -> None:
+        outputs = self._consumers("a <^>x<^> b")
+        for consumer, result in outputs.items():
+            assert "<mark>x</mark>" in result, f"{consumer} did not highlight an unescaped marker: {result!r}"
+
+
+class TestHighlightTildeFence:
+    """``expand_source`` must skip markers inside tilde fences, matching backtick fences."""
+
+    def test_marker_in_tilde_fence_untouched(self) -> None:
+        source = "~~~\n<^>x<^>\n~~~"
+        assert expand_source(source) == source
+
+    def test_marker_in_backtick_fence_untouched(self) -> None:
+        """Regression guard: the existing backtick-fence behavior stays intact."""
+        source = "```\n<^>x<^>\n```"
+        assert expand_source(source) == source
+
+
+class TestHighlightPatternGuards:
+    """Pin the escape guard shared by every highlight pattern.
+
+    A future edit that drops the guard from one pattern would break
+    cross-consumer parity silently; this test fails loudly instead.
+    """
+
+    def test_all_patterns_carry_the_escape_guard(self) -> None:
+        guard = r"(?<!\\)"
+        assert guard in _HIGHLIGHT_PATTERN
+        assert guard in _ESCAPED_HIGHLIGHT_RE.pattern
+        assert guard in _PROSE_HIGHLIGHT_RE.pattern

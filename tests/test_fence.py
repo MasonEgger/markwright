@@ -6,6 +6,20 @@ import markdown
 from markwright.fence import apply_html, expand_source
 
 
+def _stub_render(markdown_text: str) -> str:
+    """Render Markdown through superfences and highlight only, preserving raw HTML comments.
+
+    Stands in for an external renderer (the ``mw pre | post`` path) that knows
+    nothing about markwright directives, mirroring ``tests/test_roundtrip.py``'s
+    ``stub_render``.
+    """
+    instance = markdown.Markdown(
+        extensions=["pymdownx.superfences", "pymdownx.highlight"],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    return instance.convert(markdown_text)
+
+
 def render_fence(source: str, allowed_environments: list[str] | None = None) -> str:
     """Render source with superfences, highlight, and fence extensions loaded."""
     extension_configs: dict[str, dict[str, object]] = {"pymdownx.highlight": {"pygments_lang_class": True}}
@@ -436,3 +450,42 @@ class TestFenceChromaPrefix:
         )
         result = apply_html(html_input)
         assert result.count('<li data-prefix="$">') == 1
+
+
+class TestFenceMarkerXss:
+    """Step-55 regression: a directive value containing "-->" must not close the
+    mw-fence marker comment early and inject live markup (stored XSS)."""
+
+    PROBE = "```\n[label foo --> <script>alert(1)</script>]\ncode\n```"
+
+    def test_expand_source_marker_has_no_early_terminator(self) -> None:
+        result = expand_source(self.PROBE)
+        marker_line = next(line for line in result.split("\n") if line.startswith("<!-- mw-fence:"))
+        # The only "-->" in the line must be the comment's own terminator.
+        assert marker_line.count("-->") == 1
+        assert "<script>" not in marker_line
+
+    def test_render_path_has_no_live_script(self) -> None:
+        result = render_fence(self.PROBE)
+        assert "<script>alert(1)</script>" not in result
+
+    def test_pre_post_path_has_no_live_script(self) -> None:
+        rendered = _stub_render(expand_source(self.PROBE))
+        result = apply_html(rendered)
+        assert "<script>alert(1)</script>" not in result
+
+    def test_benign_greater_than_label_round_trips(self) -> None:
+        source = "```\n[label a > b]\ncode\n```"
+        result = render_fence(source)
+        assert '<div class="code-label" title="a &gt; b">a &gt; b</div>' in result
+
+    def test_benign_hyphen_label_round_trips(self) -> None:
+        source = "```\n[label build-all]\ncode\n```"
+        result = render_fence(source)
+        assert '<div class="code-label" title="build-all">build-all</div>' in result
+
+    def test_benign_labels_survive_pre_post_path(self) -> None:
+        source = "```\n[label a > b]\ncode\n```"
+        rendered = _stub_render(expand_source(source))
+        result = apply_html(rendered)
+        assert '<div class="code-label" title="a &gt; b">a &gt; b</div>' in result

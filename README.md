@@ -138,7 +138,7 @@ CodePen:         [codepen MattCowley vwPzeX]
 Twitter:         [twitter https://twitter.com/github/status/1234567890]
 Instagram:       [instagram https://www.instagram.com/p/CkQuv3_LRgS]
 Slideshow:       [slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
-Image Compare:   [image_compare before.jpg after.jpg]
+Image Compare:   [compare before.jpg after.jpg]
 ````
 
 See the [extension docs](https://masonegger.github.io/markwright/) for every flag and the exact HTML each one produces.

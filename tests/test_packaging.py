@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from importlib.metadata import metadata as package_metadata
 from importlib.metadata import version as package_version
 
 import pytest
@@ -34,3 +35,19 @@ class TestPackagingSmoke:
         assert result.returncode == 0
         assert "youtube" in result.stdout
         assert "fence" in result.stdout
+
+
+class TestPublishMetadata:
+    """Confirms the distribution metadata carries the fields a PyPI listing needs."""
+
+    def test_metadata_declares_classifiers(self) -> None:
+        classifiers = package_metadata("markwright").get_all("Classifier")
+        assert classifiers, "expected at least one Classifier entry"
+
+    def test_metadata_declares_project_urls(self) -> None:
+        project_urls = package_metadata("markwright").get_all("Project-URL")
+        assert project_urls, "expected at least one Project-URL entry"
+
+    def test_metadata_declares_keywords(self) -> None:
+        keywords = package_metadata("markwright")["Keywords"]
+        assert keywords, "expected a non-empty Keywords field"

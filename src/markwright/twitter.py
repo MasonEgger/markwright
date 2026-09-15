@@ -11,8 +11,14 @@ from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 
+from markwright._util import URL_SCHEME_WWW_PREFIX
+
+# Scheme, "www.", and the twitter.com/x.com host are all optional, and when
+# present must be followed by a "/", so inputs from a bare "user/status/id"
+# up to a full "https://www.twitter.com/user/status/id" all match. Ported
+# verbatim from upstream twitter.js's URL-matching grammar.
 TWITTER_RE = re.compile(
-    r"^\[twitter\s+(https?://(?:twitter\.com|x\.com)/(\S+)/status/(\S+))"
+    r"^\[twitter\s+(?:(?:" + URL_SCHEME_WWW_PREFIX + r"(?:twitter|x)\.com)?/)?(\w+)/status/(\d+)"
     r"((?:\s+(?:light|dark|left|center|right|\d+))*)\]$"
 )
 
@@ -64,9 +70,9 @@ def _render_match(line: str) -> str | None:
     if not twitter_match:
         return None
 
-    user = twitter_match.group(2)
-    status_id = twitter_match.group(3)
-    raw_flags = twitter_match.group(4).strip()
+    user = twitter_match.group(1)
+    status_id = twitter_match.group(2)
+    raw_flags = twitter_match.group(3).strip()
     settings = _parse_twitter_flags(raw_flags)
 
     # Canonicalize to twitter.com

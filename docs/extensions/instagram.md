@@ -21,7 +21,17 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `URL` | required | Instagram post URL (`instagram.com/p/...`) |
+| `URL` | required | Post reference: a full URL, a scheme-less URL, or a bare shortcode |
+
+### Accepted URL forms
+
+All of these resolve to the same post, and the embed permalink is canonicalized to `https://www.instagram.com/p/<shortcode>`:
+
+```
+[instagram https://www.instagram.com/p/CkQuv3_LRgS]
+[instagram instagram.com/p/CkQuv3_LRgS]
+[instagram CkQuv3_LRgS]
+```
 
 ### Flags
 

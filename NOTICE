@@ -1,9 +1,27 @@
 markwright
 Copyright 2026 Mason Egger
 
+markwright as a whole is distributed under the MIT License (see LICENSE).
+
 This project is a Python port of do-markdownit, originally developed by
 DigitalOcean and licensed under the Apache License, Version 2.0.
 
 Original project: https://github.com/digitalocean/do-markdownit
 Copyright 2023 DigitalOcean
-Licensed under the Apache License, Version 2.0
+
+Portions of this project are derived from do-markdownit and remain subject
+to the Apache License, Version 2.0, a copy of which is included in this
+repository as LICENSE-Apache-2.0. The extensions reproduce do-markdownit's
+markup syntax and HTML output, and specific portions were ported from the
+original source: the compare control SVG, the slideshow navigation script,
+and the Twitter and Instagram embed URL grammars.
+
+Significant changes from the original (Apache License, Version 2.0,
+Section 4(b)):
+
+- Reimplemented in Python as Python-Markdown extensions rather than a
+  JavaScript markdown-it plugin.
+- Added an mw command-line tool that exposes the extensions as pre and
+  post filter stages for use outside an in-process Python-Markdown render.
+- Adapted extension behavior and output where the Python-Markdown
+  toolchain differs from markdown-it.

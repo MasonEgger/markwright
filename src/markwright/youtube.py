@@ -12,7 +12,7 @@ from markdown.preprocessors import Preprocessor
 
 from markwright._util import reduce_fraction
 
-YOUTUBE_RE = re.compile(r"^\[youtube (\S+?)(?:\s+(\d+))?(?:\s+(\d+))?\]$")
+YOUTUBE_RE = re.compile(r"^\[youtube (\S+?)(?:\s+(-?\d+))?(?:\s+(-?\d+))?\]$")
 
 DEFAULT_HEIGHT = 270
 DEFAULT_WIDTH = 480
@@ -31,6 +31,8 @@ def _render_match(line: str) -> str | None:
     video_id = youtube_match.group(1)
     height = int(youtube_match.group(2)) if youtube_match.group(2) else DEFAULT_HEIGHT
     width = int(youtube_match.group(3)) if youtube_match.group(3) else DEFAULT_WIDTH
+    if height <= 0 or width <= 0:
+        height, width = DEFAULT_HEIGHT, DEFAULT_WIDTH
 
     encoded_id = urllib.parse.quote(video_id, safe="")
     aspect_width, aspect_height = reduce_fraction(width, height)

@@ -86,6 +86,31 @@ class TestYouTubeEdgeCases:
         assert "<p><iframe" not in result
 
 
+class TestYouTubeDegenerateDimensions:
+    """Tests for zero and negative dimensions, which must fall back to 16:9."""
+
+    def test_both_dimensions_zero_falls_back_to_default_ratio(self) -> None:
+        result = expand_source("[youtube dQw4w9WgXcQ 0 0]")
+        assert "<iframe" in result
+        assert 'style="aspect-ratio: 16/9"' in result
+
+    def test_second_dimension_zero_falls_back_to_default_ratio(self) -> None:
+        result = expand_source("[youtube ID 480 0]")
+        assert "<iframe" in result
+        assert 'style="aspect-ratio: 16/9"' in result
+
+    def test_negative_dimension_falls_back_to_default_ratio(self) -> None:
+        result = expand_source("[youtube ID -1 9]")
+        assert "<iframe" in result
+        assert 'style="aspect-ratio: 16/9"' in result
+
+    def test_valid_dimensions_still_unchanged(self) -> None:
+        result = expand_source("[youtube dQw4w9WgXcQ 450 800]")
+        assert 'style="aspect-ratio: 16/9"' in result
+        assert 'height="450"' in result
+        assert 'width="800"' in result
+
+
 class TestYouTubeExpandSource:
     """Tests for the pure expand_source stage function."""
 
