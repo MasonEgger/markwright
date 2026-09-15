@@ -41,10 +41,10 @@ The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in gi
 - [x] 4. Verify existing instagram tests pass (update only the one pinning the raw-URL permalink, as part of the red step); `just check`
 
 ## Step 6: R8: Match the Compare SVG to Upstream (Low)
-- [ ] 1. RED: add `TestCompareSvgUpstreamParity` to `tests/test_image_compare.py` asserting the emitted compare HTML has a single `<svg>` with `viewBox="0 0 512 512"`, exactly one `<path>` (no `<polygon>`), and the `d` attribute equal to the exact upstream path string from `compare.js:110`; confirm FAIL against the current two-polygon markup
-- [ ] 2. GREEN: in `image_compare.py`, replace the two-polygon `viewBox="0 0 100 100"` SVG with the upstream single-path `viewBox="0 0 512 512"` SVG (path data verbatim from `compare.js:110`), preserving the existing class attribute and wrapper markup
-- [ ] 3. REFACTOR: keep the SVG as one module constant
-- [ ] 4. Verify existing image_compare tests pass (update the one pinning the old SVG, as part of the red step); `just check`
+- [x] 1. RED: add `TestCompareSvgUpstreamParity` to `tests/test_image_compare.py` asserting the emitted compare HTML has a single `<svg>` with `viewBox="0 0 512 512"`, exactly one `<path>` (no `<polygon>`), and the `d` attribute equal to the exact upstream path string from `compare.js:110`; confirm FAIL against the current two-polygon markup
+- [x] 2. GREEN: in `image_compare.py`, replace the two-polygon `viewBox="0 0 100 100"` SVG with the upstream single-path `viewBox="0 0 512 512"` SVG (path data verbatim from `compare.js:110`), preserving the existing class attribute and wrapper markup
+- [x] 3. REFACTOR: keep the SVG as one module constant
+- [x] 4. Verify existing image_compare tests pass (update the one pinning the old SVG, as part of the red step); `just check`
 
 ## Step 7: R9: Match the Slideshow Nav JavaScript to Upstream (Low)
 - [ ] 1. RED: add `TestSlideshowNavUpstreamParity` to `tests/test_slideshow.py` asserting the emitted nav markup uses the upstream `getElementsByClassName('slides')[0].scrollLeft += / -= width` IIFE form (`getElementsByClassName` and `scrollLeft` present, `scrollBy` absent) for both the previous and next buttons; confirm FAIL against the current `scrollBy` form

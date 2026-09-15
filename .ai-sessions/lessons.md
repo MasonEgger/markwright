@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- A `bpe:goal` remediation step whose plan.md cites an exact upstream source line (e.g. `compare.js:110`) needs that source fetched by the orchestrator and handed to the executor as a literal string in the dispatch prompt; the `step-executor` subagent has no web access to fetch it itself (2026-09-14)
 - A "make every consumer agree" fix is only proven by a test that drives every consumer (in-process render, `mw pre`, `mw pre | post`) from one shared input; a per-consumer test suite let a third divergence (an escaped prose marker surviving `mw pre` but not the `pre | post` pipeline) hide behind two passing single-consumer tests until the parity test forced all three through the same case (2026-09-14)
 - Make a shared math helper total rather than letting a degenerate input raise: `reduce_fraction`'s `math.gcd(0, 0) == 0` fed a floor division that raised `ZeroDivisionError` on any zero operand, and one caller (a youtube embed directive) could reach it with attacker- or author-controlled zero dimensions and abort a whole in-process MkDocs build; guard both the shared helper (return the operands unchanged on a zero operand, never raise) and the specific caller (normalize non-positive dimensions to a sane default before calling it), so the helper is safe for every future caller and the caller's fallback behavior stays caller-specific (2026-09-08)
 - A unit test suite cannot detect a runtime dependency declared only in a dev dependency group, because the dev group is already installed in the environment the unit suite runs in; only a clean-venv install probe from the built wheel (no dev group) reproduces the missing-import failure, so it belongs in the integration suite, not the unit gate (2026-09-08)
@@ -11,7 +12,9 @@
 - An "A render equals B render" equivalence test can pass vacuously when both sides degrade identically (mis-placed fence directives rendered as inert prose in both paths); pair it with a presence-assertion test confirming each feature actually appears in the output. When only inter-block whitespace differs, normalize by collapsing blank lines *outside* `<pre>` (stash pre blocks first) so significant code-block whitespace is preserved (2026-06-28)
 - When a REFACTOR prompt says "factor stdin/stdout helpers" but the project bans trivial stdlib wrappers, factor only the non-trivial shared logic (e.g. a `_resolve_selection` that calls `select_extensions` and prints the `ValueError` to stderr, returning `None` to signal exit 2) and leave `sys.stdin.read()`/`sys.stdout.write()` inline (2026-06-28)
 - Give an argparse-based `main(argv) -> int` a testable exit-code contract by wrapping `parser.parse_args` in `try/except SystemExit` and returning `exit_error.code`; this captures both the `action="version"` exit (0) and invalid-choice usage errors (2) without letting `SystemExit` escape to `capsys`-driven tests (2026-06-28)
-- mypy strict rejects indexing a `TypedDict` with a runtime/variable key (`spec[stage_key]` raises `literal-required`); to iterate over fields generically, pass literal-key accessor callables (`lambda spec: spec["pre"]`) instead of string key names (2026-06-28)
+
+## Workflow
+- A `bpe:goal` remediation step whose plan.md cites an exact upstream source line (e.g. `compare.js:110`) needs that source fetched by the orchestrator and handed to the executor as a literal string in the dispatch prompt; the `step-executor` subagent has no web access to fetch it itself (2026-09-14)
 
 ## CLI
 - When a REFACTOR prompt says "factor stdin/stdout helpers" but the project bans trivial stdlib wrappers, factor only the non-trivial shared logic (e.g. a `_resolve_selection` that calls `select_extensions` and prints the `ValueError` to stderr, returning `None` to signal exit 2) and leave `sys.stdin.read()`/`sys.stdout.write()` inline (2026-06-28)
@@ -43,6 +46,7 @@
 - Escaping `<`/`>` to their JSON `\uXXXX` forms after `json.dumps` is a general technique for embedding data inside an HTML comment (`<!-- ... -->`): it removes every literal `<`/`>` from the payload so `-->`/`<!--` can never form inside it, and `json.loads` decodes `\uXXXX` transparently, so the read side needs no change (2026-09-08)
 
 ## Python
+- mypy strict rejects indexing a `TypedDict` with a runtime/variable key (`spec[stage_key]` raises `literal-required`); to iterate over fields generically, pass literal-key accessor callables (`lambda spec: spec["pre"]`) instead of string key names (2026-06-28)
 - Make a shared math helper total rather than letting a degenerate input raise: `reduce_fraction`'s `math.gcd(0, 0) == 0` fed a floor division that raised `ZeroDivisionError` on any zero operand, and one caller (a youtube embed directive) could reach it with attacker- or author-controlled zero dimensions and abort a whole in-process MkDocs build; guard both the shared helper (return the operands unchanged on a zero operand, never raise) and the specific caller (normalize non-positive dimensions to a sane default before calling it), so the helper is safe for every future caller and the caller's fallback behavior stays caller-specific (2026-09-08)
 
 ## Python-Markdown
