@@ -35,10 +35,10 @@ The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in gi
 - [x] 7. Verify existing highlight and round-trip tests pass, new tilde and escape branches covered; `just check`
 
 ## Step 5: R7a: Normalize the Instagram Permalink (Medium-low, Firm Half of R7)
-- [ ] 1. RED: add `TestInstagramPermalinkNormalization` to `tests/test_instagram.py` asserting the emitted `data-instgrm-permalink` is the canonical `https://www.instagram.com/p/${post}` built from the extracted post id (regardless of input host/scheme, and for inputs with a trailing query/path); confirm FAIL against current raw-URL reuse; leave a placeholder note for the D2-gated shortcode-grammar tests (Step 10)
-- [ ] 2. GREEN: in `instagram.py`, extract the post id and build `data-instgrm-permalink` as `f"https://www.instagram.com/p/{post_id}"` (attribute-escaped), replacing the raw `escaped_url` reuse; do not change the accepted input grammar in this step
-- [ ] 3. REFACTOR: keep the canonical permalink template in one place shared with the test
-- [ ] 4. Verify existing instagram tests pass (update only the one pinning the raw-URL permalink, as part of the red step); `just check`
+- [x] 1. RED: add `TestInstagramPermalinkNormalization` to `tests/test_instagram.py` asserting the emitted `data-instgrm-permalink` is the canonical `https://www.instagram.com/p/${post}` built from the extracted post id (regardless of input host/scheme, and for inputs with a trailing query/path); confirm FAIL against current raw-URL reuse; leave a placeholder note for the D2-gated shortcode-grammar tests (Step 10)
+- [x] 2. GREEN: in `instagram.py`, extract the post id and build `data-instgrm-permalink` as `f"https://www.instagram.com/p/{post_id}"` (attribute-escaped), replacing the raw `escaped_url` reuse; do not change the accepted input grammar in this step
+- [x] 3. REFACTOR: keep the canonical permalink template in one place shared with the test
+- [x] 4. Verify existing instagram tests pass (update only the one pinning the raw-URL permalink, as part of the red step); `just check`
 
 ## Step 6: R8: Match the Compare SVG to Upstream (Low)
 - [ ] 1. RED: add `TestCompareSvgUpstreamParity` to `tests/test_image_compare.py` asserting the emitted compare HTML has a single `<svg>` with `viewBox="0 0 512 512"`, exactly one `<path>` (no `<polygon>`), and the `d` attribute equal to the exact upstream path string from `compare.js:110`; confirm FAIL against the current two-polygon markup

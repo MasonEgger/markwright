@@ -125,6 +125,27 @@ class TestInstagramEdgeCases:
         assert "<p><div" not in result
 
 
+class TestInstagramPermalinkNormalization:
+    """Tests for the normalized data-instgrm-permalink attribute (R7a).
+
+    Only the output-format half of R7 is in scope here: the input URL grammar
+    is unchanged. The D2-gated shortcode-grammar tests (bare shortcode,
+    scheme-less/host-optional input forms) land in Step 10.
+    """
+
+    def test_permalink_normalized_for_www_url(self) -> None:
+        result = render("[instagram https://www.instagram.com/p/CkQuv3_LRgS]")
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+    def test_permalink_normalized_without_www_host(self) -> None:
+        result = render("[instagram https://instagram.com/p/CkQuv3_LRgS]")
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+    def test_permalink_normalized_with_trailing_query(self) -> None:
+        result = render("[instagram https://www.instagram.com/p/CkQuv3_LRgS/?utm_source=ig_web_copy_link]")
+        assert 'data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS"' in result
+
+
 class TestInstagramStageFunctions:
     """Tests for the pure expand_source and apply_html stage functions."""
 
