@@ -311,6 +311,12 @@ Route them through `/bpe:brainstorm`.
   Preferred resolution is to make it true (unify the regexes so every path preserves the literal marker).
   If some path cannot deliver it under Python-Markdown, decide the corrected promise here and reconcile the consumers on the achievable behavior.
   No Mason decision needed up front: this lands in Step 4 as an in-code unification, and escalates to a recorded corrected promise here only if a path cannot deliver the literal marker.
+  Resolved 2026-09-14 (via Step 4 unification): the promise was made true, not corrected.
+  `_HIGHLIGHT_PATTERN` now shares the `(?<!\\)` escape guard with `_ESCAPED_HIGHLIGHT_RE` and `_PROSE_HIGHLIGHT_RE`, so the in-process InlineProcessor honors the backslash escape like the other two consumers.
+  A second, previously undocumented gap surfaced during verification: `expand_source` used to strip the backslash off an escaped prose marker immediately, revealing a bare `<^>...<^>` that a downstream renderer's own HTML-escaping made indistinguishable from a genuine unescaped marker, so `apply_html` re-highlighted it on the `mw pre | post` path.
+  The fix leaves escaped prose markers untouched in the pre stage, mirroring how fenced and inline code markers are already handled, and defers the reveal to `apply_html`'s existing backslash cleanup.
+  `\<^>` now renders as a literal marker with no `<mark>` on `mw render`, `mw pre`, and `mw pre | post` alike, verified by `TestHighlightConsumerParity` in `tests/test_highlight.py`.
+  A grep of `README.md` and `docs/` for literal-marker wording found no inaccurate claims; the existing docs already describe the escape as scoped to code, which was already true and needed no correction.
 
 ## Open Questions
 
