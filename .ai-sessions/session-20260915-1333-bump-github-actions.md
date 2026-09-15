@@ -20,6 +20,7 @@
 ## Observations
 
 - The action majors had advanced well past what a stale guess would assume (setup-uv at v10, download-artifact at v8), so querying the releases API first avoided pinning a wrong or non-existent tag.
+- The releases API is not enough on its own: `astral-sh/setup-uv`'s latest release is `v10.1.0`, but it only maintains moving major tags through `v7` (no `v8`/`v9`/`v10` alias), so `@v10` failed to resolve and broke the first CI run. Fixed by pinning the full `@v10.1.0`. Lesson: verify the exact `@vN` (or full tag) resolves via the git refs API, not just that a release exists, since some actions do not publish a moving major tag for every major.
 - `upload-artifact@v7` and `download-artifact@v8` are a cross-major pair, but both use the v4+ artifact backend, so they interoperate. The pairing is only exercised by `workflow.yml` at release time, not by the PR's CI, so watch the next release's publish job.
 
 ## Suggested Skills for Next Session
