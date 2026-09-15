@@ -53,9 +53,9 @@ The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in gi
 - [x] 4. Verify existing slideshow tests pass (update any pinning the old nav string, as part of the red step); `just check`
 
 ## Step 8: R10: Fix the image_compare Token in the README and Docs (Low, Doc Fix)
-- [ ] 1. RED: add `TestAuthorFacingCompareToken` to `tests/test_docs_tokens.py` (create): a grep-style scan asserting the directive-in-example form `[image_compare ` (trailing space/arg) does not appear in README.md or under docs/; plus a test that rendering `[compare before.jpg after.jpg]` produces the compare markup; confirm the grep test FAILS against current `README.md:141`
-- [ ] 2. GREEN: change `README.md:141` `[image_compare before.jpg after.jpg]` to `[compare before.jpg after.jpg]`; scan docs/ for any other reader-facing `[image_compare ...` example and correct it; follow the repo writing rules (no em/en dashes, straight quotes)
-- [ ] 3. Verify `just check` passes and `just docs-build` is clean (strict)
+- [x] 1. RED: add `TestAuthorFacingCompareToken` to `tests/test_docs_tokens.py` (create): a grep-style scan asserting the directive-in-example form `[image_compare ` (trailing space/arg) does not appear in README.md or under docs/; plus a test that rendering `[compare before.jpg after.jpg]` produces the compare markup; confirm the grep test FAILS against current `README.md:141`
+- [x] 2. GREEN: change `README.md:141` `[image_compare before.jpg after.jpg]` to `[compare before.jpg after.jpg]`; scan docs/ for any other reader-facing `[image_compare ...` example and correct it; follow the repo writing rules (no em/en dashes, straight quotes)
+- [x] 3. Verify `just check` passes and `just docs-build` is clean (strict)
 
 ## Step 9: R5: Land Single-Image Slideshow Parity (Medium-low; D1 resolved: accept 1+)
 - [ ] 1. RED: add `TestSingleImageSlideshow` to `tests/test_slideshow.py` asserting `expand_source("[slideshow https://a.jpg]")` produces the slideshow markup shape (a `<div class="slideshow">` with one slide) and the two-image case is unchanged; update the existing test that pins ">= 2 drops single image" to the new accepting behavior (part of the red step); confirm the single-image test FAILS against current code
