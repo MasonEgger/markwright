@@ -110,9 +110,9 @@ def _build_slideshow_html(urls: list[str], height: int, width: int) -> str:
         for slide_index, url in enumerate(urls, start=1)
     )
 
-    scroll_js = "this.parentElement.querySelector('.slides').scrollBy"
-    left_arrow = f'  <div class="action left" onclick="{scroll_js}(-{width}, 0)">&#8249;</div>\n'
-    right_arrow = f'  <div class="action right" onclick="{scroll_js}({width}, 0)">&#8250;</div>\n'
+    scroll_left = "(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft"
+    left_arrow = f'  <div class="action left" onclick="{scroll_left} -= {width})()">&#8249;</div>\n'
+    right_arrow = f'  <div class="action right" onclick="{scroll_left} += {width})()">&#8250;</div>\n'
 
     return (
         f'<div class="slideshow" style="height: {height}px; width: {width}px;">\n'

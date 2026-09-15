@@ -58,11 +58,31 @@ class TestSlideshowDimensions:
 
     def test_scroll_amount_matches_width(self) -> None:
         result = render_slideshow("[slideshow https://a.png https://b.png 225 400]")
-        assert "scrollBy(400" in result or "scrollBy(-400" in result
+        assert "scrollLeft -= 400" in result
+        assert "scrollLeft += 400" in result
 
     def test_default_scroll_amount(self) -> None:
         result = render_slideshow("[slideshow https://a.png https://b.png]")
-        assert "scrollBy(480" in result or "scrollBy(-480" in result
+        assert "scrollLeft -= 480" in result
+        assert "scrollLeft += 480" in result
+
+
+class TestSlideshowNavUpstreamParity:
+    """Tests matching the upstream slideshow nav JavaScript (slideshow.js:112-113) exactly."""
+
+    def test_nav_uses_upstream_scroll_left_iife(self) -> None:
+        result = render_slideshow("[slideshow https://a.png https://b.png]")
+        assert "getElementsByClassName" in result
+        assert "scrollLeft" in result
+        assert "scrollBy" not in result
+
+    def test_left_button_onclick_matches_upstream(self) -> None:
+        result = render_slideshow("[slideshow https://a.png https://b.png]")
+        assert "onclick=\"(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft -= 480)()\"" in result
+
+    def test_right_button_onclick_matches_upstream(self) -> None:
+        result = render_slideshow("[slideshow https://a.png https://b.png]")
+        assert "onclick=\"(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft += 480)()\"" in result
 
 
 class TestSlideshowMinImages:

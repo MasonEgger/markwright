@@ -47,10 +47,10 @@ The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in gi
 - [x] 4. Verify existing image_compare tests pass (update the one pinning the old SVG, as part of the red step); `just check`
 
 ## Step 7: R9: Match the Slideshow Nav JavaScript to Upstream (Low)
-- [ ] 1. RED: add `TestSlideshowNavUpstreamParity` to `tests/test_slideshow.py` asserting the emitted nav markup uses the upstream `getElementsByClassName('slides')[0].scrollLeft += / -= width` IIFE form (`getElementsByClassName` and `scrollLeft` present, `scrollBy` absent) for both the previous and next buttons; confirm FAIL against the current `scrollBy` form
-- [ ] 2. GREEN: in `slideshow.py`, replace the `scrollBy` nav handler with the upstream `getElementsByClassName(...)[0].scrollLeft += width / -= width` IIFE, porting the exact upstream string
-- [ ] 3. REFACTOR: keep the nav handler string(s) as named constants shared by both buttons
-- [ ] 4. Verify existing slideshow tests pass (update any pinning the old nav string, as part of the red step); `just check`
+- [x] 1. RED: add `TestSlideshowNavUpstreamParity` to `tests/test_slideshow.py` asserting the emitted nav markup uses the upstream `getElementsByClassName('slides')[0].scrollLeft += / -= width` IIFE form (`getElementsByClassName` and `scrollLeft` present, `scrollBy` absent) for both the previous and next buttons; confirm FAIL against the current `scrollBy` form
+- [x] 2. GREEN: in `slideshow.py`, replace the `scrollBy` nav handler with the upstream `getElementsByClassName(...)[0].scrollLeft += width / -= width` IIFE, porting the exact upstream string
+- [x] 3. REFACTOR: keep the nav handler string(s) as named constants shared by both buttons
+- [x] 4. Verify existing slideshow tests pass (update any pinning the old nav string, as part of the red step); `just check`
 
 ## Step 8: R10: Fix the image_compare Token in the README and Docs (Low, Doc Fix)
 - [ ] 1. RED: add `TestAuthorFacingCompareToken` to `tests/test_docs_tokens.py` (create): a grep-style scan asserting the directive-in-example form `[image_compare ` (trailing space/arg) does not appear in README.md or under docs/; plus a test that rendering `[compare before.jpg after.jpg]` produces the compare markup; confirm the grep test FAILS against current `README.md:141`
