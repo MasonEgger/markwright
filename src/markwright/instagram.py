@@ -11,12 +11,19 @@ from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 
+from markwright._util import URL_SCHEME_WWW_PREFIX
+
+# Scheme, "www.", the instagram.com host, and a "p/"-style path segment are
+# all optional, so inputs from a bare shortcode up to a full
+# "https://www.instagram.com/p/<shortcode>" all match. Ported verbatim from
+# upstream instagram.js's URL-matching grammar.
 INSTAGRAM_RE = re.compile(
-    r"^\[instagram\s+(https?://(?:www\.)?instagram\.com/p/\S+)"
+    r"^\[instagram\s+(?:(?:" + URL_SCHEME_WWW_PREFIX + r"instagram\.com)?/)?(?:\w+/)?(\w+)"
     r"((?:\s+(?:caption|left|center|right|\d+))*)\]$"
 )
 
 INSTAGRAM_PERMALINK_TEMPLATE = "https://www.instagram.com/p/{post_id}"
+INSTAGRAM_HREF_TEMPLATE = "https://instagram.com/p/{post_id}"
 
 INSTAGRAM_MIN_WIDTH = 326
 INSTAGRAM_MAX_WIDTH = 550
@@ -59,19 +66,6 @@ def _parse_instagram_flags(raw_flags: str) -> dict[str, str | int | bool]:
     }
 
 
-def _extract_post_id(url: str) -> str:
-    """Extract the post id from an Instagram permalink URL.
-
-    ``url`` is guaranteed by ``INSTAGRAM_RE`` to contain a literal ``/p/``
-    segment, so the id is everything between it and the next ``/``, ``?``,
-    or ``#`` (or the end of the string).
-
-    :param url: The matched Instagram permalink URL.
-    :returns: The extracted post id.
-    """
-    return url.split("/p/", maxsplit=1)[-1].split("/")[0].split("?")[0].split("#")[0]
-
-
 def _render_match(line: str) -> str | None:
     """Build the Instagram embed HTML for a standalone embed line.
 
@@ -82,12 +76,11 @@ def _render_match(line: str) -> str | None:
     if not instagram_match:
         return None
 
-    url = instagram_match.group(1)
+    post_id = instagram_match.group(1)
     raw_flags = instagram_match.group(2).strip()
     settings = _parse_instagram_flags(raw_flags)
 
-    escaped_url = html.escape(url)
-    post_id = _extract_post_id(url)
+    escaped_href = html.escape(INSTAGRAM_HREF_TEMPLATE.format(post_id=post_id))
     escaped_permalink = html.escape(INSTAGRAM_PERMALINK_TEMPLATE.format(post_id=post_id))
 
     alignment = settings["alignment"]
@@ -103,7 +96,7 @@ def _render_match(line: str) -> str | None:
         f'    <blockquote class="instagram-media"'
         f' data-instgrm-permalink="{escaped_permalink}"'
         f' data-instgrm-version="14"{caption_attr}{width_style}>\n'
-        f'        <a href="{escaped_url}">View post</a>\n'
+        f'        <a href="{escaped_href}">View post</a>\n'
         f"    </blockquote>\n"
         f"</div>"
     )
