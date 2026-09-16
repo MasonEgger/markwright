@@ -78,7 +78,7 @@ The registry's stage priorities mirror these so the CLI composes stages in the s
 - Every source file uses `from __future__ import annotations` as the first import
 - Type hints on everything, no `Any`; mypy strict is enforced
 - Absolute imports only (e.g., `from markwright._util import reduce_fraction`)
-- RST docstrings (`:param:`, `:returns:`) on public interfaces
+- RST docstrings (`:param:`, `:returns:`) on public interfaces; this overrides the `python` skill's Google-style default, match the existing code
 - `line-length = 120`, `target-version = "py311"` (published floor is Python 3.11; mypy also targets 3.11, while local dev runs the newest via `.python-version`)
 - Every source file starts with a 2-line `# ABOUTME:` comment
 - **Descriptive variable names always**: single-letter variables are NEVER allowed (`line_index` not `i`, `label_match` not `m`, `mark_element` not `el`)
@@ -97,6 +97,7 @@ The registry's stage priorities mirror these so the CLI composes stages in the s
 
 ## Plan & Progress Tracking
 
-- `spec.md`, `plan.md`, `todo.md` (repo root): the **completed** step-55 remediation cycle (requirements R1 through R11, all steps checked). Read `spec.md` for the remediation rationale, the marker contract, the parity Decisions (D1, D2, D3), and the renderer requirements. The earlier `mw` pipeline CLI spec/plan are preserved in git history (the remediation spec cites them as `git show main:spec.md`).
-- `.ai-sessions/v1-init/{plan,todo}.md`: the archived v1 extension plan with the HTML Output Contracts. Both v1 and v2 are done.
+- `spec.md`, `plan.md`, `todo.md` (repo root): the **in-progress** 0.2.0 config-system cycle (requirements R1 through R7, Decisions D1 through D5). Read `spec.md` for the config schema, `pathlib` discovery and precedence, the per-extension options design, and the CLI simplification (drop `--use`, add `--config` and an `mw config` command).
+- `.ai-sessions/v0.1-remediation/{spec,plan,todo,accomplishment}.md`: the **completed** step-55 remediation (R1 through R11, shipped as 0.1.0). `accomplishment.md` is the durable record; the marker contract and parity Decisions (D1, D2, D3) live in its `spec.md`.
+- `.ai-sessions/v1-init/{plan,todo}.md`: the archived v1 extension plan with the HTML Output Contracts.
 - `.ai-sessions/`: session summaries (read the most recent for context). `.ai-sessions/lessons.md` accumulates cross-session lessons.
