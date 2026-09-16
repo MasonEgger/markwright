@@ -1,4 +1,4 @@
-/* --- markwright extension styles — aligned to DigitalOcean's do-markdownit ---
+/* --- markwright extension styles:aligned to DigitalOcean's do-markdownit ---
    Layout and accent colors follow the do-markdownit reference while keeping
    Material's light code theme; only the structural pieces are restyled. */
 
@@ -16,7 +16,7 @@
     padding: 0.25rem 0.375rem;
 }
 
-/* Code labels — integrated header bar sitting flush on the block.
+/* Code labels:integrated header bar sitting flush on the block.
    Defaults to the MkDocs theme's primary color so the label matches the site
    chrome; override --do-code-label-bg / --do-code-label-fg in your own CSS to
    set a custom color without touching the theme palette. */
@@ -44,7 +44,19 @@
     border-top-right-radius: 0;
 }
 
-/* Secondary label — muted header line inside the block. */
+/* On mobile, Material makes code blocks full-bleed (margin: 1em -.8rem) and
+   squares their corners. Match that on the label above them, so it spans the
+   same width as the block it labels instead of sitting inset by the content
+   padding. Mirrors the Material breakpoint and negative margin exactly. */
+@media screen and (max-width: 44.984375em) {
+    .md-content__inner > .code-label {
+        margin-left: -0.8rem;
+        margin-right: -0.8rem;
+        border-radius: 0;
+    }
+}
+
+/* Secondary label:muted header line inside the block. */
 .secondary-code-label {
     display: block;
     color: #081b4b;
@@ -91,7 +103,7 @@ pre.environment-fifth {
     --md-code-bg-color: #fff4fd;
 }
 
-/* Line prefixes — DO renders data-prefix via ::before, color follows the
+/* Line prefixes:DO renders data-prefix via ::before, color follows the
    block's text color. */
 pre.prefixed code {
     white-space: normal;
@@ -132,7 +144,7 @@ pre.prefixed:not(.line_numbers) code ol li::before {
     margin: 0 0.5rem 0 0.25rem;
 }
 
-/* Line numbers — separator bar with widths that grow with the line count. */
+/* Line numbers:separator bar with widths that grow with the line count. */
 pre.prefixed.line_numbers code ol li {
     margin-left: -0.25rem;
 }
