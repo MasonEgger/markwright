@@ -8,7 +8,7 @@ See [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) for attr
 
 ## Features
 
-- **[Highlight](extensions/highlight.md)** wraps `<^>text<^>` in `<mark>`, and works inside inline code and fenced code blocks where `==text==` cannot reach.
+- **[Highlight](extensions/highlight.md)** wraps `\<^>text\<^>` in `<mark>`, and works inside inline code and fenced code blocks where `==text==` cannot reach.
 - **[Fence](extensions/fence.md)** adds labels, secondary labels, environment classes, and command-line prefixes to code blocks.
 - **[YouTube](extensions/youtube.md)** turns `[youtube ID]` into a responsive iframe embed.
 - **[CodePen](extensions/codepen.md)** embeds a pen with theme, default-tab, and layout options.

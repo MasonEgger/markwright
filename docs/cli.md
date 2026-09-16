@@ -21,7 +21,7 @@ mw --version
 
 Reads Markdown source and writes Markdown with the source-stage transforms applied.
 It expands the embed directives (`[youtube ...]`, `[codepen ...]`, and the rest) into raw HTML and extracts fence directives into an `<!-- mw-fence:{JSON} -->` comment that the post stage reads back later.
-With the highlight extension active, it also wraps prose `<^>...<^>` runs in `<mark>`, leaving in-code markers for the post stage.
+With the highlight extension active, it also wraps prose `\<^>...\<^>` runs in `<mark>`, leaving in-code markers for the post stage.
 
 The output is meant to feed your renderer.
 Because the expanded embeds and the `<mark>` wrappers are raw HTML, your renderer must pass raw HTML through.
