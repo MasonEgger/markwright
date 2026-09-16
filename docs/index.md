@@ -1,8 +1,10 @@
 # markwright
 
-A Python port of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) JavaScript library. These are [Python-Markdown](https://python-markdown.github.io/) extensions that can be used with any tool built on Python-Markdown, including [MkDocs](https://www.mkdocs.org/).
+markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions plus a companion CLI, `mw`, for author-friendly markdown: highlighted text, labeled code fences, and media embeds.
+Use the extensions in any tool built on Python-Markdown (including [MkDocs](https://www.mkdocs.org/)), or the `mw` pipeline in toolchains that are not, like Hugo.
 
-The original `do-markdownit` is licensed under the [Apache License 2.0](https://github.com/digitalocean/do-markdownit/blob/master/LICENSE). This port maintains compatibility with the original HTML output format.
+The author-facing syntax and HTML output are derived from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (licensed under the [Apache License 2.0](https://github.com/digitalocean/do-markdownit/blob/master/LICENSE)); markwright ports those to Python-Markdown and adds the `mw` CLI on top.
+See [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) for attribution.
 
 ## Features
 

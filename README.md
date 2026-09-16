@@ -1,10 +1,10 @@
 # markwright
 
-A Python port of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) JavaScript library.
+markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions plus a companion command-line tool, `mw`, for author-friendly markdown: highlighted text, labeled code fences, and a set of media embeds.
+Use the extensions in any tool built on Python-Markdown (including [MkDocs](https://www.mkdocs.org/), Flask, or a plain script), or the `mw` pipeline in toolchains that are not, like Hugo.
 
-These are [Python-Markdown](https://python-markdown.github.io/) extensions that bring DigitalOcean's markdown syntax (highlighted text, labeled code fences, and a set of media embeds) to any tool built on Python-Markdown, including [MkDocs](https://www.mkdocs.org/), Flask, or a plain script.
-The port maintains compatibility with the original `do-markdownit` HTML output, so rendered pages match what DigitalOcean produces.
-A bundled command-line tool, `mw`, runs the same extensions as pre and post filters around any renderer, so the syntax also works in toolchains that are not built on Python-Markdown, like Hugo.
+The author-facing syntax and HTML output are derived from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit), so rendered pages match what DigitalOcean produces.
+markwright ports those extensions to Python-Markdown and adds its own pieces on top, most notably the `mw` CLI, which runs the same extensions as pre and post filters around any renderer.
 
 Full documentation and a live demo: https://masonegger.github.io/markwright/
 
