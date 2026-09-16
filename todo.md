@@ -1,70 +1,40 @@
-# TODO: markwright step-55 Remediation
+# TODO: markwright 0.2.0 Config System and CLI Simplification
 
 Mirrors `plan.md`. `/bpe:execute-plan` checks off sub-steps as it goes.
-Steps 1-3 (the release blockers) landed 2026-09-08. D1 and D2 were resolved 2026-09-14 (both upstream parity, change-code; see spec.md Decisions), so Steps 4-10 are now queued below with their decided branches. D3 stays an in-code contingency inside Step 4.
-The prior completed pipeline-CLI todo (12 steps, all checked) is preserved in git history (`git log -- todo.md`); this file now tracks the remediation cycle instead.
+Steps 1-6 turn `spec.md` (R1-R7, D1-D5) into TDD work. R6 (Step 5) is in scope for 0.2.0 per D5.
 
-## Step 1: R1: Close the Stored XSS in the Fence Marker Comment (High)
-- [x] 1. RED: add `TestFenceMarkerXss` to `tests/test_fence.py` with the step-55 probe (`[label foo --> <script>alert(1)</script>]`); assert no live `-->` breakout or live `<script>` on the `mw render` path and the `mw pre | post` path; add benign `>` / `-` round-trip cases; confirm the XSS cases FAIL against current code
-- [x] 2. GREEN: escape `<` / `>` to `\uXXXX` in the serialized marker payload at `fence.py:232` via a small `_encode_marker_payload` helper; confirm `json.loads` round-trips it with no read-side change needed
-- [x] 3. REFACTOR: keep the encode helper next to `COMMENT_RE`/`MARKER_NAME`; document the comment-safe, self-reversing contract in the module header
-- [x] 4. Verify `--warn` / fail-soft (malformed marker, bad version, no-block) tests still pass; `just check`
+## Step 1: R1 + R2: The config Module (discovery, parse, validate, resolved Config)
+- [ ] 1. RED: `tests/test_config.py`: parent-dir discovery (tmp_path), `markwright.toml` wins over `pyproject.toml` in one dir, explicit `--config` load, missing `--config` path errors, malformed TOML errors clearly, `enable`+`disable` together errors, unknown top-level key errors, unknown extension name errors, a valid file resolves to the expected `Config` (selection/options/warn/sources); confirm they fail (module absent)
+- [ ] 2. GREEN: implement `src/markwright/config.py`: frozen `Config` dataclass, `load_config(explicit_path: Path | None, start_dir: Path) -> Config`, `pathlib` walk-up discovery, `tomllib` parse, validation raising a clear `ConfigError`; validate names against `EXTENSION_NAMES` only
+- [ ] 3. REFACTOR: separate small functions for discovery, parse, validate; one `ConfigError`; no `Any`
+- [ ] 4. `just check` with every validation path, both discovery outcomes, and the source map covered
 
-## Step 2: R2 + R11: Packaging Pass: Runtime Dependency, Publish Metadata, Clean-Venv Probe (Medium-high + Low)
-- [x] 1. RED: add `tests/integration/test_clean_install.py` (marked `integration`, skip if `uv` missing) that builds the wheel, installs it in an isolated venv with no dev group, and asserts `mw render` on a `[youtube ...]` doc exits 0 with no `ModuleNotFoundError`; also assert `uv build` emits no build-backend version warning
-- [x] 2. RED: add `TestPublishMetadata` to `tests/test_packaging.py` asserting non-empty Classifier, Project-URL, and Keywords via `importlib.metadata.metadata("markwright")`; confirm both new tests FAIL against current `pyproject.toml`
-- [x] 3. GREEN: move `pymdown-extensions>=10.5` from the dev group to `[project] dependencies`; widen the `uv_build` pin to admit current uv; add classifiers, `[project.urls]`, and keywords; run `uv sync`
-- [x] 4. GREEN: re-run the metadata test and the clean-install probe; both pass
-- [x] 5. REFACTOR: confirm the CI integration job already runs `tests/integration` (no workflow change needed unless path-filtered)
-- [x] 6. Verify `just check` stays green (clean-install probe stays excluded via the `integration` marker; metadata test runs in-gate)
+## Step 2: R3 + R5a: Config-Driven Selection, `--config`, Drop `--use`
+- [ ] 1. RED: `tests/test_cli.py`: config `disable` drops an extension for pre/post/render, config `enable` restricts, `--exclude` removes from the config-resolved set, `--config` loads an explicit file, `--use` is gone (argparse exit 2), no-config-no-flags still selects all; update the existing `--use` tests as the red step; confirm failures
+- [ ] 2. GREEN: load config in `main()`/handlers via `config.load_config`, feed `select_extensions`, apply `--exclude`; drop `--use` from the shared flag helper; add `--config`; thread the resolved config to the handlers
+- [ ] 3. REFACTOR: one selection-resolution helper shared by the three subcommands; keep IO helpers intact
+- [ ] 4. `just check`
 
-## Step 3: R3: Guard Zero and Negative Dimensions in the youtube Embed (Medium-high)
-- [x] 1. RED: add `TestReduceFractionDegenerate` to `tests/test_util.py` (create if absent) covering `(0, 0)`, `(16, 0)`, `(0, 9)`, `(-16, 9)`, `(16, -9)`; none may raise; confirm FAIL against current `_util.py`
-- [x] 2. RED: add `TestYouTubeDegenerateDimensions` to `tests/test_youtube.py` for `[youtube ID 0 0]`, a zero height, and a negative dimension, each asserting the default 16:9 fallback markup with no traceback; confirm existing valid-dimension case still passes; confirm degenerate cases FAIL against current code
-- [x] 3. GREEN: in `_util.py`, make `reduce_fraction` return `(numerator, denominator)` unchanged when either is zero (document the zero behavior); in `youtube.py` `_render_match`, substitute the module default dimensions when width or height is `<= 0` before calling `reduce_fraction`
-- [x] 4. REFACTOR: keep the 16:9 default dimensions declared once in `youtube.py`
-- [x] 5. Verify existing youtube / `_util` tests pass and new zero/negative branches are covered; `just check`
+## Step 3: R4: Per-Extension Options in `mw render`
+- [ ] 1. RED: `TestCliRenderOptions`: with `[fence] allowed_environments = ["staging"]` in config, `mw render` accepts a `[environment staging]` directive (styled) where without config it is rejected/untinted; confirm it fails
+- [ ] 2. GREEN: build `extension_configs` for selected `markwright.*` extensions from `config.options`, merged with the existing `pymdownx.highlight` entry; pass to `markdown.Markdown`
+- [ ] 3. REFACTOR: keep the `extension_configs` assembly in one small function
+- [ ] 4. `just check`
 
-## Step 4: R4: Unify the Highlight Regexes, Tilde Fences, and the Literal-Marker Promise (Medium; D3 contingency)
-- [x] 1. RED: add `TestHighlightConsumerParity` to `tests/test_highlight.py` (new class) running one input through all three consumers (in-process render, `run_pre(text, ["highlight"])`, and the `run_post(stub_render(run_pre(...)))` pre|post path); assert `a \<^>x\<^> b` yields a literal marker with NO `<mark>` on all three (FAILS now: in-process emits `\<mark>`), and `a <^>x<^> b` yields `<mark>x</mark>` on all three (unchanged)
-- [x] 2. RED: add `TestHighlightTildeFence` asserting `expand_source` leaves a `<^>` marker inside a `~~~` tilde fence untouched (matching the backtick-fence behavior, which stays a regression guard)
-- [x] 3. RED: add `TestHighlightPatternGuards` asserting all three patterns (`_HIGHLIGHT_PATTERN`, `_ESCAPED_HIGHLIGHT_RE`, `_PROSE_HIGHLIGHT_RE`) carry the `(?<!\\)` escape guard; update any existing test that pins the old base-pattern `\<mark>` behavior (part of the red step)
-- [x] 4. GREEN: add the `(?<!\\)` escape guard to `_HIGHLIGHT_PATTERN`; extend `_CODE_REGION_RE` so the fence branch matches `~~~` tilde fences as well as backtick fences; all three consumers agree
-- [x] 5. D3 CHECKPOINT: confirm the literal-marker promise now holds on all three paths; grep README.md and docs/ for any now-inaccurate literal-marker wording and correct it; record in spec.md Decisions (D3) that the promise was made true by unification. Only if a path CANNOT deliver the literal marker under Python-Markdown: stop, resolve D3, record the corrected promise, reconcile the consumers and tests
-- [x] 6. REFACTOR: keep the escaped/raw/prose patterns sharing one guard source; keep the span-safe wrapper in `apply_html` only
-- [x] 7. Verify existing highlight and round-trip tests pass, new tilde and escape branches covered; `just check`
+## Step 4: R5b: The `mw config` Command
+- [ ] 1. RED: `TestCliConfig`: `mw config` from a dir with `markwright.toml` prints the effective set and cites the file as source; no config shows all-on from defaults; `--config` honored; `--exclude` reflected and marked as a flag source; confirm it fails (subcommand absent)
+- [ ] 2. GREEN: add the `config` subparser and handler; format the resolved `Config` and source map to stdout deterministically
+- [ ] 3. REFACTOR: reuse the Step 2 selection-resolution helper so `mw config` and the transform subcommands agree
+- [ ] 4. `just check`
 
-## Step 5: R7a: Normalize the Instagram Permalink (Medium-low, Firm Half of R7)
-- [x] 1. RED: add `TestInstagramPermalinkNormalization` to `tests/test_instagram.py` asserting the emitted `data-instgrm-permalink` is the canonical `https://www.instagram.com/p/${post}` built from the extracted post id (regardless of input host/scheme, and for inputs with a trailing query/path); confirm FAIL against current raw-URL reuse; leave a placeholder note for the D2-gated shortcode-grammar tests (Step 10)
-- [x] 2. GREEN: in `instagram.py`, extract the post id and build `data-instgrm-permalink` as `f"https://www.instagram.com/p/{post_id}"` (attribute-escaped), replacing the raw `escaped_url` reuse; do not change the accepted input grammar in this step
-- [x] 3. REFACTOR: keep the canonical permalink template in one place shared with the test
-- [x] 4. Verify existing instagram tests pass (update only the one pinning the raw-URL permalink, as part of the red step); `just check`
+## Step 5: R6: Per-Extension Options Through the Stage Path (invasive; D5, in scope)
+- [ ] 1. RED: `TestStageOptions`: with `[fence] allowed_environments = ["staging"]`, `run_pre(text, ["fence"], options=cfg)` validates a `[environment staging]` directive like `mw render`; the `mw pre` CLI path honors config options; extensions without options are unaffected (regression); confirm failures
+- [ ] 2. GREEN: extend the stage-function signatures that need options (start with fence) and `run_pre`/`run_post` to pass each extension its option dict from config; wire the pre/post handlers to load and pass config; keep `options` defaulting to None = current behavior so untouched extensions and existing tests pass
+- [ ] 3. REFACTOR: one options-threading path in the registry; no per-extension special-casing in `run_pre`/`run_post`
+- [ ] 4. `just check` with both the with-options and without-options branches covered
 
-## Step 6: R8: Match the Compare SVG to Upstream (Low)
-- [x] 1. RED: add `TestCompareSvgUpstreamParity` to `tests/test_image_compare.py` asserting the emitted compare HTML has a single `<svg>` with `viewBox="0 0 512 512"`, exactly one `<path>` (no `<polygon>`), and the `d` attribute equal to the exact upstream path string from `compare.js:110`; confirm FAIL against the current two-polygon markup
-- [x] 2. GREEN: in `image_compare.py`, replace the two-polygon `viewBox="0 0 100 100"` SVG with the upstream single-path `viewBox="0 0 512 512"` SVG (path data verbatim from `compare.js:110`), preserving the existing class attribute and wrapper markup
-- [x] 3. REFACTOR: keep the SVG as one module constant
-- [x] 4. Verify existing image_compare tests pass (update the one pinning the old SVG, as part of the red step); `just check`
-
-## Step 7: R9: Match the Slideshow Nav JavaScript to Upstream (Low)
-- [x] 1. RED: add `TestSlideshowNavUpstreamParity` to `tests/test_slideshow.py` asserting the emitted nav markup uses the upstream `getElementsByClassName('slides')[0].scrollLeft += / -= width` IIFE form (`getElementsByClassName` and `scrollLeft` present, `scrollBy` absent) for both the previous and next buttons; confirm FAIL against the current `scrollBy` form
-- [x] 2. GREEN: in `slideshow.py`, replace the `scrollBy` nav handler with the upstream `getElementsByClassName(...)[0].scrollLeft += width / -= width` IIFE, porting the exact upstream string
-- [x] 3. REFACTOR: keep the nav handler string(s) as named constants shared by both buttons
-- [x] 4. Verify existing slideshow tests pass (update any pinning the old nav string, as part of the red step); `just check`
-
-## Step 8: R10: Fix the image_compare Token in the README and Docs (Low, Doc Fix)
-- [x] 1. RED: add `TestAuthorFacingCompareToken` to `tests/test_docs_tokens.py` (create): a grep-style scan asserting the directive-in-example form `[image_compare ` (trailing space/arg) does not appear in README.md or under docs/; plus a test that rendering `[compare before.jpg after.jpg]` produces the compare markup; confirm the grep test FAILS against current `README.md:141`
-- [x] 2. GREEN: change `README.md:141` `[image_compare before.jpg after.jpg]` to `[compare before.jpg after.jpg]`; scan docs/ for any other reader-facing `[image_compare ...` example and correct it; follow the repo writing rules (no em/en dashes, straight quotes)
-- [x] 3. Verify `just check` passes and `just docs-build` is clean (strict)
-
-## Step 9: R5: Land Single-Image Slideshow Parity (Medium-low; D1 resolved: accept 1+)
-- [x] 1. RED: add `TestSingleImageSlideshow` to `tests/test_slideshow.py` asserting `expand_source("[slideshow https://a.jpg]")` produces the slideshow markup shape (a `<div class="slideshow">` with one slide) and the two-image case is unchanged; update the existing test that pins ">= 2 drops single image" to the new accepting behavior (part of the red step); confirm the single-image test FAILS against current code
-- [x] 2. GREEN: relax the `slideshow.py:37` guard from `len(urls) < 2` to `len(urls) < 1` (accept one or more), leaving the rest of the builder unchanged
-- [x] 3. Verify existing slideshow tests pass; `just check`
-
-## Step 10: R6 + R7b: Land Permissive Embed URL Grammar Parity (Medium-low; D2 resolved: permissive)
-- [x] 1. RED (Twitter): add `TestTwitterUrlGrammar` to `tests/test_twitter.py` asserting each upstream-accepted form produces the expected blockquote: scheme-less (`[twitter twitter.com/user/status/123]`), www-prefixed (`[twitter https://www.twitter.com/user/status/123]`), and bare (`[twitter user/status/123]`); confirm FAIL against the current regex
-- [x] 2. RED (Instagram): add `TestInstagramShortcodeGrammar` to `tests/test_instagram.py` asserting a bare shortcode (`[instagram CkQuv3_LRgS]`) and scheme-less/host-optional forms produce the embed AND that the permalink is still normalized to `https://www.instagram.com/p/${post}` (Step 5 behavior holds for the new input forms); confirm FAIL against the current regex
-- [x] 3. GREEN: widen `TWITTER_RE` (`twitter.py:14`) and `INSTAGRAM_RE` (`instagram.py:14`) to make scheme, `www.`, and the URL prefix optional and to accept the bare `user/status/id` and shortcode forms, porting the upstream grammar; re-derive the post id extraction so R7's permalink normalization still emits the canonical www URL for the new input shapes
-- [x] 4. REFACTOR: if both embeds share the same optional-scheme/optional-www structure, factor the common URL-grammar fragment so the two regexes stay in agreement
-- [x] 5. Verify existing twitter and instagram tests pass (update any that pinned the old grammar, as part of the red step); `just check`
+## Step 6: R7: Docs and Version Bump
+- [ ] 1. Write `docs/config.md` (file names, pathlib discovery, precedence, schema, worked examples including Hugo); add it to `mkdocs.yml` nav
+- [ ] 2. Update `docs/cli.md` (drop `--use`, add `--config` and `mw config`), `docs/pipeline.md`, and `README.md`
+- [ ] 3. Bump the version to `0.2.0` in `pyproject.toml`; note the breaking change (removal of `--use`) for the release notes
+- [ ] 4. `just check` and `just docs-build` (strict) both clean
