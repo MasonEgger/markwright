@@ -89,7 +89,7 @@ A source file looks like any other Markdown, with markwright syntax mixed in:
 ````markdown
 [youtube dQw4w9WgXcQ]
 
-A <^>highlighted<^> word.
+A \<^>highlighted\<^> word.
 
 ```command
 [label deploy.sh]
@@ -100,7 +100,7 @@ A <^>highlighted<^> word.
 After the full pipeline:
 
 - `[youtube dQw4w9WgXcQ]` becomes a responsive iframe.
-- The prose `<^>highlighted<^>` becomes `<mark>highlighted</mark>`.
+- The prose `\<^>highlighted\<^>` becomes `<mark>highlighted</mark>`.
 - The command fence renders with its `deploy.sh` label and a `$` prompt on each line, and the `command` info string is highlighted as Bash.
 
 The `mw-fence` comment that carried the fence directives is consumed by the post stage and does not appear in the final HTML.
