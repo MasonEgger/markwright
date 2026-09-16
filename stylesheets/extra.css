@@ -1,0 +1,312 @@
+/* --- markwright extension styles:aligned to DigitalOcean's do-markdownit ---
+   Layout and accent colors follow the do-markdownit reference while keeping
+   Material's light code theme; only the structural pieces are restyled. */
+
+/* Rounded DO-style block corners + faint stroke (the wireframe look). */
+.md-typeset .highlight > pre > code {
+    border-radius: 1em;
+    box-shadow: inset 0 0 0 0.125em rgba(17, 25, 46, 0.1);
+}
+
+/* Inline code: DigitalOcean light pill. */
+.md-typeset :not(pre) > code {
+    background-color: #e3e8f4;
+    color: #4d5b7c;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.375rem;
+}
+
+/* Code labels:integrated header bar sitting flush on the block.
+   Defaults to the MkDocs theme's primary color so the label matches the site
+   chrome; override --do-code-label-bg / --do-code-label-fg in your own CSS to
+   set a custom color without touching the theme palette. */
+.code-label {
+    background-color: var(--do-code-label-bg, var(--md-primary-fg-color));
+    color: var(--do-code-label-fg, var(--md-primary-bg-color));
+    border-radius: 1em 1em 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5em 1em;
+    font-size: 0.75rem;
+    font-family: var(--md-code-font-family);
+    position: relative;
+    z-index: 2;
+}
+
+.code-label + .highlight,
+.code-label + .highlight > pre {
+    margin-top: 0;
+}
+
+.code-label + .highlight > pre > code {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* On mobile, Material makes code blocks full-bleed (margin: 1em -.8rem) and
+   squares their corners. Match that on the label above them, so it spans the
+   same width as the block it labels instead of sitting inset by the content
+   padding. Mirrors the Material breakpoint and negative margin exactly. */
+@media screen and (max-width: 44.984375em) {
+    .md-content__inner > .code-label {
+        margin-left: -0.8rem;
+        margin-right: -0.8rem;
+        border-radius: 0;
+    }
+}
+
+/* Secondary label:muted header line inside the block. */
+.secondary-code-label {
+    display: block;
+    color: #081b4b;
+    margin: 0 0 0.25rem;
+}
+
+/* Highlight marks: a rounded yellow pill in prose. box-decoration-break keeps
+   it intact across line wraps instead of breaking into stepped boxes. */
+.md-typeset mark {
+    background: #ffe175;
+    border-radius: 0.2em;
+    color: inherit;
+    padding: 0.12em 0.25em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+/* Inside code blocks a single highlight becomes several per-token <mark>
+   fragments. Drop the horizontal padding and corner radius so the fragments
+   butt together into one continuous bar instead of separate bumps. */
+.md-typeset .highlight mark {
+    padding: 0.12em 0;
+    border-radius: 0;
+}
+
+/* Environments tint the whole block, one color each (DO light palette). */
+pre.environment-local {
+    --md-code-bg-color: #f7f8fb;
+}
+
+pre.environment-second {
+    --md-code-bg-color: #f4fbff;
+}
+
+pre.environment-third {
+    --md-code-bg-color: #fff9f4;
+}
+
+pre.environment-fourth {
+    --md-code-bg-color: #f9fdf6;
+}
+
+pre.environment-fifth {
+    --md-code-bg-color: #fff4fd;
+}
+
+/* Line prefixes:DO renders data-prefix via ::before, color follows the
+   block's text color. */
+pre.prefixed code {
+    white-space: normal;
+}
+
+pre.prefixed code ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+pre.prefixed code ol li {
+    margin: 0;
+    padding: 0;
+    white-space: pre;
+}
+
+pre.prefixed code ol li::before {
+    content: attr(data-prefix);
+    display: inline-block;
+    margin: 0 0.625rem 0 0.25rem;
+    text-align: right;
+    color: var(--md-code-fg-color);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Command / super-user / custom prompts: a tidy left-aligned gutter so the
+   prompt sits flush with the block edge and the command follows after a single
+   space, instead of the stray indent line numbers don't have. */
+pre.prefixed:not(.line_numbers) code ol li {
+    margin-left: -0.25rem;
+}
+
+pre.prefixed:not(.line_numbers) code ol li::before {
+    min-width: 1ch;
+    text-align: left;
+    margin: 0 0.5rem 0 0.25rem;
+}
+
+/* Line numbers:separator bar with widths that grow with the line count. */
+pre.prefixed.line_numbers code ol li {
+    margin-left: -0.25rem;
+}
+
+pre.prefixed.line_numbers code ol li::before {
+    border-right: 1px solid color-mix(in srgb, var(--md-code-fg-color) 50%, transparent);
+    padding-right: 0.25rem;
+    width: 2ch;
+}
+
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 10)::before,
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 10) ~ li::before {
+    width: 3ch;
+}
+
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100)::before,
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100) ~ li::before {
+    width: 4ch;
+}
+
+/* YouTube */
+iframe.youtube {
+    max-width: 100%;
+    display: block;
+    margin: 1em auto;
+    border: none;
+}
+
+/* Twitter */
+.twitter {
+    margin: 1em 0;
+}
+
+/* Instagram */
+.instagram {
+    margin: 1em 0;
+}
+
+/* Slideshow */
+.slideshow {
+    position: relative;
+    overflow: hidden;
+    margin: 1em auto;
+    border-radius: 0.25em;
+}
+
+.slideshow .slides {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.slideshow .slides::-webkit-scrollbar {
+    display: none;
+}
+
+.slideshow .slides img {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.slideshow .action {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 2.5em;
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    padding: 0.2em 0.4em;
+    z-index: 1;
+    user-select: none;
+    -webkit-user-select: none;
+    line-height: 1;
+    border-radius: 0.15em;
+    transition: background 0.2s;
+}
+
+.slideshow .action:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.slideshow .action.left {
+    left: 0.5em;
+}
+
+.slideshow .action.right {
+    right: 0.5em;
+}
+
+/* Image Compare */
+.image-compare {
+    position: relative;
+    overflow: hidden;
+    margin: 1em auto;
+    border-radius: 0.25em;
+}
+
+.image-compare img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-compare .image-left {
+    position: absolute;
+    top: 0;
+    left: 0;
+    clip-path: inset(0 calc(100% - var(--value)) 0 0);
+}
+
+.image-compare .image-right {
+    width: 100%;
+}
+
+.image-compare .control {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: ew-resize;
+    z-index: 2;
+}
+
+.image-compare .control::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 4px;
+    height: 100vh;
+    background: white;
+    cursor: ew-resize;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+.image-compare .control::-moz-range-thumb {
+    width: 4px;
+    height: 100vh;
+    background: white;
+    cursor: ew-resize;
+    border: none;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+.image-compare .control-arrow {
+    position: absolute;
+    top: 50%;
+    left: var(--value);
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+    z-index: 3;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+    color: white;
+}
