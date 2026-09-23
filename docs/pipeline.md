@@ -58,11 +58,19 @@ mw pre --exclude twitter --exclude instagram < in.md \
   | mw post --exclude twitter --exclude instagram > out.html
 ```
 
-If your source has no embed or fence directives and you only want highlight styling, the post stage alone is enough:
+If your source has no embed or fence directives and you only want highlight styling, restrict the run to that extension.
+Set it once in a config file both stages discover:
+
+```toml
+# markwright.toml
+enable = ["highlight"]
+```
 
 ```bash
-cmark --unsafe < in.md | mw post --use highlight > out.html
+cmark --unsafe < in.md | mw post > out.html
 ```
+
+See [Configuration](config.md) for the file format and precedence.
 
 ## Hugo
 

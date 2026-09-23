@@ -30,6 +30,7 @@ from __future__ import annotations
 import html
 import json
 import re
+from collections.abc import Mapping
 
 from markdown import Markdown
 from markdown.extensions import Extension
@@ -267,16 +268,32 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
     return output
 
 
-def expand_source(text: str) -> str:
+def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
     """Extract fence directives and emit mw-fence marker comments in raw source.
 
-    Used by the ``mw pre`` CLI stage. Environments are not restricted (the
-    allow-list is an in-process configuration option only).
+    Used by the ``mw pre`` CLI stage. When ``options`` carries an
+    ``allowed_environments`` list, ``[environment ...]`` directives outside it are left
+    unextracted, matching the in-process ``allowed_environments`` config option.
 
     :param text: The source text.
+    :param options: The fence option table from config, or ``None`` for no restriction.
     :returns: The text with directives replaced by mw-fence marker comments.
     """
-    return "\n".join(_expand_lines(text.split("\n"), None))
+    return "\n".join(_expand_lines(text.split("\n"), _allowed_environments(options)))
+
+
+def _allowed_environments(options: Mapping[str, object] | None) -> list[str] | None:
+    """Read the ``allowed_environments`` list from a fence option table.
+
+    :param options: The fence option table, or ``None``.
+    :returns: The allowed environment names, or ``None`` to allow every environment.
+    """
+    if options is None:
+        return None
+    value = options.get("allowed_environments")
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return None
 
 
 class FencePreprocessor(Preprocessor):

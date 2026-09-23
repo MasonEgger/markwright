@@ -25,7 +25,7 @@ just docs-serve-tailnet   # mkdocs serve on Tailscale IP
 
 Run a single test file: `uv run pytest tests/test_highlight.py -v`
 Run a single test: `uv run pytest tests/test_highlight.py::TestInlineHighlight::test_basic_inline -v`
-Run the CLI from a checkout: `uv run mw <pre|post|render|list>` (a stdin-to-stdout filter).
+Run the CLI from a checkout: `uv run mw <pre|post|render|config|list>` (a stdin-to-stdout filter).
 
 **`just check` must pass before any step is considered complete.** It enforces 100% line AND branch coverage (`--cov-branch --cov-fail-under=100`); a line-only pass is not enough. `just check` runs unit tests only. The Hugo integration test is excluded via `-m "not integration"` and run separately.
 
@@ -41,12 +41,14 @@ The codebase has **two consumers over one set of pure stage functions**, so the 
 
 **Pure stage functions (per extension module):**
 
-- `expand_source(text: str) -> str` is the source stage (`mw pre`): expands embed directives to raw HTML, extracts fence directives into a marker comment, and (highlight) wraps prose `<^>` runs.
+- `expand_source(text: str, options: Mapping[str, object] | None = None) -> str` is the source stage (`mw pre`): expands embed directives to raw HTML, extracts fence directives into a marker comment, and (highlight) wraps prose `<^>` runs. Only fence reads `options` (its `allowed_environments`); the others accept and ignore it so the registry can call every pre function with one signature (mirroring `warnings` on the post side).
 - `apply_html(html: str, warnings: list[str] | None = None) -> str` is the HTML stage (`mw post`): applies fence styling, wraps in-code highlight markers, injects embed scripts. Only fence uses `warnings`; the others accept and ignore it so the registry can call every post function with one signature.
 
 **In-process adapters.** The Python-Markdown `Extension`/`Preprocessor`/`Postprocessor` classes are thin adapters that delegate to the stage functions. Embed preprocessors still stash raw HTML via `self.md.htmlStash.store(...)` (so Markdown does not re-parse it and break JS backticks or wrap blocks in `<p>`); the `expand_source` path emits the HTML inline for the CLI. Both go through a per-extension `_render_match(line) -> str | None` helper. Extensions are loaded by name, e.g. `markwright.highlight`.
 
-**Registry and CLI.** `registry.py` maps each extension name to `{pre, post, pre_priority, post_priority}` and provides `select_extensions`, `run_pre`, `run_post`, and `describe`. `cli.py` is a stdlib `argparse` CLI (`main(argv) -> int`) with subcommands `pre`, `post`, `render`, and `list`; the entry point is `mw = markwright.cli:main`. `render` builds a `markdown.Markdown` with `pymdownx.superfences` + `pymdownx.highlight` + the selected `markwright.*` extensions (the in-process path).
+**Config.** `config.py` owns the tuning surface: `load_config(explicit_path, start_dir) -> Config` discovers a standalone `markwright.toml` or a `[tool.markwright]` table in `pyproject.toml` by walking up with `pathlib`, parses it with stdlib `tomllib`, and validates it fail-loud into a frozen `Config` (a boundary `ConfigError`, never a traceback). `Config` carries the selection intent (`enable`/`disable`), per-extension option tables, the `warn` default, and a source map for `mw config`. It depends on `registry.EXTENSION_NAMES` for name validation and nothing else.
+
+**Registry and CLI.** `registry.py` maps each extension name to `{pre, post, pre_priority, post_priority}` and provides `select_extensions`, `run_pre` (threads each extension its option dict from config), `run_post`, and `describe`. `cli.py` is a stdlib `argparse` CLI (`main(argv) -> int`) with subcommands `pre`, `post`, `render`, `config`, and `list`; the entry point is `mw = markwright.cli:main`. Selection resolves from config (`enable`/`disable`) with `--exclude` applied last via one shared `_resolve` helper; `--config PATH` loads an explicit file. `--use` was removed in 0.2.0 (its allowlist lives in config as `enable`). `render` builds a `markdown.Markdown` with `pymdownx.superfences` + `pymdownx.highlight` + the selected `markwright.*` extensions, and passes per-extension `extension_configs` assembled from config (the in-process path). `config` prints the resolved configuration and the source of each value.
 
 ### The Three Extension Patterns
 
@@ -78,7 +80,7 @@ The registry's stage priorities mirror these so the CLI composes stages in the s
 - Every source file uses `from __future__ import annotations` as the first import
 - Type hints on everything, no `Any`; mypy strict is enforced
 - Absolute imports only (e.g., `from markwright._util import reduce_fraction`)
-- RST docstrings (`:param:`, `:returns:`) on public interfaces
+- RST docstrings (`:param:`, `:returns:`) on public interfaces; this overrides the `python` skill's Google-style default, match the existing code
 - `line-length = 120`, `target-version = "py311"` (published floor is Python 3.11; mypy also targets 3.11, while local dev runs the newest via `.python-version`)
 - Every source file starts with a 2-line `# ABOUTME:` comment
 - **Descriptive variable names always**: single-letter variables are NEVER allowed (`line_index` not `i`, `label_match` not `m`, `mark_element` not `el`)
@@ -97,6 +99,7 @@ The registry's stage priorities mirror these so the CLI composes stages in the s
 
 ## Plan & Progress Tracking
 
-- `spec.md`, `plan.md`, `todo.md` (repo root): the **completed** step-55 remediation cycle (requirements R1 through R11, all steps checked). Read `spec.md` for the remediation rationale, the marker contract, the parity Decisions (D1, D2, D3), and the renderer requirements. The earlier `mw` pipeline CLI spec/plan are preserved in git history (the remediation spec cites them as `git show main:spec.md`).
-- `.ai-sessions/v1-init/{plan,todo}.md`: the archived v1 extension plan with the HTML Output Contracts. Both v1 and v2 are done.
+- `spec.md`, `plan.md`, `todo.md` (repo root): the **in-progress** 0.2.0 config-system cycle (requirements R1 through R7, Decisions D1 through D5). Read `spec.md` for the config schema, `pathlib` discovery and precedence, the per-extension options design, and the CLI simplification (drop `--use`, add `--config` and an `mw config` command).
+- `.ai-sessions/v0.1-remediation/{spec,plan,todo,accomplishment}.md`: the **completed** step-55 remediation (R1 through R11, shipped as 0.1.0). `accomplishment.md` is the durable record; the marker contract and parity Decisions (D1, D2, D3) live in its `spec.md`.
+- `.ai-sessions/v1-init/{plan,todo}.md`: the archived v1 extension plan with the HTML Output Contracts.
 - `.ai-sessions/`: session summaries (read the most recent for context). `.ai-sessions/lessons.md` accumulates cross-session lessons.

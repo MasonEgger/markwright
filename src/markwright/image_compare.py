@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import html
 import re
+from collections.abc import Mapping
 
 from markdown import Markdown
 from markdown.extensions import Extension
@@ -43,13 +44,14 @@ def _render_match(line: str) -> str | None:
     return _build_compare_html(left_url, right_url, height, width)
 
 
-def expand_source(text: str) -> str:
+def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
     """Expand standalone compare embed lines to HTML in raw source.
 
     Used by the ``mw pre`` CLI stage. Emits the HTML inline without any
     Python-Markdown stash placeholder.
 
     :param text: The source text.
+    :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: The text with standalone compare embeds replaced by HTML.
     """
     return "\n".join(_render_match(line) or line for line in text.split("\n"))

@@ -136,6 +136,26 @@ class TestRoundTripIdempotency:
         assert twice.count(CODEPEN_SCRIPT) == 1
 
 
+class TestStageOptions:
+    """Per-extension config options thread through run_pre the way mw render applies them."""
+
+    _ENV_SOURCE = "```\n[environment production]\necho hi\n```"
+
+    def test_run_pre_without_options_allows_any_environment(self) -> None:
+        output = registry.run_pre(self._ENV_SOURCE, ["fence"])
+        assert '"environment": "production"' in output
+
+    def test_run_pre_honors_fence_allowed_environments(self) -> None:
+        options = {"fence": {"allowed_environments": ["staging"]}}
+        output = registry.run_pre(self._ENV_SOURCE, ["fence"], options=options)
+        assert '"environment"' not in output
+
+    def test_run_pre_options_leave_extensions_without_options_unaffected(self) -> None:
+        options = {"fence": {"allowed_environments": ["staging"]}}
+        output = registry.run_pre("[youtube dQw4w9WgXcQ]", ["youtube"], options=options)
+        assert "youtube.com/embed/dQw4w9WgXcQ" in output
+
+
 class TestRoundTripDegradation:
     """A comment-stripping renderer drops fence styling but raises no error."""
 

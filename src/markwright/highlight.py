@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as etree
+from collections.abc import Mapping
 
 from markdown import Markdown
 from markdown.extensions import Extension
@@ -98,7 +99,7 @@ def _highlight_prose(segment: str) -> str:
     return _PROSE_HIGHLIGHT_RE.sub(r"<mark>\1</mark>", segment)
 
 
-def expand_source(text: str) -> str:
+def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
     """Wrap prose highlight markers in ``<mark>`` outside code regions.
 
     The source-stage transform for ``mw pre``. Fenced code blocks, inline code
@@ -107,6 +108,7 @@ def expand_source(text: str) -> str:
     post stage.
 
     :param text: Raw Markdown source.
+    :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: Source with unescaped prose ``<^>...<^>`` markers wrapped in
         ``<mark>``.
     """

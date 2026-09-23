@@ -9,4 +9,4 @@ def test_package_is_importable() -> None:
 
 
 def test_package_version_is_set() -> None:
-    assert version("markwright") == "0.1.0"
+    assert version("markwright") == "0.2.0"
