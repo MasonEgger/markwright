@@ -5,14 +5,14 @@ Every step is test-first, keeps `just check` green (100 percent line and branch 
 
 ## Current Status
 
-- [ ] Step 1: R1 + R2: the `config` module: discovery, parse, validate, resolved `Config` object
-- [ ] Step 2: R3 + R5a: config-driven selection across `pre`/`post`/`render`; add `--config`; drop `--use`
-- [ ] Step 3: R4: per-extension options in `mw render`
-- [ ] Step 4: R5b: the `mw config` command
-- [ ] Step 5: R6: per-extension options through the `mw pre` / `mw post` stage path (invasive; D5, in scope)
-- [ ] Step 6: R7: docs (`config.md` and updates) and the 0.2.0 version bump
+- [x] Step 1: R1 + R2: the `config` module: discovery, parse, validate, resolved `Config` object
+- [x] Step 2: R3 + R5a: config-driven selection across `pre`/`post`/`render`; add `--config`; drop `--use`
+- [x] Step 3: R4: per-extension options in `mw render`
+- [x] Step 4: R5b: the `mw config` command
+- [x] Step 5: R6: per-extension options through the `mw pre` / `mw post` stage path (invasive; D5, in scope)
+- [x] Step 6: R7: docs (`config.md` and updates) and the 0.2.0 version bump
 
-Status: not started.
+Status: all six steps complete. `just check` green at 100 percent coverage, `just docs-build --strict` clean, version bumped to 0.2.0. R6 threads options through `run_pre` only (no post-stage extension consumes options today); `run_post` is unchanged.
 
 ## Ordering and Dependencies
 

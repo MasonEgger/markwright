@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TypedDict
 
 from markwright.codepen import apply_html as codepen_post
@@ -20,7 +20,7 @@ from markwright.twitter import apply_html as twitter_post
 from markwright.twitter import expand_source as twitter_pre
 from markwright.youtube import expand_source as youtube_pre
 
-PreFn = Callable[[str], str]
+PreFn = Callable[[str, Mapping[str, object] | None], str]
 PostFn = Callable[[str, list[str] | None], str]
 
 
@@ -87,17 +87,19 @@ def _ordered(
     return sorted(selected, key=lambda name: get_priority(REGISTRY[name]), reverse=True)
 
 
-def run_pre(text: str, names: list[str]) -> str:
+def run_pre(text: str, names: list[str], options: Mapping[str, Mapping[str, object]] | None = None) -> str:
     """Apply each selected pre-stage transform to ``text`` in descending priority order.
 
     :param text: Markdown source text.
     :param names: Selected extension names.
+    :param options: Per-extension option tables keyed by extension name; each stage receives
+        its own table, or ``None`` when it has none.
     :returns: Source text after every selected pre stage has run.
     """
     for name in _ordered(names, lambda spec: spec["pre"], lambda spec: spec["pre_priority"]):
         pre_fn = REGISTRY[name]["pre"]
         assert pre_fn is not None
-        text = pre_fn(text)
+        text = pre_fn(text, options.get(name) if options is not None else None)
     return text
 
 

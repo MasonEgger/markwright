@@ -10,12 +10,16 @@ After `uv add markwright` (or `pip install markwright`), the `mw` command is on 
 ## Subcommands
 
 ```
-mw pre    [--use NAME ...] [--exclude NAME ...]
-mw post   [--use NAME ...] [--exclude NAME ...] [--warn]
-mw render [--use NAME ...] [--exclude NAME ...]
+mw pre    [--config PATH] [--exclude NAME ...]
+mw post   [--config PATH] [--exclude NAME ...] [--warn]
+mw render [--config PATH] [--exclude NAME ...]
+mw config [--config PATH] [--exclude NAME ...]
 mw list
 mw --version
 ```
+
+Which extensions run, and how each is configured, come from a config file.
+See [Configuration](config.md) for the file format, discovery, and precedence.
 
 ### `mw pre`
 
@@ -42,6 +46,26 @@ Runs the full Markdown-to-HTML pipeline in one shot using the in-process Python-
 This is the standalone renderer for callers who do not have their own.
 It builds a `markdown.Markdown` with `pymdownx.superfences` and `pymdownx.highlight` plus the selected `markwright.*` extensions, matching the bundled site stack.
 
+### `mw config`
+
+Prints the resolved configuration: each extension's on/off state, the per-extension options, and the `warn` default, with the source of every value (the built-in default, the config file path, or a CLI flag).
+It reads the same config discovery and flags a real run would, so it shows exactly what `mw pre`, `mw post`, and `mw render` will use.
+
+```
+$ mw config
+extensions:
+  youtube: on (default)
+  slideshow: on (default)
+  image_compare: on (default)
+  codepen: on (default)
+  twitter: on (default)
+  instagram: on (default)
+  fence: on (default)
+  highlight: on (default)
+warn: false (default)
+options: none
+```
+
 ### `mw list`
 
 Prints every registered extension and the stages it provides.
@@ -63,21 +87,26 @@ An extension labeled `pre, post` participates in both stages.
 
 ## Flags
 
-### `--use NAME`
+### `--config PATH`
 
-Restrict the run to the named extension.
-The flag is repeatable, so `--use youtube --use highlight` runs exactly those two.
-The default, with no `--use`, is every extension.
+Load configuration from `PATH`, bypassing the walk-up discovery.
+The file may be a standalone `markwright.toml` or a `pyproject.toml` with a `[tool.markwright]` table.
+A missing path, or a `pyproject.toml` with no `[tool.markwright]` table, is a usage error.
+Without `--config`, discovery walks up from the current directory.
+See [Configuration](config.md).
 
 ### `--exclude NAME`
 
 Drop the named extension from the selected set.
 The flag is repeatable.
-`--exclude` applies after `--use`, so you can start from all extensions and remove a few.
+`--exclude` applies last, after the config-resolved selection, so you can start from what the config selects and remove a few for one run.
 
 Selection order does not matter.
 Stages always run in their defined priority order, matching the in-process behavior.
-An unknown name passed to either flag is a usage error (see exit codes).
+An unknown name passed to `--exclude` (or named in config) is a usage error (see exit codes).
+
+The allowlist that older versions set with `--use` now lives in config as `enable`.
+`--use` was removed in 0.2.0.
 
 ### `--warn` (`post` only)
 
@@ -100,8 +129,8 @@ Prints the installed package version and exits.
 ## Exit Codes
 
 - `0` on success.
-- `2` on a usage error: an unknown subcommand, or an unknown name passed to `--use` or `--exclude`.
-  The offending name is reported to stderr.
+- `2` on a usage error: an unknown subcommand, an unknown name passed to `--exclude` or named in config, or a config file that is missing or malformed.
+  The offending name or the config error is reported to stderr.
 - A nonzero code (`1`) if an I/O error propagates, since the tool fails loud rather than swallowing it.
 
 ## The Canonical Pipeline
@@ -113,10 +142,10 @@ mw pre < in.md | some-renderer | mw post > out.html
 ```
 
 The pre stage prepares the source, your renderer turns Markdown into HTML, and the post stage applies the HTML-level styling and script injection.
-To select a subset of features, pass the same `--use` or `--exclude` flags to both stages:
+To select a subset of features, set `enable` (or `disable`) in a config file both stages discover, or pass the same `--exclude` flags to both:
 
 ```bash
-mw pre --use youtube --use highlight < in.md | some-renderer | mw post --use highlight > out.html
+mw pre --exclude codepen < in.md | some-renderer | mw post --exclude codepen > out.html
 ```
 
 For the full integration model, including when to run only the post stage, see the [Pipeline Guide](pipeline.md).

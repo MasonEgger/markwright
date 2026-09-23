@@ -312,6 +312,16 @@ class TestFenceExpandSource:
         assert "mw-fence" not in result
         assert result == source
 
+    def test_options_allowed_environments_restrict_extraction(self) -> None:
+        source = "```\n[environment production]\necho hi\n```"
+        result = expand_source(source, {"allowed_environments": ["staging"]})
+        assert '"environment"' not in result
+
+    def test_options_without_environment_list_allow_all(self) -> None:
+        source = "```\n[environment production]\necho hi\n```"
+        result = expand_source(source, {})
+        assert '"environment": "production"' in result
+
 
 class TestFenceApplyHtml:
     def test_label_marker_injects_div_and_removes_comment(self) -> None:

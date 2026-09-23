@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 from importlib.metadata import version as package_version
+from pathlib import Path
 
 import markdown
 import pytest
@@ -88,16 +89,6 @@ class TestCliPost:
         assert exit_code == 0
         assert captured.out.count(CODEPEN_SCRIPT) == 1
 
-    def test_post_use_subset_runs_only_selected_stage(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        _feed_stdin(monkeypatch, '<p class="codepen">&lt;^&gt;mark me&lt;^&gt;</p>')
-        exit_code = main(["post", "--use", "highlight"])
-        captured = capsys.readouterr()
-        assert exit_code == 0
-        assert CODEPEN_SCRIPT not in captured.out
-        assert "<mark>mark me</mark>" in captured.out
-
     def test_post_exclude_removes_extension(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -127,11 +118,11 @@ class TestCliPost:
         assert "<p>body</p>" in captured.out
         assert captured.err == ""
 
-    def test_post_unknown_use_name_returns_two_with_stderr(
+    def test_post_unknown_exclude_name_returns_two_with_stderr(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
         _feed_stdin(monkeypatch, "<p>body</p>")
-        exit_code = main(["post", "--use", "bogus"])
+        exit_code = main(["post", "--exclude", "bogus"])
         captured = capsys.readouterr()
         assert exit_code == 2
         assert "bogus" in captured.err
@@ -170,16 +161,6 @@ class TestCliPre:
         assert "```" in captured.out
         assert "echo hi" in captured.out
 
-    def test_pre_use_selects_only_named_stage(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
-        exit_code = main(["pre", "--use", "youtube"])
-        captured = capsys.readouterr()
-        assert exit_code == 0
-        assert "<iframe" in captured.out
-        assert "<mark>prose</mark>" not in captured.out
-
     def test_pre_exclude_drops_named_stage(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -190,11 +171,22 @@ class TestCliPre:
         assert "<iframe" not in captured.out
         assert "<mark>prose</mark>" in captured.out
 
-    def test_pre_unknown_use_name_returns_two_with_stderr(
+    def test_pre_honors_config_fence_environments(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('[fence]\nallowed_environments = ["staging"]\n', encoding="utf-8")
+        _feed_stdin(monkeypatch, "```\n[environment production]\necho hi\n```")
+        exit_code = main(["pre", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert '"environment"' not in captured.out
+
+    def test_pre_unknown_exclude_name_returns_two_with_stderr(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
         _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
-        exit_code = main(["pre", "--use", "bogus"])
+        exit_code = main(["pre", "--exclude", "bogus"])
         captured = capsys.readouterr()
         assert exit_code == 2
         assert "bogus" in captured.err
@@ -215,12 +207,60 @@ class TestCliRender:
         assert "<mark>prose</mark>" in captured.out
         assert captured.out == _in_process_render(source, list(EXTENSION_NAMES))
 
-    def test_render_use_subset_loads_only_named_extension(
+    def test_render_unknown_exclude_name_returns_two_with_stderr(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
+        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
+        exit_code = main(["render", "--exclude", "bogus"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert "bogus" in captured.err
+
+
+class TestCliConfigSelection:
+    """Tests that config discovery and --config drive extension selection across subcommands."""
+
+    def test_no_config_no_flags_selects_all(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        exit_code = main(["post"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.out.count(CODEPEN_SCRIPT) == 1
+
+    def test_config_disable_drops_extension_for_post(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text('disable = ["codepen"]\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        exit_code = main(["post"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert CODEPEN_SCRIPT not in captured.out
+
+    def test_config_enable_restricts_pre(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('enable = ["youtube"]\n', encoding="utf-8")
+        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
+        exit_code = main(["pre", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "<iframe" in captured.out
+        assert "<mark>prose</mark>" not in captured.out
+
+    def test_config_disable_drops_extension_for_render(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('enable = ["youtube"]\n', encoding="utf-8")
         source = "[youtube dQw4w9WgXcQ]\n\n```\n[label deploy.sh]\necho hi\n```"
         _feed_stdin(monkeypatch, source)
-        exit_code = main(["render", "--use", "youtube"])
+        exit_code = main(["render", "--config", str(config_path)])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert "<iframe" in captured.out
@@ -228,11 +268,157 @@ class TestCliRender:
         assert "code-label" not in captured.out
         assert captured.out == _in_process_render(source, ["youtube"])
 
-    def test_render_unknown_use_name_returns_two_with_stderr(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    def test_config_flag_loads_explicit_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
-        exit_code = main(["render", "--use", "bogus"])
+        config_path = tmp_path / "custom.toml"
+        config_path.write_text('disable = ["codepen"]\n', encoding="utf-8")
+        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        exit_code = main(["post", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert CODEPEN_SCRIPT not in captured.out
+
+    def test_exclude_removes_from_config_resolved_set(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('enable = ["codepen"]\n', encoding="utf-8")
+        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        exit_code = main(["post", "--config", str(config_path), "--exclude", "codepen"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert CODEPEN_SCRIPT not in captured.out
+
+    def test_use_flag_is_rejected(self, capsys: pytest.CaptureFixture[str]) -> None:
+        exit_code = main(["post", "--use", "highlight"])
+        assert exit_code == 2
+
+    def test_config_flag_missing_file_returns_two(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _feed_stdin(monkeypatch, "<p>body</p>")
+        exit_code = main(["post", "--config", str(tmp_path / "absent.toml")])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert "not found" in captured.err
+
+
+class TestCliRenderOptions:
+    """Tests that mw render applies per-extension options from config (R4)."""
+
+    _ENV_SOURCE = "```\n[environment production]\necho hi\n```"
+
+    def test_render_without_config_allows_any_environment(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        _feed_stdin(monkeypatch, self._ENV_SOURCE)
+        exit_code = main(["render"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "environment-production" in captured.out
+
+    def test_render_config_allowlist_rejects_unlisted_environment(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('[fence]\nallowed_environments = ["staging"]\n', encoding="utf-8")
+        _feed_stdin(monkeypatch, self._ENV_SOURCE)
+        exit_code = main(["render", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "environment-production" not in captured.out
+
+    def test_render_config_allowlist_accepts_listed_environment(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('[fence]\nallowed_environments = ["staging"]\n', encoding="utf-8")
+        _feed_stdin(monkeypatch, "```\n[environment staging]\necho hi\n```")
+        exit_code = main(["render", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "environment-staging" in captured.out
+
+
+class TestCliConfig:
+    """Tests for the mw config command: the resolved config and the source of each value."""
+
+    def test_no_config_shows_all_on_from_defaults(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        exit_code = main(["config"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "fence: on (default)" in captured.out
+        assert "youtube: on (default)" in captured.out
+        assert "warn: false (default)" in captured.out
+        assert "options: none" in captured.out
+
+    def test_config_cites_file_for_disabled_extension(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('disable = ["youtube"]\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        exit_code = main(["config"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert f"youtube: off ({config_path})" in captured.out
+        assert "fence: on (default)" in captured.out
+
+    def test_config_flag_is_honored(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "custom.toml"
+        config_path.write_text('enable = ["fence"]\n', encoding="utf-8")
+        exit_code = main(["config", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert f"fence: on ({config_path})" in captured.out
+        assert f"youtube: off ({config_path})" in captured.out
+
+    def test_config_exclude_is_marked_as_flag_source(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        exit_code = main(["config", "--exclude", "codepen"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "codepen: off (--exclude)" in captured.out
+
+    def test_config_reports_options_with_source(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('[fence]\nallowed_environments = ["staging"]\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        exit_code = main(["config"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "options:" in captured.out
+        assert "fence:" in captured.out
+        assert "staging" in captured.out
+        assert str(config_path) in captured.out
+
+    def test_config_reports_warn_from_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text("warn = true\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        exit_code = main(["config"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert f"warn: true ({config_path})" in captured.out
+
+    def test_config_unknown_exclude_name_returns_two(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        exit_code = main(["config", "--exclude", "bogus"])
         captured = capsys.readouterr()
         assert exit_code == 2
         assert "bogus" in captured.err

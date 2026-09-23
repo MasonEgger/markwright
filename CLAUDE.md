@@ -25,7 +25,7 @@ just docs-serve-tailnet   # mkdocs serve on Tailscale IP
 
 Run a single test file: `uv run pytest tests/test_highlight.py -v`
 Run a single test: `uv run pytest tests/test_highlight.py::TestInlineHighlight::test_basic_inline -v`
-Run the CLI from a checkout: `uv run mw <pre|post|render|list>` (a stdin-to-stdout filter).
+Run the CLI from a checkout: `uv run mw <pre|post|render|config|list>` (a stdin-to-stdout filter).
 
 **`just check` must pass before any step is considered complete.** It enforces 100% line AND branch coverage (`--cov-branch --cov-fail-under=100`); a line-only pass is not enough. `just check` runs unit tests only. The Hugo integration test is excluded via `-m "not integration"` and run separately.
 
@@ -41,12 +41,14 @@ The codebase has **two consumers over one set of pure stage functions**, so the 
 
 **Pure stage functions (per extension module):**
 
-- `expand_source(text: str) -> str` is the source stage (`mw pre`): expands embed directives to raw HTML, extracts fence directives into a marker comment, and (highlight) wraps prose `<^>` runs.
+- `expand_source(text: str, options: Mapping[str, object] | None = None) -> str` is the source stage (`mw pre`): expands embed directives to raw HTML, extracts fence directives into a marker comment, and (highlight) wraps prose `<^>` runs. Only fence reads `options` (its `allowed_environments`); the others accept and ignore it so the registry can call every pre function with one signature (mirroring `warnings` on the post side).
 - `apply_html(html: str, warnings: list[str] | None = None) -> str` is the HTML stage (`mw post`): applies fence styling, wraps in-code highlight markers, injects embed scripts. Only fence uses `warnings`; the others accept and ignore it so the registry can call every post function with one signature.
 
 **In-process adapters.** The Python-Markdown `Extension`/`Preprocessor`/`Postprocessor` classes are thin adapters that delegate to the stage functions. Embed preprocessors still stash raw HTML via `self.md.htmlStash.store(...)` (so Markdown does not re-parse it and break JS backticks or wrap blocks in `<p>`); the `expand_source` path emits the HTML inline for the CLI. Both go through a per-extension `_render_match(line) -> str | None` helper. Extensions are loaded by name, e.g. `markwright.highlight`.
 
-**Registry and CLI.** `registry.py` maps each extension name to `{pre, post, pre_priority, post_priority}` and provides `select_extensions`, `run_pre`, `run_post`, and `describe`. `cli.py` is a stdlib `argparse` CLI (`main(argv) -> int`) with subcommands `pre`, `post`, `render`, and `list`; the entry point is `mw = markwright.cli:main`. `render` builds a `markdown.Markdown` with `pymdownx.superfences` + `pymdownx.highlight` + the selected `markwright.*` extensions (the in-process path).
+**Config.** `config.py` owns the tuning surface: `load_config(explicit_path, start_dir) -> Config` discovers a standalone `markwright.toml` or a `[tool.markwright]` table in `pyproject.toml` by walking up with `pathlib`, parses it with stdlib `tomllib`, and validates it fail-loud into a frozen `Config` (a boundary `ConfigError`, never a traceback). `Config` carries the selection intent (`enable`/`disable`), per-extension option tables, the `warn` default, and a source map for `mw config`. It depends on `registry.EXTENSION_NAMES` for name validation and nothing else.
+
+**Registry and CLI.** `registry.py` maps each extension name to `{pre, post, pre_priority, post_priority}` and provides `select_extensions`, `run_pre` (threads each extension its option dict from config), `run_post`, and `describe`. `cli.py` is a stdlib `argparse` CLI (`main(argv) -> int`) with subcommands `pre`, `post`, `render`, `config`, and `list`; the entry point is `mw = markwright.cli:main`. Selection resolves from config (`enable`/`disable`) with `--exclude` applied last via one shared `_resolve` helper; `--config PATH` loads an explicit file. `--use` was removed in 0.2.0 (its allowlist lives in config as `enable`). `render` builds a `markdown.Markdown` with `pymdownx.superfences` + `pymdownx.highlight` + the selected `markwright.*` extensions, and passes per-extension `extension_configs` assembled from config (the in-process path). `config` prints the resolved configuration and the source of each value.
 
 ### The Three Extension Patterns
 

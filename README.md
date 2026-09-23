@@ -113,7 +113,11 @@ mw pre < in.md | your-renderer | mw post > out.html
 - `mw pre` expands the embeds and extracts fence directives into an `mw-fence` comment.
 - `mw post` applies the fence styling, resolves the highlights, and injects each embed script once.
 - `mw render` runs the full pipeline in one shot for callers without their own renderer.
+- `mw config` prints the resolved configuration and the source of each value.
 - `mw list` prints every extension and the stages it provides.
+
+Which extensions run, and how each is tuned, come from a `markwright.toml` (or a `[tool.markwright]` table in `pyproject.toml`) that the CLI discovers by walking up from the current directory.
+See the [configuration docs](https://masonegger.github.io/markwright/config/).
 
 Your renderer must pass raw HTML and HTML comments through.
 Hugo is a worked, tested example: see the [Hugo guide](https://masonegger.github.io/markwright/integrations/hugo/).
