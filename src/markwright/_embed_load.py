@@ -23,12 +23,14 @@ def load_mode(options: Mapping[str, object] | None, allowed: tuple[str, ...]) ->
 
     :param options: The embed's option table (config table or extension configs), or ``None``.
     :param allowed: The load values this embed supports.
-    :returns: The load value, ``"eager"`` when unset.
+    :returns: The load value, ``"eager"`` when omitted or ``None``.
     :raises ValueError: If ``load`` is not one of ``allowed``.
     """
-    load = options.get("load", LOAD_EAGER) if options is not None else LOAD_EAGER
+    load = (options or {}).get("load")
+    if load is None:
+        return LOAD_EAGER
     if not isinstance(load, str) or load not in allowed:
-        raise ValueError(f"load must be one of {', '.join(allowed)}; got {load!r}")
+        raise ValueError(f"'load' must be one of {', '.join(allowed)}; got {load!r}")
     return load
 
 

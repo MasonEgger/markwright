@@ -26,6 +26,10 @@ md = markdown.Markdown(
 | Option | Default | Description |
 |--------|---------|-------------|
 | `allowed_environments` | omitted (allow all) | List of allowed environment names. Omit it to allow every name; an empty list allows none and emits a `ConfigWarning`. |
+| `label_class` | `code-label` | CSS class for the label div. |
+| `secondary_label_class` | `secondary-code-label` | CSS class for the secondary label div. |
+
+All three options apply the same way in-process, through `mw render`, and through the `mw pre | renderer | mw post` pipeline.
 
 See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 

@@ -28,11 +28,19 @@ Two changes break 0.2.0 behavior, both from one rule: an empty list now means "n
 
 - Breaking: `fence.allowed_environments = []` now allows no environments and warns; omit the key to allow every environment. It used to allow all.
 - Config validation rejects a non-list `fence.allowed_environments`, and the extension raises `ValueError` for one; both used to ignore it silently.
+- Config validation rejects an option key an extension does not take (it used to pass through and crash `mw render` with a `KeyError` traceback), and runs each extension's own value checks.
+- `mw` reports config problems as one `mw: error:` line with exit code 2, including a `ConfigWarning` escalated with `python -W error`.
+- `apply_html` and `registry.run_post` take per-extension options, mirroring `expand_source` and `run_pre`.
+- Removed `registry.select_extensions`; selection lives in `config.selected_extensions`.
 
 ### Fixed
 
 - Breaking: `enable = []` now runs no extensions and warns; it used to run all of them (#13).
 - An empty extension selection (from `enable = []`, a `disable` listing every extension, or `--exclude`) warns with its cause instead of passing input through silently.
+- `fence.label_class` and `secondary_label_class` now apply in `mw post`; the pipeline used to drop them while `mw render` honored them.
+- The fence extension reads its options when it registers, so a `setConfig` call after construction applies.
+- A config value of null counts as omitted.
+- `mw` prints only markwright's own warnings as `mw: warning:` lines; other libraries' warnings keep Python's format.
 
 ## [0.2.0]
 

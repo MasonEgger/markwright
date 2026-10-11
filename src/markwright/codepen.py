@@ -148,7 +148,9 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     return "\n".join(_render_match(line, load) or line for line in text.split("\n"))
 
 
-def apply_html(rendered_html: str, warnings: list[str] | None = None) -> str:
+def apply_html(
+    rendered_html: str, warnings: list[str] | None = None, options: Mapping[str, object] | None = None
+) -> str:
     """Inject the CodePen embed script once if an eager CodePen embed is present.
 
     Used by the ``mw post`` CLI stage and the in-process postprocessor. The
@@ -158,6 +160,7 @@ def apply_html(rendered_html: str, warnings: list[str] | None = None) -> str:
 
     :param rendered_html: Rendered HTML content.
     :param warnings: Optional warnings list; unused (signature injection never warns).
+    :param options: Ignored; accepted so the registry calls every post stage with one signature.
     :returns: HTML with the CodePen script appended if needed.
     """
     if has_eager_embed(rendered_html, CODEPEN_SIGNATURE) and CODEPEN_SCRIPT not in rendered_html:

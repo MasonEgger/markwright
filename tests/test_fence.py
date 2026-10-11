@@ -5,7 +5,7 @@ import markdown
 import pytest
 
 from markwright import ConfigWarning
-from markwright.fence import apply_html, expand_source
+from markwright.fence import FenceExtension, apply_html, expand_source
 
 
 def _stub_render(markdown_text: str) -> str:
@@ -157,6 +157,24 @@ class TestEnvironmentAllowedList:
             result = render_fence(source, allowed_environments=[])
         assert "environment-custom" not in result
         assert "[environment custom]" in result
+
+    def test_null_allowed_list_counts_as_omitted(self) -> None:
+        source = "```\n[environment custom]\ncode\n```"
+        assert "environment-custom" in render_fence(source, allowed_environments=None)
+        assert '"environment": "custom"' in expand_source(source, {"allowed_environments": None})
+
+    def test_set_config_after_construction_is_honored(self) -> None:
+        extension = FenceExtension()
+        extension.setConfig("allowed_environments", ["local"])
+        instance = markdown.Markdown(extensions=["pymdownx.superfences", extension])
+        result = instance.convert("```\n[environment staging]\ncode\n```")
+        assert "environment-staging" not in result
+
+    def test_non_string_label_class_raises(self) -> None:
+        with pytest.raises(ValueError, match="label_class"):
+            markdown.Markdown(
+                extensions=["markwright.fence"], extension_configs={"markwright.fence": {"label_class": 3}}
+            )
 
     def test_non_list_allowed_environments_raises(self) -> None:
         with pytest.raises(ValueError, match="allowed_environments"):
@@ -342,6 +360,14 @@ class TestFenceExpandSource:
     def test_options_non_list_environment_value_raises(self) -> None:
         with pytest.raises(ValueError, match="allowed_environments"):
             expand_source("text", {"allowed_environments": [1]})
+
+    def test_apply_html_honors_label_class_options(self) -> None:
+        marked = (
+            '<!-- mw-fence:{"version": 1, "label": "a.sh", "secondary_label": "out"} -->\n<pre><code>x\n</code></pre>'
+        )
+        result = apply_html(marked, None, {"label_class": "my-label", "secondary_label_class": "my-secondary"})
+        assert '<div class="my-label" title="a.sh">a.sh</div>' in result
+        assert '<div class="my-secondary" title="out">out</div>' in result
 
     def test_options_without_environment_list_allow_all(self) -> None:
         source = "```\n[environment production]\necho hi\n```"

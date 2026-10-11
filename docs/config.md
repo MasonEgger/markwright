@@ -58,7 +58,7 @@ It defaults to `false`.
 ### Per-Extension Options
 
 Each extension may take an options table named for it.
-The option keys are passed to the extension, which validates them.
+Config validates every key and value with the same reader the extension uses, so an option the extension does not take, or a bad value, is an error before anything renders.
 The fence extension reads `allowed_environments`, a list restricting which `[environment ...]` directives are honored.
 Omitting it allows every environment; an empty list allows none and emits a warning.
 
@@ -95,6 +95,7 @@ These rules hold for every markwright setting, including any added later.
 
 1. **Omitting a key means its default.**
    For a list, the default is no restriction.
+   A key set to null (a YAML key with no value, from a host tool's config) counts as omitted.
 2. **A list names exactly what it holds.**
    An empty allowlist (`enable`, `fence.allowed_environments`) allows nothing.
    An empty denylist (`disable`) removes nothing.
@@ -102,9 +103,12 @@ These rules hold for every markwright setting, including any added later.
 3. **A setting that turns a feature into a no-op is legal and never silent.**
    It emits a `markwright.ConfigWarning` naming the key and, when markwright loaded the config, its source.
    `mw` prints it as one `mw: warning:` line on stderr and keeps stdout clean; a host sees a standard Python warning it can filter or escalate.
-   Python shows each warning once per process, so a site that builds one `Markdown` per page still prints it once.
-4. **Every option markwright defines is validated.**
-   A wrong type or an unsupported value is a `ConfigError` naming the key and source, never a fallback.
+   Python's default filter shows a given warning message once per call site, so a site that builds one `Markdown` per page prints it once per build.
+   Filtering Python warnings (`PYTHONWARNINGS=ignore`) silences it; escalating them (`python -W error`) turns it into an error, which `mw` reports as `mw: error:` with exit code 2.
+   MkDocs routes Python warnings into its log, so there it appears as a log line, and `mkdocs build --strict` does not fail on it.
+4. **Every option markwright defines is validated, and only those are accepted.**
+   An unknown option key, a wrong type, or an unsupported value is a `ConfigError` naming the extension, the key, and the source, never a fallback or a traceback.
+   The Python-Markdown path raises `ValueError` for the same bad values.
 
 Rule 3 is why an empty selection does not error: switching markwright off is useful when testing a longer tool chain, but it should never happen by accident without a trace.
 

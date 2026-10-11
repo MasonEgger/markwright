@@ -65,7 +65,7 @@ def _wrap_highlight_segments(match: re.Match[str]) -> str:
     return "".join(rebuilt_parts)
 
 
-def apply_html(html: str, warnings: list[str] | None = None) -> str:
+def apply_html(html: str, warnings: list[str] | None = None, options: Mapping[str, object] | None = None) -> str:
     """Convert HTML-escaped ``&lt;^&gt;`` markers in rendered HTML to ``<mark>``.
 
     The HTML-stage transform for ``mw post`` and the in-process postprocessor.
@@ -75,6 +75,7 @@ def apply_html(html: str, warnings: list[str] | None = None) -> str:
 
     :param html: Rendered HTML content.
     :param warnings: Optional warnings list; unused (highlighting never warns).
+    :param options: Ignored; accepted so the registry calls every post stage with one signature.
     :returns: HTML with escaped highlight markers converted to ``<mark>``.
     """
     highlighted = _ESCAPED_HIGHLIGHT_RE.sub(_wrap_highlight_segments, html)

@@ -1,31 +1,45 @@
 # ABOUTME: Declarative registry mapping each extension to its pre/post stage functions.
-# Drives select_extensions, run_pre, run_post, and describe for the mw CLI pipeline.
+# Drives run_pre, run_post, describe, and per-extension option names and checks for the mw CLI and config.
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from functools import partial
 from typing import TypedDict
 
+from markdown.extensions import Extension
+
+from markwright._embed_load import load_mode
 from markwright.codepen import LOAD_MODES as CODEPEN_LOAD_MODES
 from markwright.codepen import apply_html as codepen_post
 from markwright.codepen import expand_source as codepen_pre
+from markwright.codepen import makeExtension as codepen_extension
 from markwright.fence import apply_html as fence_post
 from markwright.fence import expand_source as fence_pre
+from markwright.fence import makeExtension as fence_extension
+from markwright.fence import read_options as fence_options
 from markwright.highlight import apply_html as highlight_post
 from markwright.highlight import expand_source as highlight_pre
+from markwright.highlight import makeExtension as highlight_extension
 from markwright.image_compare import expand_source as image_compare_pre
+from markwright.image_compare import makeExtension as image_compare_extension
 from markwright.instagram import LOAD_MODES as INSTAGRAM_LOAD_MODES
 from markwright.instagram import apply_html as instagram_post
 from markwright.instagram import expand_source as instagram_pre
+from markwright.instagram import makeExtension as instagram_extension
 from markwright.slideshow import expand_source as slideshow_pre
+from markwright.slideshow import makeExtension as slideshow_extension
 from markwright.twitter import LOAD_MODES as TWITTER_LOAD_MODES
 from markwright.twitter import apply_html as twitter_post
 from markwright.twitter import expand_source as twitter_pre
+from markwright.twitter import makeExtension as twitter_extension
 from markwright.youtube import LOAD_MODES as YOUTUBE_LOAD_MODES
 from markwright.youtube import expand_source as youtube_pre
+from markwright.youtube import makeExtension as youtube_extension
 
 PreFn = Callable[[str, Mapping[str, object] | None], str]
-PostFn = Callable[[str, list[str] | None], str]
+PostFn = Callable[[str, list[str] | None, Mapping[str, object] | None], str]
+OptionCheck = Callable[[Mapping[str, object]], object]
 
 
 class StageSpec(TypedDict):
@@ -56,31 +70,30 @@ REGISTRY: dict[str, StageSpec] = {
 
 EXTENSION_NAMES: tuple[str, ...] = tuple(REGISTRY)
 
-# The embeds that reach a third party take a ``load`` option; each maps to the values it supports.
-LOAD_MODES: dict[str, tuple[str, ...]] = {
-    "youtube": YOUTUBE_LOAD_MODES,
-    "codepen": CODEPEN_LOAD_MODES,
-    "twitter": TWITTER_LOAD_MODES,
-    "instagram": INSTAGRAM_LOAD_MODES,
+# Python-Markdown extension factories; each extension's declared config keys are the options it accepts.
+_EXTENSION_FACTORIES: dict[str, Callable[[], Extension]] = {
+    "youtube": youtube_extension,
+    "slideshow": slideshow_extension,
+    "image_compare": image_compare_extension,
+    "codepen": codepen_extension,
+    "twitter": twitter_extension,
+    "instagram": instagram_extension,
+    "fence": fence_extension,
+    "highlight": highlight_extension,
 }
 
+OPTION_NAMES: dict[str, frozenset[str]] = {
+    name: frozenset(factory().getConfigs()) for name, factory in _EXTENSION_FACTORIES.items()
+}
 
-def select_extensions(use: list[str], exclude: list[str]) -> list[str]:
-    """Resolve the active extension set from ``use`` and ``exclude`` filters.
-
-    An empty ``use`` selects every registered extension; a non-empty ``use`` restricts
-    to exactly those names. ``exclude`` then removes names from the result.
-
-    :param use: Names to include, or empty to include all.
-    :param exclude: Names to remove from the included set.
-    :returns: Selected extension names in registry order.
-    :raises ValueError: If any name in ``use`` or ``exclude`` is not registered.
-    """
-    for name in [*use, *exclude]:
-        if name not in REGISTRY:
-            raise ValueError(f"unknown extension: {name!r}")
-    included = use if use else list(EXTENSION_NAMES)
-    return [name for name in EXTENSION_NAMES if name in included and name not in exclude]
+# Validators for the extensions that take options; each raises ValueError naming the bad option.
+OPTION_CHECKS: dict[str, OptionCheck] = {
+    "youtube": partial(load_mode, allowed=YOUTUBE_LOAD_MODES),
+    "codepen": partial(load_mode, allowed=CODEPEN_LOAD_MODES),
+    "twitter": partial(load_mode, allowed=TWITTER_LOAD_MODES),
+    "instagram": partial(load_mode, allowed=INSTAGRAM_LOAD_MODES),
+    "fence": fence_options,
+}
 
 
 def _ordered(
@@ -115,18 +128,25 @@ def run_pre(text: str, names: list[str], options: Mapping[str, Mapping[str, obje
     return text
 
 
-def run_post(html: str, names: list[str], warnings: list[str] | None = None) -> str:
+def run_post(
+    html: str,
+    names: list[str],
+    warnings: list[str] | None = None,
+    options: Mapping[str, Mapping[str, object]] | None = None,
+) -> str:
     """Apply each selected post-stage transform to ``html`` in descending priority order.
 
     :param html: Rendered HTML.
     :param names: Selected extension names.
     :param warnings: Optional list collecting skip reasons from stages that validate markers.
+    :param options: Per-extension option tables keyed by extension name; each stage receives
+        its own table, or ``None`` when it has none.
     :returns: HTML after every selected post stage has run.
     """
     for name in _ordered(names, lambda spec: spec["post"], lambda spec: spec["post_priority"]):
         post_fn = REGISTRY[name]["post"]
         assert post_fn is not None
-        html = post_fn(html, warnings)
+        html = post_fn(html, warnings, options.get(name) if options is not None else None)
     return html
 
 

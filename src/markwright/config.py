@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from markwright._diagnostics import ConfigWarning
-from markwright.registry import EXTENSION_NAMES, LOAD_MODES
+from markwright.registry import EXTENSION_NAMES, OPTION_CHECKS, OPTION_NAMES
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
 
@@ -199,6 +199,8 @@ def _build_config(table: Mapping[str, object], source: str) -> Config:
     :returns: The resolved config, with ``source_path`` unset.
     :raises ConfigError: If any key, type, or extension name is invalid.
     """
+    # A key set to None (a YAML key with no value, from a host) counts as omitted
+    table = {key: value for key, value in table.items() if value is not None}
     _reject_unknown_keys(table, source)
     enable = _selection_list(table, "enable", source)
     disable = _selection_list(table, "disable", source)
@@ -266,9 +268,9 @@ def _extension_options(table: Mapping[str, object], source: str) -> dict[str, di
 
     :param table: The config table.
     :param source: The source path or label, for error messages.
-    :returns: Option dicts keyed by extension name, in registry order.
-    :raises ConfigError: If an extension key is present but not a table, or its ``load``
-        option is unsupported for that extension.
+    :returns: Option dicts keyed by extension name, in registry order, with ``None`` values dropped.
+    :raises ConfigError: If an extension key is present but not a table, names an option the
+        extension does not take, or holds an invalid value.
     """
     options: dict[str, dict[str, object]] = {}
     for name in EXTENSION_NAMES:
@@ -277,20 +279,17 @@ def _extension_options(table: Mapping[str, object], source: str) -> dict[str, di
         extension_table = table[name]
         if not isinstance(extension_table, dict):
             raise ConfigError(f"{source}: '{name}' must be a table of options")
-        # Validate only the options markwright defines; other keys pass through to the extension
-        environments = extension_table.get("allowed_environments", [])
-        if name == "fence" and not (
-            isinstance(environments, list) and all(isinstance(env, str) for env in environments)
-        ):
-            raise ConfigError(f"{source}: 'fence.allowed_environments' must be a list of environment names")
-        if "load" in extension_table:
-            allowed_loads = LOAD_MODES.get(name)
-            if allowed_loads is None:
-                raise ConfigError(f"{source}: '{name}' does not take a 'load' option")
-            if extension_table["load"] not in allowed_loads:
-                load_value = extension_table["load"]
-                raise ConfigError(
-                    f"{source}: '{name}.load' must be one of {', '.join(allowed_loads)}; got {load_value!r}"
-                )
+        extension_table = {key: value for key, value in extension_table.items() if value is not None}
+        for key in extension_table:
+            if key not in OPTION_NAMES[name]:
+                raise ConfigError(f"{source}: [{name}] unknown option {key!r}")
+
+        # The extension's own reader validates values, so config and every render path agree
+        check = OPTION_CHECKS.get(name)
+        if check is not None:
+            try:
+                check(extension_table)
+            except ValueError as option_error:
+                raise ConfigError(f"{source}: [{name}] {option_error}") from option_error
         options[name] = extension_table
     return options

@@ -32,6 +32,7 @@ import json
 import re
 import warnings
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from markdown import Markdown
 from markdown.extensions import Extension
@@ -44,6 +45,10 @@ MARKER_NAME = "mw-fence"
 MARKER_VERSION = 1
 DEFAULT_LABEL_CLASS = "code-label"
 DEFAULT_SECONDARY_LABEL_CLASS = "secondary-code-label"
+
+# The in-process default for allowed_environments, meaning "omitted". Python-Markdown runs a None
+# default through parseBoolValue, which would turn a list into a bool, so a sentinel stands in.
+_ALL_ENVIRONMENTS = object()
 
 FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 LABEL_RE = re.compile(r"^\[label (.+)\]$")
@@ -282,46 +287,80 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param text: The source text.
     :param options: The fence option table from config, or ``None`` for no restriction.
     :returns: The text with directives replaced by mw-fence marker comments.
-    :raises ValueError: If ``allowed_environments`` is not a list of names.
+    :raises ValueError: If an option is invalid (see :func:`read_options`).
     """
-    return "\n".join(_expand_lines(text.split("\n"), _allowed_environments(options)))
+    return "\n".join(_expand_lines(text.split("\n"), read_options(options).allowed_environments))
 
 
-def _allowed_environments(options: Mapping[str, object] | None) -> list[str] | None:
-    """Read and validate ``allowed_environments`` from a fence option table.
+@dataclass(frozen=True)
+class FenceOptions:
+    """Validated fence options.
 
-    Omitting the key allows every environment. A list, even an empty one, allows exactly its
-    names; an empty list makes every ``[environment ...]`` directive a no-op, so it warns.
-
-    :param options: The fence option table (config table or extension kwargs), or ``None``.
-    :returns: The allowed environment names, or ``None`` to allow every environment.
-    :raises ValueError: If the value is not a list of names.
+    :ivar allowed_environments: Environment names to honor, or ``None`` to honor every one.
+    :ivar label_class: CSS class for the label div.
+    :ivar secondary_label_class: CSS class for the secondary label div.
     """
-    if options is None or "allowed_environments" not in options:
-        return None
-    value = options["allowed_environments"]
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError("fence 'allowed_environments' must be a list of environment names")
-    if not value:
+
+    allowed_environments: list[str] | None = None
+    label_class: str = DEFAULT_LABEL_CLASS
+    secondary_label_class: str = DEFAULT_SECONDARY_LABEL_CLASS
+
+
+def read_options(options: Mapping[str, object] | None) -> FenceOptions:
+    """Read and validate a fence option table.
+
+    Shared by both stage functions, the in-process extension, and config validation, so every
+    path applies the same rules. An omitted or ``None`` key takes its default. A list names
+    exactly the environments it holds, so an empty one allows none and emits a :class:`ConfigWarning`.
+
+    :param options: The fence option table (config table or extension configs), or ``None``.
+    :returns: The validated options.
+    :raises ValueError: If ``allowed_environments`` is not a list of names, or a label class is not a string.
+    """
+    table = options or {}
+
+    # allowed_environments: omitted (None or the in-process sentinel) allows every environment
+    environments = table.get("allowed_environments")
+    if environments is _ALL_ENVIRONMENTS:
+        environments = None
+    if environments is not None and (
+        not isinstance(environments, list) or not all(isinstance(item, str) for item in environments)
+    ):
+        raise ValueError("'allowed_environments' must be a list of environment names")
+    if environments == []:
         warnings.warn(
             "fence 'allowed_environments' is empty, so every [environment ...] directive is left as text;"
             " omit the key to allow every environment",
             ConfigWarning,
-            stacklevel=2,
+            stacklevel=1,
         )
-    return value
+
+    # Label classes: omitted takes the default, anything else must be a string
+    label_classes: dict[str, str] = {}
+    for key, default in (
+        ("label_class", DEFAULT_LABEL_CLASS),
+        ("secondary_label_class", DEFAULT_SECONDARY_LABEL_CLASS),
+    ):
+        value = table.get(key)
+        if value is None:
+            value = default
+        if not isinstance(value, str):
+            raise ValueError(f"'{key}' must be a string")
+        label_classes[key] = value
+
+    return FenceOptions(environments, label_classes["label_class"], label_classes["secondary_label_class"])
 
 
 class FencePreprocessor(Preprocessor):
     """Extract directives and prefix flags from fenced code blocks.
 
     :param md: The Markdown instance.
-    :param extension: The parent FenceExtension instance.
+    :param options: The validated fence options.
     """
 
-    def __init__(self, md: Markdown, extension: FenceExtension) -> None:
+    def __init__(self, md: Markdown, options: FenceOptions) -> None:
         super().__init__(md)
-        self.extension = extension
+        self.options = options
 
     def run(self, lines: list[str]) -> list[str]:
         """Process lines, extracting fence directives and injecting metadata comments.
@@ -329,7 +368,7 @@ class FencePreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with directives replaced by metadata comments.
         """
-        return _expand_lines(lines, self.extension.allowed_environments)
+        return _expand_lines(lines, self.options.allowed_environments)
 
 
 CODE_TAG_RE = re.compile(r"<code[^>]*>")
@@ -443,29 +482,34 @@ def _apply_marker(
     return text
 
 
-def apply_html(rendered_html: str, warnings: list[str] | None = None) -> str:
+def apply_html(
+    rendered_html: str, warnings: list[str] | None = None, options: Mapping[str, object] | None = None
+) -> str:
     """Style code blocks from their mw-fence marker comments.
 
-    Used by the ``mw post`` CLI stage and the in-process postprocessor. Markers are
-    validated and skipped fail-soft; pass a ``warnings`` list to collect skip reasons.
+    Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
+    pass a ``warnings`` list to collect skip reasons.
 
     :param rendered_html: Rendered HTML containing mw-fence marker comments.
     :param warnings: Optional list to collect skip reasons; ``None`` suppresses warnings.
+    :param options: The fence option table from config; its label classes style the label divs.
     :returns: HTML with label divs, environment classes, and line prefixes injected.
+    :raises ValueError: If an option is invalid (see :func:`read_options`).
     """
-    return _apply_marker(rendered_html, warnings, DEFAULT_LABEL_CLASS, DEFAULT_SECONDARY_LABEL_CLASS)
+    fence_options = read_options(options)
+    return _apply_marker(rendered_html, warnings, fence_options.label_class, fence_options.secondary_label_class)
 
 
 class FencePostprocessor(Postprocessor):
     """Inject label HTML and line prefixes based on metadata comments.
 
     :param md: The Markdown instance.
-    :param extension: The parent FenceExtension instance.
+    :param options: The validated fence options.
     """
 
-    def __init__(self, md: Markdown, extension: FenceExtension) -> None:
+    def __init__(self, md: Markdown, options: FenceOptions) -> None:
         super().__init__(md)
-        self.extension = extension
+        self.options = options
 
     def run(self, text: str) -> str:
         """Process rendered HTML, replacing metadata comments with label elements and prefixes.
@@ -476,8 +520,8 @@ class FencePostprocessor(Postprocessor):
         return _apply_marker(
             text,
             None,
-            self.extension.getConfig("label_class"),
-            self.extension.getConfig("secondary_label_class"),
+            self.options.label_class,
+            self.options.secondary_label_class,
         )
 
 
@@ -489,23 +533,29 @@ class FenceExtension(Extension):
 
     def __init__(self, **kwargs: object) -> None:
         self.config: dict[str, list[object]] = {
-            "label_class": ["code-label", "CSS class for the label div"],
-            "secondary_label_class": ["secondary-code-label", "CSS class for the secondary label div"],
-            "allowed_environments": [[], "Allowed environment names; omit to allow all, an empty list allows none"],
+            "label_class": [DEFAULT_LABEL_CLASS, "CSS class for the label div"],
+            "secondary_label_class": [DEFAULT_SECONDARY_LABEL_CLASS, "CSS class for the secondary label div"],
+            "allowed_environments": [
+                _ALL_ENVIRONMENTS,
+                "Allowed environment names; omit to allow all, an empty list allows none",
+            ],
         }
         super().__init__(**kwargs)
-        # Read from the passed options, since Python-Markdown's config cannot tell an omitted key from an empty list
-        self.allowed_environments = _allowed_environments(kwargs)
 
     def extendMarkdown(self, md: Markdown) -> None:
         """Register the fence preprocessor and postprocessor.
 
+        Options are read here rather than at construction, so a ``setConfig`` call made
+        after construction still applies.
+
         :param md: The Markdown instance to extend.
+        :raises ValueError: If an option is invalid (see :func:`read_options`).
         """
-        preprocessor = FencePreprocessor(md, self)
+        options = read_options(self.getConfigs())
+        preprocessor = FencePreprocessor(md, options)
         md.preprocessors.register(preprocessor, "mw-fence-pre", 40)
 
-        postprocessor = FencePostprocessor(md, self)
+        postprocessor = FencePostprocessor(md, options)
         md.postprocessors.register(postprocessor, "mw-fence-post", 25)
 
 

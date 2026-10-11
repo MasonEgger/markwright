@@ -31,6 +31,7 @@ VALID_TOML = [
     'disable = ["youtube", "twitter"]\nwarn = true\n',
     '[fence]\nallowed_environments = ["staging"]\n',
     '[youtube]\nload = "lazy"\n\n[twitter]\nload = "click"\n',
+    "[slideshow]\n",
 ]
 
 # Config files load_config rejects, each with a fragment of the expected message.
@@ -43,11 +44,14 @@ INVALID_TOML = [
     ("enable = [1, 2]\n", "enable"),
     ('warn = "yes"\n', "warn"),
     ("fence = 3\n", "fence"),
-    ('[twitter]\nload = "lazy"\n', "twitter.load"),
-    ('[youtube]\nload = "sometimes"\n', "youtube.load"),
-    ('[slideshow]\nload = "click"\n', "slideshow"),
-    ('[fence]\nallowed_environments = "staging"\n', "fence.allowed_environments"),
-    ("[fence]\nallowed_environments = [1]\n", "fence.allowed_environments"),
+    ('[twitter]\nload = "lazy"\n', r"\[twitter\] 'load' must be one of eager, click"),
+    ('[youtube]\nload = "sometimes"\n', r"\[youtube\] 'load' must be one of"),
+    ('[slideshow]\nload = "click"\n', r"\[slideshow\] unknown option 'load'"),
+    ('[fence]\nallowed_environments = "staging"\n', r"\[fence\] 'allowed_environments' must be a list"),
+    ("[fence]\nallowed_environments = [1]\n", r"\[fence\] 'allowed_environments' must be a list"),
+    ("[fence]\ntypo_option = 1\n", r"\[fence\] unknown option 'typo_option'"),
+    ("[youtube]\nallowed_environments = []\n", r"\[youtube\] unknown option 'allowed_environments'"),
+    ("[fence]\nlabel_class = 3\n", r"\[fence\] 'label_class' must be a string"),
 ]
 
 
@@ -288,6 +292,20 @@ class TestEmptyListRule:
             warnings.simplefilter("error")
             selected_extensions(config_from_mapping({"enable": ["fence"]}, MAPPING_SOURCE))
             selected_extensions(Config())
+
+    def test_empty_fence_environments_warn_when_the_config_loads(self) -> None:
+        with pytest.warns(ConfigWarning, match="allowed_environments"):
+            config_from_mapping({"fence": {"allowed_environments": []}}, MAPPING_SOURCE)
+
+    def test_null_values_count_as_omitted(self) -> None:
+        # Hosts parsing YAML hand over None for a key written with no value
+        config = config_from_mapping(
+            {"enable": None, "warn": None, "fence": None, "twitter": {"load": None}}, MAPPING_SOURCE
+        )
+        assert config.enable is None
+        assert config.warn is False
+        assert config.options == {"twitter": {}}
+        assert selected_extensions(config) == list(EXTENSION_NAMES)
 
     def test_host_can_escalate_the_warning_to_an_error(self) -> None:
         config = config_from_mapping({"enable": []}, MAPPING_SOURCE)

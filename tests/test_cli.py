@@ -6,12 +6,14 @@ from __future__ import annotations
 import io
 import subprocess
 import sys
+import warnings
 from importlib.metadata import version as package_version
 from pathlib import Path
 
 import markdown
 import pytest
 
+from markwright import ConfigWarning, registry
 from markwright.cli import main
 from markwright.codepen import CODEPEN_SCRIPT
 from markwright.registry import EXTENSION_NAMES
@@ -497,6 +499,63 @@ class TestCliConfig:
         assert completed.returncode == 0
         assert completed.stdout == "[youtube dQw4w9WgXcQ]\n"
         assert completed.stderr.startswith("mw: warning: no markwright extensions selected")
+
+    def test_unknown_option_key_is_a_usage_error_not_a_traceback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text("[fence]\ntypo_option = 1\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("sys.stdin", io.StringIO("x\n"))
+        exit_code = main(["render"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.err.startswith("mw: error: ")
+        assert "unknown option 'typo_option'" in captured.err
+        assert "Traceback" not in captured.err
+
+    def test_escalated_config_warning_exits_two(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text("enable = []\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("sys.stdin", io.StringIO("x\n"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", ConfigWarning)
+            exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.out == ""
+        assert captured.err.startswith("mw: error: no markwright extensions selected")
+
+    def test_other_warnings_keep_the_python_format(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def warning_pre(text: str, names: list[str], options: object = None) -> str:
+            warnings.warn("a library deprecation", DeprecationWarning, stacklevel=1)
+            return text
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(registry, "run_pre", warning_pre)
+        monkeypatch.setattr("sys.stdin", io.StringIO("x\n"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "DeprecationWarning: a library deprecation" in captured.err
+        assert "mw: warning: a library deprecation" not in captured.err
+
+    def test_post_applies_configured_label_class(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text('[fence]\nlabel_class = "my-label"\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        marked = '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n<pre><code>x\n</code></pre>'
+        monkeypatch.setattr("sys.stdin", io.StringIO(marked))
+        exit_code = main(["post"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert '<div class="my-label" title="a.sh">a.sh</div>' in captured.out
 
     def test_config_unknown_exclude_name_returns_two(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]

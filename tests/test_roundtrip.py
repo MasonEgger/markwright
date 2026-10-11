@@ -228,3 +228,19 @@ class TestRoundTripLoad:
         assert pipeline.count(TWITTER_SCRIPT) == 1
         assert CODEPEN_SCRIPT not in pipeline
         assert INSTAGRAM_SCRIPT not in pipeline
+
+
+class TestRoundTripFenceOptions:
+    """Fence label classes from config apply the same through the pipeline and in-process."""
+
+    def test_label_classes_match_in_process_render(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {
+            "fence": {"label_class": "my-label", "secondary_label_class": "my-sub"}
+        }
+        source = "```\n[label a.sh]\n[secondary_label Output]\necho hi\n```\n"
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        in_process = in_process_render(source, names, options)
+        assert 'class="my-label"' in pipeline
+        assert 'class="my-sub"' in pipeline
+        assert _normalize(pipeline) == _normalize(in_process)
