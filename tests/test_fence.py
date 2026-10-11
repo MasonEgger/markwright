@@ -4,7 +4,7 @@
 import markdown
 import pytest
 
-from markwright import ConfigWarning
+from markwright import ConfigWarning, OptionError
 from markwright.fence import FenceExtension, apply_html, expand_source
 
 
@@ -171,13 +171,13 @@ class TestEnvironmentAllowedList:
         assert "environment-staging" not in result
 
     def test_non_string_label_class_raises(self) -> None:
-        with pytest.raises(ValueError, match="label_class"):
+        with pytest.raises(OptionError, match="label_class"):
             markdown.Markdown(
                 extensions=["markwright.fence"], extension_configs={"markwright.fence": {"label_class": 3}}
             )
 
     def test_non_list_allowed_environments_raises(self) -> None:
-        with pytest.raises(ValueError, match="allowed_environments"):
+        with pytest.raises(OptionError, match="allowed_environments"):
             markdown.Markdown(
                 extensions=["markwright.fence"],
                 extension_configs={"markwright.fence": {"allowed_environments": "local"}},
@@ -358,7 +358,7 @@ class TestFenceExpandSource:
         assert '"environment"' not in result
 
     def test_options_non_list_environment_value_raises(self) -> None:
-        with pytest.raises(ValueError, match="allowed_environments"):
+        with pytest.raises(OptionError, match="allowed_environments"):
             expand_source("text", {"allowed_environments": [1]})
 
     def test_apply_html_honors_label_class_options(self) -> None:

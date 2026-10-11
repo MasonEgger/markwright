@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
-from markwright._diagnostics import ConfigWarning
+from markwright._diagnostics import ConfigWarning, OptionError
 from markwright.config import Config, ConfigError, config_from_mapping, extension_configs, selected_extensions
 
 __all__ = [
     "Config",
     "ConfigError",
     "ConfigWarning",
+    "OptionError",
     "config_from_mapping",
     "extension_configs",
     "selected_extensions",

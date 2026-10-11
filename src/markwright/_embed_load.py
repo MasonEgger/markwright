@@ -7,6 +7,8 @@ import html
 import re
 from collections.abc import Mapping
 
+from markwright._diagnostics import OptionError
+
 LOAD_EAGER = "eager"
 LOAD_LAZY = "lazy"
 LOAD_CLICK = "click"
@@ -24,13 +26,13 @@ def load_mode(options: Mapping[str, object] | None, allowed: tuple[str, ...]) ->
     :param options: The embed's option table (config table or extension configs), or ``None``.
     :param allowed: The load values this embed supports.
     :returns: The load value, ``"eager"`` when omitted or ``None``.
-    :raises ValueError: If ``load`` is not one of ``allowed``.
+    :raises OptionError: If ``load`` is not one of ``allowed``.
     """
     load = (options or {}).get("load")
     if load is None:
         return LOAD_EAGER
     if not isinstance(load, str) or load not in allowed:
-        raise ValueError(f"'load' must be one of {', '.join(allowed)}; got {load!r}")
+        raise OptionError(f"'load' must be one of {', '.join(allowed)}; got {load!r}")
     return load
 
 

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import markdown
 import pytest
 
-from markwright import codepen, instagram, twitter, youtube
+from markwright import OptionError, codepen, instagram, twitter, youtube
 
 
 @dataclass(frozen=True)
@@ -147,11 +147,11 @@ class TestLoadValues:
         assert "<script" not in render(case.name, case.source, {"load": "click"})
 
     def test_unknown_value_raises_in_source_stage(self, case: EmbedCase) -> None:
-        with pytest.raises(ValueError, match="load"):
+        with pytest.raises(OptionError, match="load"):
             case.expand_source(case.source, {"load": "sometimes"})
 
     def test_unknown_value_raises_in_process(self, case: EmbedCase) -> None:
-        with pytest.raises(ValueError, match="load"):
+        with pytest.raises(OptionError, match="load"):
             render(case.name, case.source, {"load": "sometimes"})
 
 
@@ -174,7 +174,7 @@ class TestScriptEmbedsRejectLazy:
     """Script embeds would need host JS for lazy, which click already covers, so they reject it."""
 
     def test_lazy_raises(self, name: str) -> None:
-        with pytest.raises(ValueError, match="load"):
+        with pytest.raises(OptionError, match="load"):
             render(name, "anything", {"load": "lazy"})
 
 

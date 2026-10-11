@@ -108,7 +108,7 @@ These rules hold for every markwright setting, including any added later.
    MkDocs routes Python warnings into its log, so there it appears as a log line, and `mkdocs build --strict` does not fail on it.
 4. **Every option markwright defines is validated, and only those are accepted.**
    An unknown option key, a wrong type, or an unsupported value is a `ConfigError` naming the extension, the key, and the source, never a fallback or a traceback.
-   The Python-Markdown path raises `ValueError` for the same bad values.
+   The Python-Markdown path raises `markwright.OptionError` (a `ValueError` subclass) for the same bad values.
 
 Rule 3 is why an empty selection does not error: switching markwright off is useful when testing a longer tool chain, but it should never happen by accident without a trace.
 

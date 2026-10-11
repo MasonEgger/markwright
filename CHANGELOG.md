@@ -22,6 +22,7 @@ Two changes break 0.2.0 behavior, both from one rule: an empty list now means "n
 - Config validation rejects an unsupported `load` value, and `load` on an extension that does not take it.
 - A Click-to-Load docs page with the markup contract, the provider processor calls, and a sample host script.
 - `markwright.ConfigWarning`, emitted when a setting turns a feature into a no-op. `mw` prints it as one `mw: warning:` line on stderr.
+- `markwright.OptionError`, a `ValueError` subclass raised for an invalid extension option value.
 - Config Rules in the configuration docs: omitted means default, a list names exactly what it holds, a no-op setting warns, every option is validated.
 
 ### Changed

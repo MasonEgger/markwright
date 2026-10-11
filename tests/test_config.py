@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 import markwright
-from markwright import ConfigWarning
+from markwright import ConfigWarning, OptionError, registry
 from markwright.config import (
     Config,
     ConfigError,
@@ -336,9 +336,27 @@ class TestPackageExports:
             "Config",
             "ConfigError",
             "ConfigWarning",
+            "OptionError",
             "config_from_mapping",
             "extension_configs",
             "selected_extensions",
         ]
         assert markwright.config_from_mapping is config_from_mapping
         assert markwright.Config is Config
+
+
+class TestOptionErrors:
+    """Only the extensions' named OptionError becomes a ConfigError; other exceptions stay visible as bugs."""
+
+    def test_option_error_is_a_value_error(self) -> None:
+        # Python-Markdown users who already catch ValueError keep working
+        assert issubclass(OptionError, ValueError)
+
+    def test_unrelated_value_error_in_a_check_is_not_reported_as_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def broken_check(options: object) -> None:
+            raise ValueError("a bug inside the checker")
+
+        monkeypatch.setitem(registry.OPTION_CHECKS, "fence", broken_check)
+        with pytest.raises(ValueError, match="a bug inside the checker") as raised:
+            config_from_mapping({"fence": {}}, MAPPING_SOURCE)
+        assert not isinstance(raised.value, ConfigError)

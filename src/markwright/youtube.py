@@ -76,7 +76,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param text: The source text.
     :param options: The youtube option table from config; its ``load`` picks the load mode.
     :returns: The text with standalone YouTube embeds replaced by iframe HTML.
-    :raises ValueError: If ``load`` is not a supported value.
+    :raises OptionError: If ``load`` is not a supported value.
     """
     load = load_mode(options, LOAD_MODES)
     return "\n".join(_render_match(line, load) or line for line in text.split("\n"))
@@ -125,7 +125,7 @@ class YouTubeExtension(Extension):
         """Register the YouTube preprocessor.
 
         :param md: The Markdown instance to extend.
-        :raises ValueError: If the ``load`` config is not a supported value.
+        :raises OptionError: If the ``load`` config is not a supported value.
         """
         preprocessor = YouTubePreprocessor(md, load_mode(self.getConfigs(), LOAD_MODES))
         md.preprocessors.register(preprocessor, "do-youtube", 20)

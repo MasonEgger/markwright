@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from markwright._diagnostics import ConfigWarning
+from markwright._diagnostics import ConfigWarning, OptionError
 from markwright.registry import EXTENSION_NAMES, OPTION_CHECKS, OPTION_NAMES
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
@@ -284,12 +284,13 @@ def _extension_options(table: Mapping[str, object], source: str) -> dict[str, di
             if key not in OPTION_NAMES[name]:
                 raise ConfigError(f"{source}: [{name}] unknown option {key!r}")
 
-        # The extension's own reader validates values, so config and every render path agree
+        # The extension's own reader validates values, so config and every render path agree;
+        # only its named OptionError is a config problem, anything else is a bug and propagates
         check = OPTION_CHECKS.get(name)
         if check is not None:
             try:
                 check(extension_table)
-            except ValueError as option_error:
+            except OptionError as option_error:
                 raise ConfigError(f"{source}: [{name}] {option_error}") from option_error
         options[name] = extension_table
     return options

@@ -39,7 +39,7 @@ from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 
-from markwright._diagnostics import ConfigWarning
+from markwright._diagnostics import ConfigWarning, OptionError
 
 MARKER_NAME = "mw-fence"
 MARKER_VERSION = 1
@@ -287,7 +287,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param text: The source text.
     :param options: The fence option table from config, or ``None`` for no restriction.
     :returns: The text with directives replaced by mw-fence marker comments.
-    :raises ValueError: If an option is invalid (see :func:`read_options`).
+    :raises OptionError: If an option is invalid (see :func:`read_options`).
     """
     return "\n".join(_expand_lines(text.split("\n"), read_options(options).allowed_environments))
 
@@ -315,7 +315,7 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
 
     :param options: The fence option table (config table or extension configs), or ``None``.
     :returns: The validated options.
-    :raises ValueError: If ``allowed_environments`` is not a list of names, or a label class is not a string.
+    :raises OptionError: If ``allowed_environments`` is not a list of names, or a label class is not a string.
     """
     table = options or {}
 
@@ -326,7 +326,7 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
     if environments is not None and (
         not isinstance(environments, list) or not all(isinstance(item, str) for item in environments)
     ):
-        raise ValueError("'allowed_environments' must be a list of environment names")
+        raise OptionError("'allowed_environments' must be a list of environment names")
     if environments == []:
         warnings.warn(
             "fence 'allowed_environments' is empty, so every [environment ...] directive is left as text;"
@@ -345,7 +345,7 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
         if value is None:
             value = default
         if not isinstance(value, str):
-            raise ValueError(f"'{key}' must be a string")
+            raise OptionError(f"'{key}' must be a string")
         label_classes[key] = value
 
     return FenceOptions(environments, label_classes["label_class"], label_classes["secondary_label_class"])
@@ -494,7 +494,7 @@ def apply_html(
     :param warnings: Optional list to collect skip reasons; ``None`` suppresses warnings.
     :param options: The fence option table from config; its label classes style the label divs.
     :returns: HTML with label divs, environment classes, and line prefixes injected.
-    :raises ValueError: If an option is invalid (see :func:`read_options`).
+    :raises OptionError: If an option is invalid (see :func:`read_options`).
     """
     fence_options = read_options(options)
     return _apply_marker(rendered_html, warnings, fence_options.label_class, fence_options.secondary_label_class)
@@ -549,7 +549,7 @@ class FenceExtension(Extension):
         after construction still applies.
 
         :param md: The Markdown instance to extend.
-        :raises ValueError: If an option is invalid (see :func:`read_options`).
+        :raises OptionError: If an option is invalid (see :func:`read_options`).
         """
         options = read_options(self.getConfigs())
         preprocessor = FencePreprocessor(md, options)

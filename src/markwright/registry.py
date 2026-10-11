@@ -86,7 +86,7 @@ OPTION_NAMES: dict[str, frozenset[str]] = {
     name: frozenset(factory().getConfigs()) for name, factory in _EXTENSION_FACTORIES.items()
 }
 
-# Validators for the extensions that take options; each raises ValueError naming the bad option.
+# Validators for the extensions that take options; each raises OptionError naming the bad option.
 OPTION_CHECKS: dict[str, OptionCheck] = {
     "youtube": partial(load_mode, allowed=YOUTUBE_LOAD_MODES),
     "codepen": partial(load_mode, allowed=CODEPEN_LOAD_MODES),
