@@ -2,7 +2,9 @@
 # Verifies directive extraction, HTML injection, environment classes, line prefixes, and edge cases.
 
 import markdown
+import pytest
 
+from markwright import ConfigWarning
 from markwright.fence import apply_html, expand_source
 
 
@@ -144,10 +146,24 @@ class TestEnvironmentAllowedList:
         assert "environment-unknown" not in result
         assert "[environment unknown]" in result
 
-    def test_empty_allowed_list_allows_all(self) -> None:
+    def test_omitted_allowed_list_allows_all(self) -> None:
         source = "```\n[environment custom]\ncode\n```"
-        result = render_fence(source, allowed_environments=[])
+        result = render_fence(source)
         assert "environment-custom" in result
+
+    def test_empty_allowed_list_allows_none_and_warns(self) -> None:
+        source = "```\n[environment custom]\ncode\n```"
+        with pytest.warns(ConfigWarning, match="allowed_environments"):
+            result = render_fence(source, allowed_environments=[])
+        assert "environment-custom" not in result
+        assert "[environment custom]" in result
+
+    def test_non_list_allowed_environments_raises(self) -> None:
+        with pytest.raises(ValueError, match="allowed_environments"):
+            markdown.Markdown(
+                extensions=["markwright.fence"],
+                extension_configs={"markwright.fence": {"allowed_environments": "local"}},
+            )
 
 
 class TestEnvironmentWithLabel:
@@ -316,6 +332,16 @@ class TestFenceExpandSource:
         source = "```\n[environment production]\necho hi\n```"
         result = expand_source(source, {"allowed_environments": ["staging"]})
         assert '"environment"' not in result
+
+    def test_options_empty_environment_list_allows_none_and_warns(self) -> None:
+        source = "```\n[environment production]\necho hi\n```"
+        with pytest.warns(ConfigWarning, match="allowed_environments"):
+            result = expand_source(source, {"allowed_environments": []})
+        assert '"environment"' not in result
+
+    def test_options_non_list_environment_value_raises(self) -> None:
+        with pytest.raises(ValueError, match="allowed_environments"):
+            expand_source("text", {"allowed_environments": [1]})
 
     def test_options_without_environment_list_allow_all(self) -> None:
         source = "```\n[environment production]\necho hi\n```"

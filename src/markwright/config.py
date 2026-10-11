@@ -4,17 +4,16 @@
 from __future__ import annotations
 
 import dataclasses
-import logging
 import tomllib
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from markwright._diagnostics import ConfigWarning
 from markwright.registry import EXTENSION_NAMES, LOAD_MODES
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
-
-logger = logging.getLogger(__name__)
 
 
 class ConfigError(Exception):
@@ -83,9 +82,9 @@ def config_from_mapping(table: Mapping[str, object], source: str) -> Config:
 def selected_extensions(config: Config) -> list[str]:
     """Resolve the extension names a config turns on.
 
-    An ``enable`` allowlist selects exactly its names, so an empty one selects nothing. An empty
-    selection is allowed, since it switches markwright off inside a tool chain, but it logs a
-    warning naming the cause so it never fails silently.
+    A list names exactly what it holds: an empty ``enable`` selects nothing and an empty ``disable``
+    removes nothing. An empty selection is allowed, since it switches markwright off inside a tool
+    chain, but it emits a :class:`ConfigWarning` naming the cause so it never fails silently.
 
     :param config: The resolved config.
     :returns: Extension names after ``enable`` and ``disable``, in registry order.
@@ -102,7 +101,11 @@ def selected_extensions(config: Config) -> list[str]:
             cause = f"'enable' is empty in {config.sources.get('enable', 'config')}"
         else:
             cause = f"'disable' lists every extension in {config.sources.get('disable', 'config')}"
-        logger.warning("no markwright extensions selected (%s); markwright syntax passes through unprocessed", cause)
+        warnings.warn(
+            f"no markwright extensions selected ({cause}); markwright syntax passes through unprocessed",
+            ConfigWarning,
+            stacklevel=2,
+        )
     return names
 
 
@@ -275,6 +278,11 @@ def _extension_options(table: Mapping[str, object], source: str) -> dict[str, di
         if not isinstance(extension_table, dict):
             raise ConfigError(f"{source}: '{name}' must be a table of options")
         # Validate only the options markwright defines; other keys pass through to the extension
+        environments = extension_table.get("allowed_environments", [])
+        if name == "fence" and not (
+            isinstance(environments, list) and all(isinstance(env, str) for env in environments)
+        ):
+            raise ConfigError(f"{source}: 'fence.allowed_environments' must be a list of environment names")
         if "load" in extension_table:
             allowed_loads = LOAD_MODES.get(name)
             if allowed_loads is None:

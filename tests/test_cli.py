@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import io
-import logging
 import subprocess
 import sys
 from importlib.metadata import version as package_version
@@ -443,36 +442,46 @@ class TestCliConfig:
         assert 'data-mw-load="click"' in captured.out
 
     def test_empty_enable_runs_no_extensions_and_warns(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-        capsys: pytest.CaptureFixture[str],
-        caplog: pytest.LogCaptureFixture,
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        (tmp_path / "markwright.toml").write_text("enable = []\n", encoding="utf-8")
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text("enable = []\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr("sys.stdin", io.StringIO("[youtube dQw4w9WgXcQ]\n"))
-        with caplog.at_level(logging.WARNING, logger="markwright"):
-            exit_code = main(["pre", "--exclude", "fence"])
+        exit_code = main(["pre", "--exclude", "fence"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert captured.out == "[youtube dQw4w9WgXcQ]\n"
         # One warning naming the config cause; --exclude adds no second warning on top
-        assert len(caplog.records) == 1
-        assert "'enable' is empty in" in caplog.text
+        assert captured.err == (
+            f"mw: warning: no markwright extensions selected ('enable' is empty in {config_path});"
+            " markwright syntax passes through unprocessed\n"
+        )
 
     def test_exclude_removing_every_extension_warns(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr("sys.stdin", io.StringIO("text\n"))
         exclude_flags = [flag for name in EXTENSION_NAMES for flag in ("--exclude", name)]
-        with caplog.at_level(logging.WARNING, logger="markwright"):
-            exit_code = main(["pre", *exclude_flags])
+        exit_code = main(["pre", *exclude_flags])
+        captured = capsys.readouterr()
         assert exit_code == 0
-        assert len(caplog.records) == 1
-        assert "no markwright extensions selected" in caplog.text
-        assert "--exclude" in caplog.text
+        assert captured.err.count("mw: warning: ") == 1
+        assert "no markwright extensions selected (--exclude removed every one)" in captured.err
+
+    def test_empty_fence_environments_warns_once(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text("[fence]\nallowed_environments = []\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("sys.stdin", io.StringIO("```\n[environment local]\necho hi\n```\n"))
+        exit_code = main(["render"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "environment-local" not in captured.out
+        assert captured.err.count("mw: warning: ") == 1
+        assert "allowed_environments" in captured.err
 
     def test_empty_selection_warning_reaches_real_stderr(self, tmp_path: Path) -> None:
         # Without any logging setup, the warning must still reach stderr and leave stdout clean for the pipe
@@ -487,7 +496,7 @@ class TestCliConfig:
         )
         assert completed.returncode == 0
         assert completed.stdout == "[youtube dQw4w9WgXcQ]\n"
-        assert "no markwright extensions selected" in completed.stderr
+        assert completed.stderr.startswith("mw: warning: no markwright extensions selected")
 
     def test_config_unknown_exclude_name_returns_two(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]

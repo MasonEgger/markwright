@@ -109,7 +109,9 @@ The allowlist that older versions set with `--use` now lives in config as `enabl
 `--use` was removed in 0.2.0.
 
 If the selection ends up empty (`enable = []`, a `disable` that lists every extension, or `--exclude` removing the rest), the run still succeeds: `pre` and `post` pass their input through unchanged, and `render` renders plain Markdown with every markwright directive left as literal text.
-That is useful for switching markwright off inside a longer tool chain, but it is never silent: `mw` writes a warning to stderr naming the cause and the config file, and stdout stays clean for the pipe.
+That is useful for switching markwright off inside a longer tool chain, but it is never silent: `mw` writes one `mw: warning:` line to stderr naming the cause and the config file, and stdout stays clean for the pipe.
+An empty `fence.allowed_environments` warns the same way.
+See [Config Rules](config.md#config-rules).
 
 ### `--warn` (`post` only)
 

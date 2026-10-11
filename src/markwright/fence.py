@@ -30,12 +30,15 @@ from __future__ import annotations
 import html
 import json
 import re
+import warnings
 from collections.abc import Mapping
 
 from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
+
+from markwright._diagnostics import ConfigWarning
 
 MARKER_NAME = "mw-fence"
 MARKER_VERSION = 1
@@ -179,7 +182,8 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
     Shared by the in-process preprocessor and the ``mw pre`` stage function.
 
     :param lines: Source lines to process.
-    :param allowed_environments: Allowed environment names; an empty list or ``None`` allows all.
+    :param allowed_environments: Allowed environment names, or ``None`` to allow every environment;
+        an empty list allows none.
     :returns: Modified lines with directives replaced by mw-fence marker comments.
     """
     output: list[str] = []
@@ -237,7 +241,7 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
                     continue
                 elif environment_match:
                     env_name = environment_match.group(1)
-                    if not allowed_environments or env_name in allowed_environments:
+                    if allowed_environments is None or env_name in allowed_environments:
                         metadata["environment"] = env_name
                         scan_index += 1
                         continue
@@ -278,22 +282,34 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param text: The source text.
     :param options: The fence option table from config, or ``None`` for no restriction.
     :returns: The text with directives replaced by mw-fence marker comments.
+    :raises ValueError: If ``allowed_environments`` is not a list of names.
     """
     return "\n".join(_expand_lines(text.split("\n"), _allowed_environments(options)))
 
 
 def _allowed_environments(options: Mapping[str, object] | None) -> list[str] | None:
-    """Read the ``allowed_environments`` list from a fence option table.
+    """Read and validate ``allowed_environments`` from a fence option table.
 
-    :param options: The fence option table, or ``None``.
+    Omitting the key allows every environment. A list, even an empty one, allows exactly its
+    names; an empty list makes every ``[environment ...]`` directive a no-op, so it warns.
+
+    :param options: The fence option table (config table or extension kwargs), or ``None``.
     :returns: The allowed environment names, or ``None`` to allow every environment.
+    :raises ValueError: If the value is not a list of names.
     """
-    if options is None:
+    if options is None or "allowed_environments" not in options:
         return None
-    value = options.get("allowed_environments")
-    if isinstance(value, list):
-        return [str(item) for item in value]
-    return None
+    value = options["allowed_environments"]
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError("fence 'allowed_environments' must be a list of environment names")
+    if not value:
+        warnings.warn(
+            "fence 'allowed_environments' is empty, so every [environment ...] directive is left as text;"
+            " omit the key to allow every environment",
+            ConfigWarning,
+            stacklevel=2,
+        )
+    return value
 
 
 class FencePreprocessor(Preprocessor):
@@ -313,7 +329,7 @@ class FencePreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with directives replaced by metadata comments.
         """
-        return _expand_lines(lines, self.extension.getConfig("allowed_environments"))
+        return _expand_lines(lines, self.extension.allowed_environments)
 
 
 CODE_TAG_RE = re.compile(r"<code[^>]*>")
@@ -475,9 +491,11 @@ class FenceExtension(Extension):
         self.config: dict[str, list[object]] = {
             "label_class": ["code-label", "CSS class for the label div"],
             "secondary_label_class": ["secondary-code-label", "CSS class for the secondary label div"],
-            "allowed_environments": [[], "List of allowed environment names (empty = allow all)"],
+            "allowed_environments": [[], "Allowed environment names; omit to allow all, an empty list allows none"],
         }
         super().__init__(**kwargs)
+        # Read from the passed options, since Python-Markdown's config cannot tell an omitted key from an empty list
+        self.allowed_environments = _allowed_environments(kwargs)
 
     def extendMarkdown(self, md: Markdown) -> None:
         """Register the fence preprocessor and postprocessor.

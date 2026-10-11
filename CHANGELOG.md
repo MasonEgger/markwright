@@ -5,9 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [0.3.0]
 
-Default output is byte-identical to 0.2.0.
-Both additions are opt-in.
-One fix changes behavior: an empty `enable` list.
+Default output is byte-identical to 0.2.0, and both additions are opt-in.
+Two changes break 0.2.0 behavior, both from one rule: an empty list now means "none" everywhere (see Changed).
 
 ### Added
 
@@ -22,11 +21,18 @@ One fix changes behavior: an empty `enable` list.
 - `mw config` reports the resolved `load` for each embed and where it came from.
 - Config validation rejects an unsupported `load` value, and `load` on an extension that does not take it.
 - A Click-to-Load docs page with the markup contract, the provider processor calls, and a sample host script.
+- `markwright.ConfigWarning`, emitted when a setting turns a feature into a no-op. `mw` prints it as one `mw: warning:` line on stderr.
+- Config Rules in the configuration docs: omitted means default, a list names exactly what it holds, a no-op setting warns, every option is validated.
+
+### Changed
+
+- Breaking: `fence.allowed_environments = []` now allows no environments and warns; omit the key to allow every environment. It used to allow all.
+- Config validation rejects a non-list `fence.allowed_environments`, and the extension raises `ValueError` for one; both used to ignore it silently.
 
 ### Fixed
 
-- `enable = []` now runs no extensions; it used to run all of them (#13).
-- An empty extension selection (from `enable = []`, a `disable` listing every extension, or `--exclude`) logs a warning naming the cause instead of passing input through silently.
+- Breaking: `enable = []` now runs no extensions and warns; it used to run all of them (#13).
+- An empty extension selection (from `enable = []`, a `disable` listing every extension, or `--exclude`) warns with its cause instead of passing input through silently.
 
 ## [0.2.0]
 

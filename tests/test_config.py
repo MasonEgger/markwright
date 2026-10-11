@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import dataclasses
-import logging
 import tomllib
+import warnings
 from pathlib import Path
 
 import pytest
 
 import markwright
+from markwright import ConfigWarning
 from markwright.config import (
     Config,
     ConfigError,
@@ -45,6 +46,8 @@ INVALID_TOML = [
     ('[twitter]\nload = "lazy"\n', "twitter.load"),
     ('[youtube]\nload = "sometimes"\n', "youtube.load"),
     ('[slideshow]\nload = "click"\n', "slideshow"),
+    ('[fence]\nallowed_environments = "staging"\n', "fence.allowed_environments"),
+    ("[fence]\nallowed_environments = [1]\n", "fence.allowed_environments"),
 ]
 
 
@@ -256,38 +259,42 @@ class TestSelectedExtensions:
         config = Config(disable=("youtube", "fence"))
         assert selected_extensions(config) == [name for name in EXTENSION_NAMES if name not in ("youtube", "fence")]
 
-    def test_empty_enable_selects_nothing(self, tmp_path: Path) -> None:
-        config_path = _write(tmp_path / "markwright.toml", "enable = []\n")
-        assert selected_extensions(load_config(config_path, tmp_path)) == []
-        assert selected_extensions(config_from_mapping({"enable": []}, MAPPING_SOURCE)) == []
 
-    def test_disabling_everything_selects_nothing(self) -> None:
-        config = Config(disable=EXTENSION_NAMES)
-        assert selected_extensions(config) == []
+class TestEmptyListRule:
+    """A list names exactly what it holds: empty allows nothing, warns when that makes a feature a no-op."""
 
-
-class TestEmptySelectionWarning:
-    """An empty selection is allowed (it switches markwright off in a tool chain) but never silent."""
-
-    def test_empty_enable_warns_with_source(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_empty_enable_warns_with_source(self) -> None:
         config = config_from_mapping({"enable": []}, MAPPING_SOURCE)
-        with caplog.at_level(logging.WARNING, logger="markwright"):
-            selected_extensions(config)
-        assert [record.levelno for record in caplog.records] == [logging.WARNING]
-        assert "no markwright extensions selected" in caplog.text
-        assert f"'enable' is empty in {MAPPING_SOURCE}" in caplog.text
+        with pytest.warns(ConfigWarning, match=f"'enable' is empty in {MAPPING_SOURCE}"):
+            assert selected_extensions(config) == []
 
-    def test_disable_listing_everything_warns_with_source(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_empty_enable_from_a_file_names_the_file(self, tmp_path: Path) -> None:
+        config_path = _write(tmp_path / "markwright.toml", "enable = []\n")
+        with pytest.warns(ConfigWarning, match=f"'enable' is empty in {config_path}"):
+            assert selected_extensions(load_config(config_path, tmp_path)) == []
+
+    def test_disable_listing_everything_warns_with_source(self) -> None:
         config = config_from_mapping({"disable": list(EXTENSION_NAMES)}, MAPPING_SOURCE)
-        with caplog.at_level(logging.WARNING, logger="markwright"):
-            selected_extensions(config)
-        assert f"'disable' lists every extension in {MAPPING_SOURCE}" in caplog.text
+        with pytest.warns(ConfigWarning, match=f"'disable' lists every extension in {MAPPING_SOURCE}"):
+            assert selected_extensions(config) == []
 
-    def test_non_empty_selection_does_not_warn(self, caplog: pytest.LogCaptureFixture) -> None:
-        with caplog.at_level(logging.WARNING, logger="markwright"):
+    def test_empty_disable_removes_nothing_without_warning(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert selected_extensions(config_from_mapping({"disable": []}, MAPPING_SOURCE)) == list(EXTENSION_NAMES)
+
+    def test_non_empty_selection_does_not_warn(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             selected_extensions(config_from_mapping({"enable": ["fence"]}, MAPPING_SOURCE))
             selected_extensions(Config())
-        assert caplog.records == []
+
+    def test_host_can_escalate_the_warning_to_an_error(self) -> None:
+        config = config_from_mapping({"enable": []}, MAPPING_SOURCE)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", ConfigWarning)
+            with pytest.raises(ConfigWarning):
+                selected_extensions(config)
 
 
 class TestExtensionConfigs:
@@ -310,6 +317,7 @@ class TestPackageExports:
         assert markwright.__all__ == [
             "Config",
             "ConfigError",
+            "ConfigWarning",
             "config_from_mapping",
             "extension_configs",
             "selected_extensions",

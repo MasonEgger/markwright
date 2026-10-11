@@ -25,7 +25,7 @@ md = markdown.Markdown(
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `allowed_environments` | `[]` (allow all) | List of allowed environment names. If empty, all names are accepted. |
+| `allowed_environments` | omitted (allow all) | List of allowed environment names. Omit it to allow every name; an empty list allows none and emits a `ConfigWarning`. |
 
 See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 

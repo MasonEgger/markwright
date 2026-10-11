@@ -4,18 +4,18 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import sys
+import warnings
 from importlib.metadata import version
 from pathlib import Path
+from typing import TextIO
 
 import markdown
 
 from markwright import config, registry
+from markwright._diagnostics import ConfigWarning
 from markwright._embed_load import LOAD_EAGER
 from markwright.config import Config, ConfigError
-
-logger = logging.getLogger(__name__)
 
 
 def _package_version() -> str:
@@ -95,9 +95,11 @@ def _resolve(args: argparse.Namespace) -> tuple[Config, list[str]] | None:
 
     # An empty config selection already warned; only report the case --exclude caused
     if config_selected and not names:
-        logger.warning(
-            "no markwright extensions selected (--exclude removed every one); "
-            "markwright syntax passes through unprocessed"
+        warnings.warn(
+            "no markwright extensions selected (--exclude removed every one);"
+            " markwright syntax passes through unprocessed",
+            ConfigWarning,
+            stacklevel=2,
         )
     return resolved_config, names
 
@@ -226,6 +228,29 @@ def _run_config(args: argparse.Namespace) -> int:
     return 0
 
 
+def _show_warning(
+    message: Warning | str,
+    category: type[Warning],
+    filename: str,
+    lineno: int,
+    file: TextIO | None = None,
+    line: str | None = None,
+) -> None:
+    """Print a warning as a one-line ``mw: warning:`` diagnostic on stderr.
+
+    Replaces :func:`warnings.showwarning` for the duration of a CLI run, so a
+    :class:`ConfigWarning` reads as tool output rather than a Python source location.
+
+    :param message: The warning instance or text.
+    :param category: The warning class; unused.
+    :param filename: The file that issued the warning; unused.
+    :param lineno: The line that issued the warning; unused.
+    :param file: The stream the default handler would write to; unused, stderr is always used.
+    :param line: The source line; unused.
+    """
+    print(f"mw: warning: {message}", file=sys.stderr)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Parse ``argv`` and dispatch to the selected subcommand.
 
@@ -237,15 +262,19 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
     except SystemExit as exit_error:
         return exit_error.code if isinstance(exit_error.code, int) else 2
-    if args.command == "list":
-        return _run_list()
-    if args.command == "pre":
-        return _run_pre(args)
-    if args.command == "post":
-        return _run_post(args)
-    if args.command == "render":
-        return _run_render(args)
-    if args.command == "config":
-        return _run_config(args)
+
+    # Show warnings as one-line mw diagnostics on stderr; catch_warnings restores the handler afterward
+    with warnings.catch_warnings():
+        warnings.showwarning = _show_warning
+        if args.command == "list":
+            return _run_list()
+        if args.command == "pre":
+            return _run_pre(args)
+        if args.command == "post":
+            return _run_post(args)
+        if args.command == "render":
+            return _run_render(args)
+        if args.command == "config":
+            return _run_config(args)
     parser.print_usage()
     return 2

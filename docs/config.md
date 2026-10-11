@@ -43,7 +43,7 @@ The recognized top-level keys are `enable`, `disable`, `warn`, and one table per
 Both are lists of extension names, and they are mutually exclusive: setting both is an error.
 
 - `enable = ["fence", "youtube"]` runs only those two.
-- `enable = []` runs no extensions and logs a warning naming the config file, so switching markwright off is deliberate and never silent.
+- `enable = []` runs no extensions and emits a warning (see [Config Rules](#config-rules)).
 - `disable = ["codepen"]` runs every extension except that one.
 - Neither key runs every extension (the default).
 
@@ -59,7 +59,8 @@ It defaults to `false`.
 
 Each extension may take an options table named for it.
 The option keys are passed to the extension, which validates them.
-The fence extension reads `allowed_environments`, a list restricting which `[environment ...]` directives are honored (an empty list or an absent table allows every environment).
+The fence extension reads `allowed_environments`, a list restricting which `[environment ...]` directives are honored.
+Omitting it allows every environment; an empty list allows none and emits a warning.
 
 ```toml
 [fence]
@@ -87,6 +88,25 @@ See [Click-to-Load](click-to-load.md) for the preview markup and a host script.
 
 An unknown top-level key, or a table named for an extension that does not exist, is an error.
 This catches typos rather than ignoring them.
+
+## Config Rules
+
+These rules hold for every markwright setting, including any added later.
+
+1. **Omitting a key means its default.**
+   For a list, the default is no restriction.
+2. **A list names exactly what it holds.**
+   An empty allowlist (`enable`, `fence.allowed_environments`) allows nothing.
+   An empty denylist (`disable`) removes nothing.
+   No list treats empty as "everything".
+3. **A setting that turns a feature into a no-op is legal and never silent.**
+   It emits a `markwright.ConfigWarning` naming the key and, when markwright loaded the config, its source.
+   `mw` prints it as one `mw: warning:` line on stderr and keeps stdout clean; a host sees a standard Python warning it can filter or escalate.
+   Python shows each warning once per process, so a site that builds one `Markdown` per page still prints it once.
+4. **Every option markwright defines is validated.**
+   A wrong type or an unsupported value is a `ConfigError` naming the key and source, never a fallback.
+
+Rule 3 is why an empty selection does not error: switching markwright off is useful when testing a longer tool chain, but it should never happen by accident without a trace.
 
 ## Worked Examples
 
@@ -156,5 +176,14 @@ md = markdown.Markdown(
 
 `mw render` builds its own `markdown.Markdown` from these same three functions, so a host and the CLI resolve a given table the same way.
 
-When a config selects no extensions, `selected_extensions` returns an empty list and logs a warning on the `markwright.config` logger with the cause and the `source` label.
-It does not raise, since an empty selection is a legitimate way to switch markwright off; route the `markwright` logger wherever your tool sends its warnings.
+When a config selects no extensions, `selected_extensions` returns an empty list and emits a `markwright.ConfigWarning` with the cause and the `source` label.
+It does not raise, since an empty selection is a legitimate way to switch markwright off.
+A host that wants it fatal (in its own test suite, say) can escalate it:
+
+```python
+import warnings
+
+from markwright import ConfigWarning
+
+warnings.simplefilter("error", ConfigWarning)
+```
