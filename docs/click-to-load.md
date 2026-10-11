@@ -95,10 +95,12 @@ After cloning the live markup into the page, a host has to make the provider ren
 
 | Embed | After the script loads |
 |-------|------------------------|
-| `twitter` | `window.twttr.widgets.load(element)` |
-| `instagram` | `window.instgrm.Embeds.process()` |
-| `codepen` | `ei.js` scans the page when it first loads; for later embeds, call `window.__CPEmbed()` |
+| `twitter` | `window.twttr.widgets.load(element)` renders the tweets inside `element` (the whole `document.body` when called with no argument). |
+| `instagram` | `window.instgrm.Embeds.process()` renders every unprocessed post on the page. |
+| `codepen` | `ei.js` scans the page once when it loads. For later embeds, call `window.__CPEmbed()`, which takes an optional CSS selector (default `.codepen`) and replaces each match with an iframe, so a repeat call never renders a pen twice. |
 | `youtube` | Nothing; the iframe loads itself. |
+
+These calls were checked against the providers' live scripts on 2026-10-11 (`widgets.js`, `embed.js`, and `ei.js`).
 
 ### Versioning Policy
 
