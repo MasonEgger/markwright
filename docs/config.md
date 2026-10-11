@@ -43,7 +43,7 @@ The recognized top-level keys are `enable`, `disable`, `warn`, and one table per
 Both are lists of extension names, and they are mutually exclusive: setting both is an error.
 
 - `enable = ["fence", "youtube"]` runs only those two.
-- `enable = []` runs no extensions.
+- `enable = []` runs no extensions and logs a warning naming the config file, so switching markwright off is deliberate and never silent.
 - `disable = ["codepen"]` runs every extension except that one.
 - Neither key runs every extension (the default).
 
@@ -155,3 +155,6 @@ md = markdown.Markdown(
 - `extension_configs(config, names)` returns the per-extension option tables keyed `markwright.<name>`, ready for `markdown.Markdown`.
 
 `mw render` builds its own `markdown.Markdown` from these same three functions, so a host and the CLI resolve a given table the same way.
+
+When a config selects no extensions, `selected_extensions` returns an empty list and logs a warning on the `markwright.config` logger with the cause and the `source` label.
+It does not raise, since an empty selection is a legitimate way to switch markwright off; route the `markwright` logger wherever your tool sends its warnings.

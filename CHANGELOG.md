@@ -26,6 +26,7 @@ One fix changes behavior: an empty `enable` list.
 ### Fixed
 
 - `enable = []` now runs no extensions; it used to run all of them (#13).
+- An empty extension selection (from `enable = []`, a `disable` listing every extension, or `--exclude`) logs a warning naming the cause instead of passing input through silently.
 
 ## [0.2.0]
 

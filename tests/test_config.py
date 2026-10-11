@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 import tomllib
 from pathlib import Path
 
@@ -263,6 +264,30 @@ class TestSelectedExtensions:
     def test_disabling_everything_selects_nothing(self) -> None:
         config = Config(disable=EXTENSION_NAMES)
         assert selected_extensions(config) == []
+
+
+class TestEmptySelectionWarning:
+    """An empty selection is allowed (it switches markwright off in a tool chain) but never silent."""
+
+    def test_empty_enable_warns_with_source(self, caplog: pytest.LogCaptureFixture) -> None:
+        config = config_from_mapping({"enable": []}, MAPPING_SOURCE)
+        with caplog.at_level(logging.WARNING, logger="markwright"):
+            selected_extensions(config)
+        assert [record.levelno for record in caplog.records] == [logging.WARNING]
+        assert "no markwright extensions selected" in caplog.text
+        assert f"'enable' is empty in {MAPPING_SOURCE}" in caplog.text
+
+    def test_disable_listing_everything_warns_with_source(self, caplog: pytest.LogCaptureFixture) -> None:
+        config = config_from_mapping({"disable": list(EXTENSION_NAMES)}, MAPPING_SOURCE)
+        with caplog.at_level(logging.WARNING, logger="markwright"):
+            selected_extensions(config)
+        assert f"'disable' lists every extension in {MAPPING_SOURCE}" in caplog.text
+
+    def test_non_empty_selection_does_not_warn(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING, logger="markwright"):
+            selected_extensions(config_from_mapping({"enable": ["fence"]}, MAPPING_SOURCE))
+            selected_extensions(Config())
+        assert caplog.records == []
 
 
 class TestExtensionConfigs:

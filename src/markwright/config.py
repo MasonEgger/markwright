@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -12,6 +13,8 @@ from pathlib import Path
 from markwright.registry import EXTENSION_NAMES, LOAD_MODES
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigError(Exception):
@@ -80,16 +83,27 @@ def config_from_mapping(table: Mapping[str, object], source: str) -> Config:
 def selected_extensions(config: Config) -> list[str]:
     """Resolve the extension names a config turns on.
 
-    An ``enable`` allowlist selects exactly its names, so an empty one selects nothing.
+    An ``enable`` allowlist selects exactly its names, so an empty one selects nothing. An empty
+    selection is allowed, since it switches markwright off inside a tool chain, but it logs a
+    warning naming the cause so it never fails silently.
 
     :param config: The resolved config.
     :returns: Extension names after ``enable`` and ``disable``, in registry order.
     """
-    return [
+    names = [
         name
         for name in EXTENSION_NAMES
         if (config.enable is None or name in config.enable) and name not in config.disable
     ]
+
+    # Report an empty selection with the key and source that caused it
+    if not names:
+        if config.enable is not None:
+            cause = f"'enable' is empty in {config.sources.get('enable', 'config')}"
+        else:
+            cause = f"'disable' lists every extension in {config.sources.get('disable', 'config')}"
+        logger.warning("no markwright extensions selected (%s); markwright syntax passes through unprocessed", cause)
+    return names
 
 
 def extension_configs(config: Config, names: list[str]) -> dict[str, dict[str, object]]:

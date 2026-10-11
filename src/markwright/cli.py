@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from importlib.metadata import version
 from pathlib import Path
@@ -13,6 +14,8 @@ import markdown
 from markwright import config, registry
 from markwright._embed_load import LOAD_EAGER
 from markwright.config import Config, ConfigError
+
+logger = logging.getLogger(__name__)
 
 
 def _package_version() -> str:
@@ -87,7 +90,15 @@ def _resolve(args: argparse.Namespace) -> tuple[Config, list[str]] | None:
     except ValueError as selection_error:
         print(selection_error, file=sys.stderr)
         return None
-    names = [name for name in config.selected_extensions(resolved_config) if name in not_excluded]
+    config_selected = config.selected_extensions(resolved_config)
+    names = [name for name in config_selected if name in not_excluded]
+
+    # An empty config selection already warned; only report the case --exclude caused
+    if config_selected and not names:
+        logger.warning(
+            "no markwright extensions selected (--exclude removed every one); "
+            "markwright syntax passes through unprocessed"
+        )
     return resolved_config, names
 
 

@@ -108,6 +108,9 @@ An unknown name passed to `--exclude` (or named in config) is a usage error (see
 The allowlist that older versions set with `--use` now lives in config as `enable`.
 `--use` was removed in 0.2.0.
 
+If the selection ends up empty (`enable = []`, a `disable` that lists every extension, or `--exclude` removing the rest), the run still succeeds: `pre` and `post` pass their input through unchanged, and `render` renders plain Markdown with every markwright directive left as literal text.
+That is useful for switching markwright off inside a longer tool chain, but it is never silent: `mw` writes a warning to stderr naming the cause and the config file, and stdout stays clean for the pipe.
+
 ### `--warn` (`post` only)
 
 Writes advisory diagnostics to stderr for markers the post stage sees but cannot fully apply.
@@ -128,7 +131,7 @@ Prints the installed package version and exits.
 
 ## Exit Codes
 
-- `0` on success.
+- `0` on success, including a run with no extensions selected (which warns on stderr).
 - `2` on a usage error: an unknown subcommand, an unknown name passed to `--exclude` or named in config, or a config file that is missing or malformed.
   The offending name or the config error is reported to stderr.
 - A nonzero code (`1`) if an I/O error propagates, since the tool fails loud rather than swallowing it.
