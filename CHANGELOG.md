@@ -3,7 +3,7 @@
 All notable changes to markwright are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.3.0]
+## [0.3.0] - 2026-10-11
 
 Two opt-in features (a config API for host tools and click-to-load embeds), one rule for every config list, a round of correctness fixes, and Python 3.15 support.
 With default settings, output is unchanged for documents 0.2.0 already rendered correctly; the differences are the fixes listed below.
