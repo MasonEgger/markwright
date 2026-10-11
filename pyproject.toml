@@ -16,7 +16,6 @@ dependencies = [
 ]
 keywords = ["markdown", "python-markdown", "do-markdownit", "mkdocs", "hugo"]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -49,6 +48,10 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Hatchling's default sdist is every git-tracked file; ship only the package, its tests, and what licenses it
+[tool.hatch.build.targets.sdist]
+include = ["src/markwright", "tests", "README.md", "CHANGELOG.md", "LICENSE", "LICENSE-Apache-2.0", "NOTICE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
