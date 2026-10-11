@@ -23,11 +23,17 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - run: uv sync
-      - run: uv run pytest -m "not integration" --cov=markwright --cov-branch --cov-fail-under=100 --cov-report=term-missing
-      - run: uv run ruff check src/ tests/
-      - run: uv run ruff format --check src/ tests/
-      - run: uv run mypy --strict src/
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Audit dependencies
+        run: uv run --with pip-audit pip-audit
+
+      - name: Run the gate
+        run: just check
 
   build:
     runs-on: ubuntu-latest

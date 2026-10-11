@@ -7,6 +7,8 @@ import re
 
 import markdown
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from markwright import registry
 from markwright.codepen import CODEPEN_SCRIPT
@@ -244,3 +246,59 @@ class TestRoundTripFenceOptions:
         assert 'class="my-label"' in pipeline
         assert 'class="my-sub"' in pipeline
         assert _normalize(pipeline) == _normalize(in_process)
+
+
+# Plain words for prose, labels, and code; markwright's grammar supplies the structure
+_WORDS = st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=8)
+_PHRASES = st.lists(_WORDS, min_size=1, max_size=4).map(" ".join)
+
+
+@st.composite
+def _prose_block(draw: st.DrawFn) -> str:
+    """Draw a paragraph, optionally with a highlighted word."""
+    phrase = draw(_PHRASES)
+    if draw(st.booleans()):
+        return f"{phrase} <^>{draw(_WORDS)}<^> {draw(_PHRASES)}"
+    return phrase
+
+
+@st.composite
+def _fence_block(draw: st.DrawFn) -> str:
+    """Draw a fenced code block with any mix of directives, a prefix flag, and in-code highlights."""
+    fence = draw(st.sampled_from(["```", "````", "~~~"]))
+    info = draw(st.sampled_from(["", "python", "bash", "command", "super_user", "line_numbers", "python,line_numbers"]))
+    directives = [
+        directive
+        for directive, include in (
+            (f"[label {draw(_WORDS)}.sh]", draw(st.booleans())),
+            (f"[secondary_label {draw(_PHRASES)}]", draw(st.booleans())),
+            (f"[environment {draw(st.sampled_from(['local', 'staging', 'production']))}]", draw(st.booleans())),
+        )
+        if include
+    ]
+    code_lines = draw(st.lists(_PHRASES, min_size=1, max_size=3))
+    if draw(st.booleans()):
+        code_lines[0] = f"{code_lines[0]} <^>{draw(_WORDS)}<^>"
+    return "\n".join([f"{fence}{info}", *directives, *code_lines, fence])
+
+
+_EMBED_BLOCKS = st.sampled_from(
+    [
+        "[youtube dQw4w9WgXcQ]",
+        "[codepen jcoulterdesign npyBME]",
+        "[twitter MattIPv4/status/1576415168426573825]",
+        "[instagram CkQuv3_LRgS]",
+    ]
+)
+
+
+class TestRoundTripProperty:
+    """Any document built from markwright's grammar renders the same through the pipeline and in-process."""
+
+    @settings(max_examples=150, deadline=None)
+    @given(blocks=st.lists(st.one_of(_prose_block(), _fence_block(), _EMBED_BLOCKS), min_size=1, max_size=6))
+    def test_pipeline_equals_in_process_render(self, blocks: list[str]) -> None:
+        document = "\n\n".join(blocks) + "\n"
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(document, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(document, names))

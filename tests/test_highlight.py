@@ -264,9 +264,9 @@ class TestHighlightPostStageScope:
         assert apply_html(rendered) == rendered
 
     def test_full_documents_pass_through_except_markers(self) -> None:
-        # Doctypes, processing instructions, CDATA, and self-closing tags are copied byte for byte
+        # Doctypes, processing instructions, CDATA, character references, and self-closing tags are copied byte for byte
         page = (
             '<?xml version="1.0"?>\n<!DOCTYPE html>\n<html><body><br/>'
-            "<![CDATA[raw]]><code>a &lt;^&gt;b&lt;^&gt;</code></body></html>"
+            "<![CDATA[raw]]><code>it&#39;s &#x27;a&#x27; &lt;^&gt;b&lt;^&gt;</code></body></html>"
         )
         assert apply_html(page) == page.replace("&lt;^&gt;b&lt;^&gt;", "<mark>b</mark>")

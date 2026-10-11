@@ -5,8 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [0.3.0]
 
-Default output is byte-identical to 0.2.0, and both additions are opt-in.
+Default output is byte-identical to 0.2.0 for well-formed input, and both feature additions are opt-in.
 Two changes break 0.2.0 behavior, both from one rule: an empty list now means "none" everywhere (see Changed).
+`pydantic` is a new runtime dependency, and the `pymdown-extensions` floor rises to 11.0.1 for a security fix.
 
 ### Added
 
@@ -23,6 +24,7 @@ Two changes break 0.2.0 behavior, both from one rule: an empty list now means "n
 - A Click-to-Load docs page with the markup contract, the provider processor calls, and a sample host script.
 - `markwright.ConfigWarning`, emitted when a setting turns a feature into a no-op. `mw` prints it as one `mw: warning:` line on stderr.
 - `markwright.OptionError`, a `ValueError` subclass raised for an invalid extension option value.
+- Fence directives now apply to fences indented up to three spaces and to fences inside list items, following CommonMark; they used to render as literal code text.
 - Config Rules in the configuration docs: omitted means default, a list names exactly what it holds, a no-op setting warns, every option is validated.
 
 ### Changed
@@ -33,6 +35,11 @@ Two changes break 0.2.0 behavior, both from one rule: an empty list now means "n
 - `mw` reports config problems as one `mw: error:` line with exit code 2, including a `ConfigWarning` escalated with `python -W error`.
 - `apply_html` and `registry.run_post` take per-extension options, mirroring `expand_source` and `run_pre`.
 - Removed `registry.select_extensions`; selection lives in `config.selected_extensions`.
+- Requires `pymdown-extensions>=11.0.1` (was `>=10.5`), the first release without PYSEC-2026-3654, and adds `pydantic` as a dependency.
+- The post stages read rendered HTML with the stdlib `html.parser` instead of regex, editing only the spans they change.
+- The `warnings` parameter of `apply_html` and `registry.run_post` is now `skip_reasons`, and `highlight.apply_html`'s first parameter is `rendered_html` like its siblings.
+- The script embeds' `*_SIGNATURE` constants are now `*_EMBED_CLASS` (the bare class name), and `registry.REGISTRY` holds pydantic `StageSpec` models; `OPTION_CHECKS` and `LOAD_MODES` are gone from the registry.
+- An unclosed fence is no longer treated as code by the pre stages, matching `pymdownx.superfences`.
 
 ### Fixed
 
@@ -42,6 +49,10 @@ Two changes break 0.2.0 behavior, both from one rule: an empty list now means "n
 - The fence extension reads its options when it registers, so a `setConfig` call after construction applies.
 - A config value of null counts as omitted.
 - `mw` prints only markwright's own warnings as `mw: warning:` lines; other libraries' warnings keep Python's format.
+- A fence marker whose JSON is valid but the wrong shape (`[1]`, `null`, a numeric `label`) is skipped with a warning instead of crashing the post stage with `AttributeError`.
+- A highlight marker inside an HTML attribute (for example `title="&lt;^&gt;"`) is no longer wrapped in `<mark>`, which produced broken markup.
+- A `<^>` marker inside a fence nested in a longer fence is no longer highlighted by `mw pre`, and inline code spans of two or more backticks are skipped like single-backtick ones.
+- Each fence marker styles only its own code block, so a marker with no block can no longer style the next marker's.
 
 ## [0.2.0]
 

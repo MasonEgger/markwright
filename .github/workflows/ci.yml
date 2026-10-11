@@ -4,12 +4,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Monthly, so a stable repo keeps proving it still builds against current dependencies
+  schedule:
+    - cron: "0 6 1 * *"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -23,53 +26,32 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.1.0
 
-      - run: uv sync
-      - run: uv run pytest -m "not integration" --cov=markwright --cov-branch --cov-fail-under=100 --cov-report=term-missing
+      - name: Install just
+        uses: extractions/setup-just@v2
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: ".python-version"
-
-      - run: uv sync
-      - run: uv run ruff check src/ tests/
-      - run: uv run ruff format --check src/ tests/
-      - run: uv run mypy --strict src/
-
-  integration:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: ".python-version"
-
+      # The integration tests in `just check` drive a real Hugo build; pin it so a Hugo release cannot break CI unseen
       - name: Install Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: latest
+          hugo-version: "0.165.0"
           extended: true
 
-      - run: uv sync
-      - run: uv run pytest tests/integration -m integration -v
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Audit dependencies
+        if: matrix.python-version == '3.14'
+        run: uv run --with pip-audit pip-audit
+
+      - name: Run the gate
+        run: just check
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [test, lint, integration]
+    needs: [check]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
 

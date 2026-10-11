@@ -11,6 +11,7 @@ from importlib.metadata import version as package_version
 from typing import TYPE_CHECKING
 
 import markdown
+import pytest
 
 from markwright import ConfigWarning, registry
 from markwright.cli import main
@@ -18,9 +19,8 @@ from markwright.codepen import CODEPEN_SCRIPT
 from markwright.registry import EXTENSION_NAMES
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
-
-    import pytest
 
 
 class TestCliVersion:
@@ -62,13 +62,18 @@ class TestCliUsageError:
         assert "usage: mw" in captured.out
 
 
-def _feed_stdin(monkeypatch: pytest.MonkeyPatch, text: str) -> None:
-    """Replace ``sys.stdin`` with a text stream yielding ``text``.
+@pytest.fixture
+def feed_stdin(monkeypatch: pytest.MonkeyPatch) -> Callable[[str], None]:
+    """Factory fixture: replace ``sys.stdin`` with a text stream yielding the given text.
 
-    :param monkeypatch: Pytest monkeypatch fixture.
-    :param text: Content the CLI handler will read from stdin.
+    :param monkeypatch: pytest's monkeypatch fixture, which restores ``sys.stdin`` afterward.
+    :returns: A function taking the text stdin should yield.
     """
-    monkeypatch.setattr("sys.stdin", io.StringIO(text))
+
+    def feed(text: str) -> None:
+        monkeypatch.setattr("sys.stdin", io.StringIO(text))
+
+    return feed
 
 
 def _in_process_render(text: str, names: list[str]) -> str:
@@ -89,27 +94,27 @@ class TestCliPost:
     """Tests for the post subcommand: stdin to stdout HTML post-processing."""
 
     def test_post_injects_codepen_script_once(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        feed_stdin('<p class="codepen">embed</p>')
         exit_code = main(["post"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert captured.out.count(CODEPEN_SCRIPT) == 1
 
     def test_post_exclude_removes_extension(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        feed_stdin('<p class="codepen">embed</p>')
         exit_code = main(["post", "--exclude", "codepen"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert CODEPEN_SCRIPT not in captured.out
 
     def test_post_warn_reports_malformed_marker_on_stderr(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "<!-- mw-fence:not json --><p>body</p>")
+        feed_stdin("<!-- mw-fence:not json --><p>body</p>")
         exit_code = main(["post", "--warn"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -117,9 +122,9 @@ class TestCliPost:
         assert "malformed mw-fence marker" in captured.err
 
     def test_post_without_warn_is_silent_on_malformed_marker(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "<!-- mw-fence:not json --><p>body</p>")
+        feed_stdin("<!-- mw-fence:not json --><p>body</p>")
         exit_code = main(["post"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -127,9 +132,9 @@ class TestCliPost:
         assert captured.err == ""
 
     def test_post_unknown_exclude_name_returns_two_with_stderr(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "<p>body</p>")
+        feed_stdin("<p>body</p>")
         exit_code = main(["post", "--exclude", "bogus"])
         captured = capsys.readouterr()
         assert exit_code == 2
@@ -140,27 +145,27 @@ class TestCliPre:
     """Tests for the pre subcommand: stdin to stdout source-stage expansion."""
 
     def test_pre_expands_youtube_line_to_iframe(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
+        feed_stdin("[youtube dQw4w9WgXcQ]")
         exit_code = main(["pre"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"' in captured.out
 
     def test_pre_wraps_prose_highlight_marker(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "Text with a <^>prose<^> marker.")
+        feed_stdin("Text with a <^>prose<^> marker.")
         exit_code = main(["pre"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert "<mark>prose</mark>" in captured.out
 
     def test_pre_fence_label_emits_mw_fence_comment_and_keeps_fence(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "```\n[label deploy.sh]\necho hi\n```")
+        feed_stdin("```\n[label deploy.sh]\necho hi\n```")
         exit_code = main(["pre"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -170,9 +175,9 @@ class TestCliPre:
         assert "echo hi" in captured.out
 
     def test_pre_exclude_drops_named_stage(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
+        feed_stdin("[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
         exit_code = main(["pre", "--exclude", "youtube"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -180,20 +185,20 @@ class TestCliPre:
         assert "<mark>prose</mark>" in captured.out
 
     def test_pre_honors_config_fence_environments(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         config_path = tmp_path / "markwright.toml"
         config_path.write_text('[fence]\nallowed_environments = ["staging"]\n', encoding="utf-8")
-        _feed_stdin(monkeypatch, "```\n[environment production]\necho hi\n```")
+        feed_stdin("```\n[environment production]\necho hi\n```")
         exit_code = main(["pre", "--config", str(config_path)])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert '"environment"' not in captured.out
 
     def test_pre_unknown_exclude_name_returns_two_with_stderr(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
+        feed_stdin("[youtube dQw4w9WgXcQ]")
         exit_code = main(["pre", "--exclude", "bogus"])
         captured = capsys.readouterr()
         assert exit_code == 2
@@ -204,10 +209,10 @@ class TestCliRender:
     """Tests for the render subcommand: stdin Markdown to final HTML via the in-process stack."""
 
     def test_render_matches_in_process_markwright_render(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
         source = "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker."
-        _feed_stdin(monkeypatch, source)
+        feed_stdin(source)
         exit_code = main(["render"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -216,9 +221,9 @@ class TestCliRender:
         assert captured.out == _in_process_render(source, list(EXTENSION_NAMES))
 
     def test_render_unknown_exclude_name_returns_two_with_stderr(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]")
+        feed_stdin("[youtube dQw4w9WgXcQ]")
         exit_code = main(["render", "--exclude", "bogus"])
         captured = capsys.readouterr()
         assert exit_code == 2
@@ -229,32 +234,40 @@ class TestCliConfigSelection:
     """Tests that config discovery and --config drive extension selection across subcommands."""
 
     def test_no_config_no_flags_selects_all(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        feed_stdin('<p class="codepen">embed</p>')
         exit_code = main(["post"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert captured.out.count(CODEPEN_SCRIPT) == 1
 
     def test_config_disable_drops_extension_for_post(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         (tmp_path / "markwright.toml").write_text('disable = ["codepen"]\n', encoding="utf-8")
         monkeypatch.chdir(tmp_path)
-        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        feed_stdin('<p class="codepen">embed</p>')
         exit_code = main(["post"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert CODEPEN_SCRIPT not in captured.out
 
     def test_config_enable_restricts_pre(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         config_path = tmp_path / "markwright.toml"
         config_path.write_text('enable = ["youtube"]\n', encoding="utf-8")
-        _feed_stdin(monkeypatch, "[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
+        feed_stdin("[youtube dQw4w9WgXcQ]\n\nText with a <^>prose<^> marker.")
         exit_code = main(["pre", "--config", str(config_path)])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -262,12 +275,12 @@ class TestCliConfigSelection:
         assert "<mark>prose</mark>" not in captured.out
 
     def test_config_disable_drops_extension_for_render(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         config_path = tmp_path / "markwright.toml"
         config_path.write_text('enable = ["youtube"]\n', encoding="utf-8")
         source = "[youtube dQw4w9WgXcQ]\n\n```\n[label deploy.sh]\necho hi\n```"
-        _feed_stdin(monkeypatch, source)
+        feed_stdin(source)
         exit_code = main(["render", "--config", str(config_path)])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -277,22 +290,22 @@ class TestCliConfigSelection:
         assert captured.out == _in_process_render(source, ["youtube"])
 
     def test_config_flag_loads_explicit_file(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         config_path = tmp_path / "custom.toml"
         config_path.write_text('disable = ["codepen"]\n', encoding="utf-8")
-        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        feed_stdin('<p class="codepen">embed</p>')
         exit_code = main(["post", "--config", str(config_path)])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert CODEPEN_SCRIPT not in captured.out
 
     def test_exclude_removes_from_config_resolved_set(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         config_path = tmp_path / "markwright.toml"
         config_path.write_text('enable = ["codepen"]\n', encoding="utf-8")
-        _feed_stdin(monkeypatch, '<p class="codepen">embed</p>')
+        feed_stdin('<p class="codepen">embed</p>')
         exit_code = main(["post", "--config", str(config_path), "--exclude", "codepen"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -303,9 +316,9 @@ class TestCliConfigSelection:
         assert exit_code == 2
 
     def test_config_flag_missing_file_returns_two(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        _feed_stdin(monkeypatch, "<p>body</p>")
+        feed_stdin("<p>body</p>")
         exit_code = main(["post", "--config", str(tmp_path / "absent.toml")])
         captured = capsys.readouterr()
         assert exit_code == 2
@@ -318,32 +331,36 @@ class TestCliRenderOptions:
     _ENV_SOURCE = "```\n[environment production]\necho hi\n```"
 
     def test_render_without_config_allows_any_environment(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        _feed_stdin(monkeypatch, self._ENV_SOURCE)
+        feed_stdin(self._ENV_SOURCE)
         exit_code = main(["render"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert "environment-production" in captured.out
 
     def test_render_config_allowlist_rejects_unlisted_environment(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         config_path = tmp_path / "markwright.toml"
         config_path.write_text('[fence]\nallowed_environments = ["staging"]\n', encoding="utf-8")
-        _feed_stdin(monkeypatch, self._ENV_SOURCE)
+        feed_stdin(self._ENV_SOURCE)
         exit_code = main(["render", "--config", str(config_path)])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert "environment-production" not in captured.out
 
     def test_render_config_allowlist_accepts_listed_environment(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self, feed_stdin: Callable[[str], None], tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         config_path = tmp_path / "markwright.toml"
         config_path.write_text('[fence]\nallowed_environments = ["staging"]\n', encoding="utf-8")
-        _feed_stdin(monkeypatch, "```\n[environment staging]\necho hi\n```")
+        feed_stdin("```\n[environment staging]\necho hi\n```")
         exit_code = main(["render", "--config", str(config_path)])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -437,23 +454,31 @@ class TestCliConfig:
         assert "  slideshow: eager" not in captured.out
 
     def test_render_applies_configured_load(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         (tmp_path / "markwright.toml").write_text('[youtube]\nload = "click"\n', encoding="utf-8")
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr("sys.stdin", io.StringIO("[youtube dQw4w9WgXcQ]\n"))
+        feed_stdin("[youtube dQw4w9WgXcQ]\n")
         exit_code = main(["render"])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert 'data-mw-load="click"' in captured.out
 
     def test_empty_enable_runs_no_extensions_and_warns(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         config_path = tmp_path / "markwright.toml"
         config_path.write_text("enable = []\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr("sys.stdin", io.StringIO("[youtube dQw4w9WgXcQ]\n"))
+        feed_stdin("[youtube dQw4w9WgXcQ]\n")
         exit_code = main(["pre", "--exclude", "fence"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -465,10 +490,14 @@ class TestCliConfig:
         )
 
     def test_exclude_removing_every_extension_warns(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr("sys.stdin", io.StringIO("text\n"))
+        feed_stdin("text\n")
         exclude_flags = [flag for name in EXTENSION_NAMES for flag in ("--exclude", name)]
         exit_code = main(["pre", *exclude_flags])
         captured = capsys.readouterr()
@@ -477,11 +506,15 @@ class TestCliConfig:
         assert "no markwright extensions selected (--exclude removed every one)" in captured.err
 
     def test_empty_fence_environments_warns_once(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         (tmp_path / "markwright.toml").write_text("[fence]\nallowed_environments = []\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr("sys.stdin", io.StringIO("```\n[environment local]\necho hi\n```\n"))
+        feed_stdin("```\n[environment local]\necho hi\n```\n")
         exit_code = main(["render"])
         captured = capsys.readouterr()
         assert exit_code == 0
@@ -505,11 +538,15 @@ class TestCliConfig:
         assert completed.stderr.startswith("mw: warning: no markwright extensions selected")
 
     def test_unknown_option_key_is_a_usage_error_not_a_traceback(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         (tmp_path / "markwright.toml").write_text("[fence]\ntypo_option = 1\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr("sys.stdin", io.StringIO("x\n"))
+        feed_stdin("x\n")
         exit_code = main(["render"])
         captured = capsys.readouterr()
         assert exit_code == 2
@@ -518,11 +555,15 @@ class TestCliConfig:
         assert "Traceback" not in captured.err
 
     def test_escalated_config_warning_exits_two(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         (tmp_path / "markwright.toml").write_text("enable = []\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr("sys.stdin", io.StringIO("x\n"))
+        feed_stdin("x\n")
         with warnings.catch_warnings():
             warnings.simplefilter("error", ConfigWarning)
             exit_code = main(["pre"])
@@ -532,7 +573,11 @@ class TestCliConfig:
         assert captured.err.startswith("mw: error: no markwright extensions selected")
 
     def test_other_warnings_keep_the_python_format(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         def warning_pre(text: str, names: list[str], options: object = None) -> str:
             warnings.warn("a library deprecation", DeprecationWarning, stacklevel=1)
@@ -540,7 +585,7 @@ class TestCliConfig:
 
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(registry, "run_pre", warning_pre)
-        monkeypatch.setattr("sys.stdin", io.StringIO("x\n"))
+        feed_stdin("x\n")
         with warnings.catch_warnings():
             warnings.simplefilter("always")
             exit_code = main(["pre"])
@@ -550,12 +595,16 @@ class TestCliConfig:
         assert "mw: warning: a library deprecation" not in captured.err
 
     def test_post_applies_configured_label_class(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         (tmp_path / "markwright.toml").write_text('[fence]\nlabel_class = "my-label"\n', encoding="utf-8")
         monkeypatch.chdir(tmp_path)
         marked = '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n<pre><code>x\n</code></pre>'
-        monkeypatch.setattr("sys.stdin", io.StringIO(marked))
+        feed_stdin(marked)
         exit_code = main(["post"])
         captured = capsys.readouterr()
         assert exit_code == 0

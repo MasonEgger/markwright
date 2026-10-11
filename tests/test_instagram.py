@@ -55,7 +55,7 @@ class TestInstagramAlignment:
         assert 'align="right"' in result
 
     def test_center_alignment_default(self) -> None:
-        """Center is the default — no align attribute should be present."""
+        """Center is the default, so no align attribute should be present."""
         result = render("[instagram https://www.instagram.com/p/ABC]")
         assert "align=" not in result
 
@@ -78,7 +78,7 @@ class TestInstagramWidth:
         assert 'style="width: 550px;"' in result
 
     def test_no_width_style_by_default(self) -> None:
-        """Default width is 0 (auto) — no style attribute should be present."""
+        """Default width is 0 (auto), so no style attribute should be present."""
         result = render("[instagram https://www.instagram.com/p/ABC]")
         assert "style=" not in result
 

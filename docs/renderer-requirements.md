@@ -35,7 +35,8 @@ The fence directives travel from `pre` to `post` as a single HTML comment immedi
 
 The fence itself is left intact, so your renderer still syntax-highlights the real code.
 There is no placeholder and no rewritten language token.
-The post stage associates a marker with the code block that immediately follows it.
+The post stage associates a marker with the first code block that follows it, before the next marker.
+For an indented fence (up to three spaces, or inside a list item), the comment carries the fence's indentation and is followed by a blank line, so it stays inside the list item and renders as its own block.
 This comment is the only cross-tool surface, so its shape is a versioned contract.
 
 ### v1 Payload
@@ -64,7 +65,8 @@ The policy is best-effort, backward compatible, and fail-soft.
 The schema grows additively: a new optional field does not bump `version`, and only a breaking change does.
 The post stage reads any marker whose `version` it knows (currently only `1`) and ignores unknown fields, so a newer pre stage that only added fields still works with an older post stage.
 A marker whose `version` is greater than the post stage knows is skipped as a no-op and reported under `--warn`.
-A malformed payload (invalid JSON, or a missing or wrongly typed required field) is skipped, never executed, and reported under `--warn`.
+A malformed payload is skipped, never executed, and reported under `--warn`: invalid JSON, a payload that is not a JSON object, or a known field of the wrong type (for example a numeric `label`, or a `prefix_type` outside the four values).
+A marker with no code block before the next marker is skipped the same way.
 
 ## What Degrades, and How
 

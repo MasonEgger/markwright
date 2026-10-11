@@ -3,20 +3,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+# Callable appears only in annotations, but pydantic resolves EmbedCase's field annotations at runtime
+from collections.abc import Callable  # noqa: TC003
 
 import markdown
 import pytest
+from pydantic import BaseModel, ConfigDict
 
 from markwright import OptionError, codepen, instagram, twitter, youtube
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
-
-@dataclass(frozen=True)
-class EmbedCase:
+class EmbedCase(BaseModel):
     """One embed's source line and the click-to-load preview fields it should produce.
 
     :ivar name: The extension name.
@@ -28,6 +25,8 @@ class EmbedCase:
     :ivar link_href: The direct link to the original content.
     :ivar link_text: The direct link text.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     name: str
     source: str

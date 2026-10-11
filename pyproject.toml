@@ -12,7 +12,7 @@ license-files = ["LICENSE", "LICENSE-Apache-2.0", "NOTICE"]
 dependencies = [
     "markdown>=3.4",
     "pydantic>=2.14.1",
-    "pymdown-extensions>=10.5",
+    "pymdown-extensions>=11.0.1",
 ]
 keywords = ["markdown", "python-markdown", "do-markdownit", "mkdocs", "hugo"]
 classifiers = [
@@ -42,6 +42,7 @@ dev = [
     "types-markdown>=3.10.2.20260211",
     "mkdocs>=1.6",
     "mkdocs-material>=9.7.5",
+    "hypothesis>=6.169.0",
 ]
 
 [build-system]
