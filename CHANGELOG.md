@@ -24,6 +24,7 @@ Two changes break 0.2.0 behavior, both from one rule: an empty list now means "n
 - A Click-to-Load docs page with the markup contract, the provider processor calls, and a sample host script.
 - `markwright.ConfigWarning`, emitted when a setting turns a feature into a no-op. `mw` prints it as one `mw: warning:` line on stderr.
 - `markwright.OptionError`, a `ValueError` subclass raised for an invalid extension option value.
+- Python 3.15 support: tested in CI and declared in the classifiers.
 - Fence directives now apply to fences indented up to three spaces and to fences inside list items, following CommonMark; they used to render as literal code text.
 - Config Rules in the configuration docs: omitted means default, a list names exactly what it holds, a no-op setting warns, every option is validated.
 

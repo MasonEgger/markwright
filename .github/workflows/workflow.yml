@@ -18,11 +18,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.1.0
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: ".python-version"
-
       - name: Install just
         uses: extractions/setup-just@v2
 
@@ -42,11 +37,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.1.0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: ".python-version"
 
       - name: Build package
         run: uv build

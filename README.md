@@ -161,7 +161,7 @@ This project uses [`uv`](https://docs.astral.sh/uv/) and [`just`](https://github
 just check             # the gate: ruff check, ruff format --check, mypy strict, pytest
 just fmt               # format and auto-fix
 just test              # pytest (integration tests skip without hugo on PATH)
-just test-all          # pytest across Python 3.11 through 3.14
+just test-all          # pytest across Python 3.11 through 3.15
 just test-integration  # only the end-to-end Hugo and clean-install tests
 just docs-serve        # serve the docs site at localhost:8000
 ```

@@ -13,7 +13,7 @@ just                      # list the recipes
 just check                # the gate: ruff check ., ruff format --check ., mypy ., pytest
 just fmt                  # ruff format . and ruff check --fix .
 just test                 # pytest (unit plus integration; integration skips without hugo or mw on PATH)
-just test-all             # pytest across Python 3.11 through 3.14
+just test-all             # pytest across Python 3.11 through 3.15
 just test-integration     # only the end-to-end Hugo and clean-install tests
 just docs-build           # mkdocs build --strict
 just docs-serve           # mkdocs serve (localhost:8000)
@@ -30,7 +30,7 @@ Run the CLI from a checkout: `uv run mw <pre|post|render|config|list>` (a stdin-
 
 markwright is a set of Python-Markdown extensions ported from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (JavaScript/markdown-it, Apache 2.0), plus an `mw` command-line tool that exposes the same extensions as pre/post filter stages so the syntax works in any toolchain (Hugo, a plain Unix pipe, etc.), not only an in-process Python-Markdown render. The bundled MkDocs Material site in `docs/` is both documentation and a live demo. The upstream name `do-markdownit` appears in attribution (NOTICE, README) and must be preserved; the package and the CLI use the `markwright` / `mw` brand. Runtime dependencies are `markdown`, `pymdown-extensions` (floor set by a security fix), and `pydantic`.
 
-CI (GitHub Actions, `ci.yml`) runs on push and PR to main and monthly: one `check` job per Python 3.11 through 3.14 that installs a pinned Hugo and runs `just check` (plus `pip-audit` once), then `deploy` (docs to GitHub Pages, push to main only, the only job with write permission). `workflow.yml` publishes to PyPI via trusted publishing when a GitHub Release is published, after the same audit and gate. Dependabot updates uv and Actions weekly. The `gh-pages` branch is auto-managed build output, force-pushed by `mkdocs gh-deploy`; never commit to it, merge it, or delete it.
+CI (GitHub Actions, `ci.yml`) runs on push and PR to main and monthly: one `check` job per Python 3.11 through 3.15 that installs a pinned Hugo and runs `just check` (plus `pip-audit` once), then `deploy` (docs to GitHub Pages, push to main only, the only job with write permission). `workflow.yml` publishes to PyPI via trusted publishing when a GitHub Release is published, after the same audit and gate. Dependabot updates uv and Actions weekly. The `gh-pages` branch is auto-managed build output, force-pushed by `mkdocs gh-deploy`; never commit to it, merge it, or delete it.
 
 ## Architecture
 

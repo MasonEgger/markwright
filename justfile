@@ -20,7 +20,7 @@ test:
 test-all:
     #!/usr/bin/env bash
     set -euo pipefail
-    for python_version in 3.11 3.12 3.13 3.14; do
+    for python_version in 3.11 3.12 3.13 3.14 3.15; do
         uv run --python "$python_version" -m pytest
     done
 
