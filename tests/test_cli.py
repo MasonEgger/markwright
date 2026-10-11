@@ -8,15 +8,19 @@ import subprocess
 import sys
 import warnings
 from importlib.metadata import version as package_version
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import markdown
-import pytest
 
 from markwright import ConfigWarning, registry
 from markwright.cli import main
 from markwright.codepen import CODEPEN_SCRIPT
 from markwright.registry import EXTENSION_NAMES
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 
 class TestCliVersion:

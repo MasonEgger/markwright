@@ -3,15 +3,20 @@
 
 from __future__ import annotations
 
-import dataclasses
 import tomllib
 import warnings
-from collections.abc import Mapping
-from dataclasses import dataclass, field
-from pathlib import Path
+
+# Path appears only in annotations, but pydantic resolves Config's field annotations at runtime
+from pathlib import Path  # noqa: TC003
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from markwright._diagnostics import ConfigWarning, OptionError
-from markwright.registry import EXTENSION_NAMES, OPTION_CHECKS, OPTION_NAMES
+from markwright.registry import EXTENSION_NAMES, OPTION_NAMES, REGISTRY
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
 
@@ -23,8 +28,7 @@ class ConfigError(Exception):
     """
 
 
-@dataclass(frozen=True)
-class Config:
+class Config(BaseModel):
     """Resolved markwright configuration.
 
     :ivar enable: Allowlist of extension names, or ``None`` when unset.
@@ -37,12 +41,14 @@ class Config:
         extension name) to the file path or source label it came from; keys not present use defaults.
     """
 
+    model_config = ConfigDict(frozen=True)
+
     enable: tuple[str, ...] | None = None
     disable: tuple[str, ...] = ()
-    options: dict[str, dict[str, object]] = field(default_factory=dict)
+    options: dict[str, dict[str, object]] = Field(default_factory=dict)
     warn: bool = False
     source_path: Path | None = None
-    sources: dict[str, str] = field(default_factory=dict)
+    sources: dict[str, str] = Field(default_factory=dict)
 
 
 def load_config(explicit_path: Path | None, start_dir: Path) -> Config:
@@ -60,7 +66,7 @@ def load_config(explicit_path: Path | None, start_dir: Path) -> Config:
         if discovered is None:
             return Config()
         path, table = discovered
-    return dataclasses.replace(_build_config(table, str(path)), source_path=path)
+    return _build_config(table, str(path)).model_copy(update={"source_path": path})
 
 
 def config_from_mapping(table: Mapping[str, object], source: str) -> Config:
@@ -201,30 +207,29 @@ def _build_config(table: Mapping[str, object], source: str) -> Config:
     """
     # A key set to None (a YAML key with no value, from a host) counts as omitted
     table = {key: value for key, value in table.items() if value is not None}
-    _reject_unknown_keys(table, source)
+
+    # Every top-level key is a setting or an extension's option table
+    for key in table:
+        if key not in _TOP_LEVEL_KEYS and key not in EXTENSION_NAMES:
+            raise ConfigError(f"{source}: unknown configuration key: {key!r}")
+
+    # Selection: enable and disable are mutually exclusive lists of extension names
     enable = _selection_list(table, "enable", source)
     disable = _selection_list(table, "disable", source)
     if enable is not None and disable is not None:
         raise ConfigError(f"{source}: 'enable' and 'disable' are mutually exclusive")
+
+    warn = table.get("warn", False)
+    if not isinstance(warn, bool):
+        raise ConfigError(f"{source}: 'warn' must be a boolean")
+
     return Config(
         enable=enable,
         disable=disable if disable is not None else (),
         options=_extension_options(table, source),
-        warn=_warn_value(table, source),
-        sources={key: source for key in table},
+        warn=warn,
+        sources=dict.fromkeys(table, source),
     )
-
-
-def _reject_unknown_keys(table: Mapping[str, object], source: str) -> None:
-    """Reject any top-level key that is neither a recognized setting nor an extension name.
-
-    :param table: The config table.
-    :param source: The source path or label, for the error message.
-    :raises ConfigError: On the first unrecognized key.
-    """
-    for key in table:
-        if key not in _TOP_LEVEL_KEYS and key not in EXTENSION_NAMES:
-            raise ConfigError(f"{source}: unknown configuration key: {key!r}")
 
 
 def _selection_list(table: Mapping[str, object], key: str, source: str) -> tuple[str, ...] | None:
@@ -245,22 +250,6 @@ def _selection_list(table: Mapping[str, object], key: str, source: str) -> tuple
         if name not in EXTENSION_NAMES:
             raise ConfigError(f"{source}: unknown extension in '{key}': {name!r}")
     return tuple(value)
-
-
-def _warn_value(table: Mapping[str, object], source: str) -> bool:
-    """Read and validate the boolean ``warn`` default.
-
-    :param table: The config table.
-    :param source: The source path or label, for the error message.
-    :returns: The ``warn`` value, defaulting to ``False`` when absent.
-    :raises ConfigError: If ``warn`` is present but not a boolean.
-    """
-    if "warn" not in table:
-        return False
-    value = table["warn"]
-    if not isinstance(value, bool):
-        raise ConfigError(f"{source}: 'warn' must be a boolean")
-    return value
 
 
 def _extension_options(table: Mapping[str, object], source: str) -> dict[str, dict[str, object]]:
@@ -286,10 +275,10 @@ def _extension_options(table: Mapping[str, object], source: str) -> dict[str, di
 
         # The extension's own reader validates values, so config and every render path agree;
         # only its named OptionError is a config problem, anything else is a bug and propagates
-        check = OPTION_CHECKS.get(name)
-        if check is not None:
+        check_options = REGISTRY[name].check_options
+        if check_options is not None:
             try:
-                check(extension_table)
+                check_options(extension_table)
             except OptionError as option_error:
                 raise ConfigError(f"{source}: [{name}] {option_error}") from option_error
         options[name] = extension_table

@@ -391,26 +391,58 @@ class TestFenceApplyHtml:
         assert "<ol>" in result
         assert 'data-prefix="$"' in result
 
+    @pytest.mark.parametrize(
+        ("payload", "reason"),
+        [
+            ("[1]", "not an object"),
+            ("null", "not an object"),
+            ('"x"', "not an object"),
+            ('{"version": 1, "label": 5}', "invalid fields (label)"),
+            ('{"version": 1, "prefix_type": "bogus"}', "invalid fields (prefix_type)"),
+        ],
+    )
+    def test_wrong_shape_payload_skips_instead_of_crashing(self, payload: str, reason: str) -> None:
+        skip_reasons: list[str] = []
+        result = apply_html(f"<!-- mw-fence:{payload} -->\n<pre><code>x\n</code></pre>", skip_reasons)
+        assert result == "\n<pre><code>x\n</code></pre>"
+        assert len(skip_reasons) == 1
+        assert reason in skip_reasons[0]
+
+    def test_unknown_payload_fields_are_ignored(self) -> None:
+        marked = '<!-- mw-fence:{"version": 1, "label": "a.sh", "future_field": 3} -->\n<pre><code>x\n</code></pre>'
+        assert '<div class="code-label" title="a.sh">a.sh</div>' in apply_html(marked)
+
+    def test_each_marker_styles_only_its_own_block(self) -> None:
+        marked = (
+            '<!-- mw-fence:{"version": 1, "environment": "a"} -->\n<p>no code</p>\n'
+            '<!-- mw-fence:{"version": 1, "environment": "b"} -->\n<pre><code>x\n</code></pre>'
+        )
+        skip_reasons: list[str] = []
+        result = apply_html(marked, skip_reasons)
+        assert '<pre class="environment-b">' in result
+        assert "environment-a" not in result
+        assert skip_reasons == ["Skipping mw-fence marker with no following code block"]
+
     def test_malformed_json_warns_and_skips(self) -> None:
         html_input = "<!-- mw-fence:{not json -->\n<pre><code>x\n</code></pre>"
-        warnings: list[str] = []
-        result = apply_html(html_input, warnings)
-        assert len(warnings) == 1
+        skip_reasons: list[str] = []
+        result = apply_html(html_input, skip_reasons)
+        assert len(skip_reasons) == 1
         assert "code-label" not in result
         assert "<!-- mw-fence:" not in result
 
     def test_unsupported_version_warns_and_skips(self) -> None:
         html_input = '<!-- mw-fence:{"version": 999, "label": "x"} -->\n<pre><code>x\n</code></pre>'
-        warnings: list[str] = []
-        result = apply_html(html_input, warnings)
-        assert len(warnings) == 1
+        skip_reasons: list[str] = []
+        result = apply_html(html_input, skip_reasons)
+        assert len(skip_reasons) == 1
         assert "code-label" not in result
 
     def test_no_following_code_block_warns(self) -> None:
         html_input = '<!-- mw-fence:{"version": 1, "label": "x"} -->\n<p>no code here</p>'
-        warnings: list[str] = []
-        result = apply_html(html_input, warnings)
-        assert len(warnings) == 1
+        skip_reasons: list[str] = []
+        result = apply_html(html_input, skip_reasons)
+        assert len(skip_reasons) == 1
         assert "code-label" not in result
 
     def test_warnings_none_is_silent_no_op(self) -> None:
@@ -422,18 +454,13 @@ class TestFenceApplyHtml:
             assert "code-label" not in result
 
 
-class TestFenceBranchCoverage:
-    """Exercise the remaining fence branches: an unclosed fence, and markers whose
-    adjacent HTML is missing a <pre>, a <code>, a closing </code>, or a trailing
-    newline. Each must degrade without raising."""
+class TestFenceDegradesOnIncompleteBlocks:
+    """Markers and fences with missing pieces degrade to plain output without raising."""
 
-    def test_unclosed_fence_with_directive_still_emits_marker(self) -> None:
-        # No closing fence: the scan loop reaches end-of-input instead of breaking.
+    def test_unclosed_fence_is_not_a_code_block(self) -> None:
+        # superfences renders an unclosed fence as text, so no marker is emitted for it
         source = "```command\n[label deploy.sh]\nssh root@server"
-        result = expand_source(source)
-        assert "<!-- mw-fence:" in result
-        assert '"label": "deploy.sh"' in result
-        assert "ssh root@server" in result
+        assert expand_source(source) == source
 
     def test_prefix_code_without_trailing_newline(self) -> None:
         # Code content with no trailing newline before </code>.
@@ -551,3 +578,46 @@ class TestFenceMarkerXss:
         rendered = _stub_render(expand_source(source))
         result = apply_html(rendered)
         assert '<div class="code-label" title="a &gt; b">a &gt; b</div>' in result
+
+
+class TestFenceScanner:
+    """Fences are found by CommonMark's rules, the same way the renderer finds them."""
+
+    def test_fence_indented_up_to_three_spaces_gets_its_directives(self) -> None:
+        result = render_fence("  ```bash\n  [label a.sh]\n  echo\n  ```\n")
+        assert '<div class="code-label" title="a.sh">a.sh</div>' in result
+        assert "[label" not in result
+
+    def test_fence_in_a_list_item_renders_valid_html(self) -> None:
+        result = render_fence("- item\n\n    ```bash\n    [label a.sh]\n    echo\n    ```\n")
+        assert '<div class="code-label" title="a.sh">a.sh</div>' in result
+        assert "[label" not in result
+        assert "<p><div" not in result
+
+    def test_four_space_indented_code_is_not_a_fence(self) -> None:
+        source = "Text.\n\n    ```\n    [label a.sh]\n    ```\n"
+        assert expand_source(source) == source
+
+    def test_nested_shorter_fence_is_content(self) -> None:
+        source = "````\n[label outer.md]\n```\n[label inner]\n```\n````\n"
+        result = expand_source(source)
+        assert '"label": "outer.md"' in result
+        assert "[label inner]" in result
+
+    def test_closing_fence_must_match_character_and_length(self) -> None:
+        source = "~~~~\n[label a.sh]\n~~~\n```\n~~~~\n"
+        result = expand_source(source)
+        assert result.endswith("~~~~\n~~~\n```\n~~~~\n")
+        assert '"label": "a.sh"' in result
+
+    def test_backtick_fence_info_with_a_backtick_is_not_a_fence(self) -> None:
+        source = "``` a`b\n[label a.sh]\n```\n"
+        assert expand_source(source) == source
+
+    def test_indented_code_at_document_start_is_not_a_fence(self) -> None:
+        source = "    ```\n    [label a.sh]\n    ```\n"
+        assert expand_source(source) == source
+
+    def test_fence_holding_only_directives(self) -> None:
+        result = expand_source("```\n[label a.sh]\n```\n")
+        assert result == '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n```\n```\n'

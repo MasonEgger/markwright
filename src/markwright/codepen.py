@@ -6,14 +6,20 @@ from __future__ import annotations
 import html
 import re
 import urllib.parse
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
+from pydantic import BaseModel, ConfigDict
 
-from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, has_eager_embed, load_mode, wrap_preview
+from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, load_mode, wrap_preview
+from markwright._html import provider_script_needed
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from markdown import Markdown
 
 CODEPEN_RE = re.compile(r"^\[codepen\s+(\S+)\s+(\S+)((?:\s+(?:lazy|light|dark|editable|html|css|js|result|\d+))*)\]$")
 
@@ -21,7 +27,8 @@ TAB_PRIORITY = ["html", "css", "js"]
 
 DEFAULT_HEIGHT = 256
 
-CODEPEN_SIGNATURE = 'class="codepen"'
+# The class every codepen embed element carries; an eager one needs the provider script
+CODEPEN_EMBED_CLASS = "codepen"
 
 CODEPEN_SCRIPT_SRC = "https://static.codepen.io/assets/embed/ei.js"
 CODEPEN_SCRIPT = f'<script async defer src="{CODEPEN_SCRIPT_SRC}" type="text/javascript"></script>'
@@ -29,51 +36,70 @@ CODEPEN_SCRIPT = f'<script async defer src="{CODEPEN_SCRIPT_SRC}" type="text/jav
 LOAD_MODES = (LOAD_EAGER, LOAD_CLICK)
 
 
-def _parse_flags(raw_flags: str) -> dict[str, str | int | bool]:
-    """Parse space-separated CodePen flags into a settings dictionary.
+class CodePenSettings(BaseModel):
+    """Settings parsed from a CodePen embed line's flags.
 
-    :param raw_flags: Raw space-separated flags string.
-    :returns: Dictionary with theme, height, tab, lazy, and editable settings.
+    :ivar theme: ``light`` or ``dark``.
+    :ivar height: Embed height in pixels.
+    :ivar tab: Default tab, for example ``result`` or ``css,result``.
+    :ivar lazy: Whether CodePen's own preview mode is on.
+    :ivar editable: Whether the pen is editable.
     """
-    flags = raw_flags.split()
 
-    # Theme: dark wins if both present
-    theme = "dark" if "dark" in flags else "light"
+    model_config = ConfigDict(frozen=True)
 
-    # Height: first integer found, or default
-    height = DEFAULT_HEIGHT
-    for flag in flags:
-        if flag.isdigit():
-            height = int(flag)
-            break
+    theme: str
+    height: int
+    tab: str
+    lazy: bool
+    editable: bool
 
-    # Lazy and editable
-    lazy = "lazy" in flags
-    editable = "editable" in flags
+    @classmethod
+    def from_flags(cls, raw_flags: str) -> CodePenSettings:
+        """Parse space-separated CodePen flags.
 
-    # Tab: priority is html > css > js; result can combine with another tab
-    selected_tab = ""
-    for tab_name in TAB_PRIORITY:
-        if tab_name in flags:
-            selected_tab = tab_name
-            break
+        :param raw_flags: Raw space-separated flags string.
+        :returns: The parsed settings.
+        """
+        flags = raw_flags.split()
 
-    has_result = "result" in flags
+        # Theme: dark wins if both present
+        theme = "dark" if "dark" in flags else "light"
 
-    if selected_tab and has_result:
-        tab = f"{selected_tab},result"
-    elif selected_tab:
-        tab = selected_tab
-    else:
-        tab = "result"
+        # Height: first integer found, or default
+        height = DEFAULT_HEIGHT
+        for flag in flags:
+            if flag.isdigit():
+                height = int(flag)
+                break
 
-    return {
-        "theme": theme,
-        "height": height,
-        "tab": tab,
-        "lazy": lazy,
-        "editable": editable,
-    }
+        # Lazy and editable
+        lazy = "lazy" in flags
+        editable = "editable" in flags
+
+        # Tab: priority is html > css > js; result can combine with another tab
+        selected_tab = ""
+        for tab_name in TAB_PRIORITY:
+            if tab_name in flags:
+                selected_tab = tab_name
+                break
+
+        has_result = "result" in flags
+
+        if selected_tab and has_result:
+            tab = f"{selected_tab},result"
+        elif selected_tab:
+            tab = selected_tab
+        else:
+            tab = "result"
+
+        return cls(
+            theme=theme,
+            height=height,
+            tab=tab,
+            lazy=lazy,
+            editable=editable,
+        )
 
 
 def _render_match(line: str, load: str) -> str | None:
@@ -90,18 +116,18 @@ def _render_match(line: str, load: str) -> str | None:
     user = codepen_match.group(1)
     hash_id = codepen_match.group(2)
     raw_flags = codepen_match.group(3).strip()
-    settings = _parse_flags(raw_flags)
+    settings = CodePenSettings.from_flags(raw_flags)
 
-    escaped_user = html.escape(str(user))
-    escaped_hash = html.escape(str(hash_id))
-    encoded_user = urllib.parse.quote(str(user), safe="")
-    encoded_hash = urllib.parse.quote(str(hash_id), safe="")
-    height = settings["height"]
-    theme = settings["theme"]
-    tab = settings["tab"]
+    escaped_user = html.escape(user)
+    escaped_hash = html.escape(hash_id)
+    encoded_user = urllib.parse.quote(user, safe="")
+    encoded_hash = urllib.parse.quote(hash_id, safe="")
+    height = settings.height
+    theme = settings.theme
+    tab = settings.tab
 
-    lazy_attr = ' data-preview="true"' if settings["lazy"] else ""
-    editable_attr = ' data-editable="true"' if settings["editable"] else ""
+    lazy_attr = ' data-preview="true"' if settings.lazy else ""
+    editable_attr = ' data-editable="true"' if settings.editable else ""
     pen_url = f"https://codepen.io/{encoded_user}/pen/{encoded_hash}"
 
     embed_html = (
@@ -149,21 +175,22 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
 
 
 def apply_html(
-    rendered_html: str, warnings: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Inject the CodePen embed script once if an eager CodePen embed is present.
 
     Used by the ``mw post`` CLI stage and the in-process postprocessor. The
-    script is appended only when the CodePen class signature is present outside
-    a click-to-load template and the script is not already injected, so the
-    transform is idempotent.
+    script is appended only when an embed element sits outside every ``<template>``
+    (an eager embed) and no ``<script>`` already loads the provider, so the transform
+    is idempotent.
 
     :param rendered_html: Rendered HTML content.
-    :param warnings: Optional warnings list; unused (signature injection never warns).
+    :param skip_reasons: Ignored (script injection never skips anything); accepted so the registry calls
+        every post stage with one signature.
     :param options: Ignored; accepted so the registry calls every post stage with one signature.
     :returns: HTML with the CodePen script appended if needed.
     """
-    if has_eager_embed(rendered_html, CODEPEN_SIGNATURE) and CODEPEN_SCRIPT not in rendered_html:
+    if provider_script_needed(rendered_html, CODEPEN_EMBED_CLASS, CODEPEN_SCRIPT_SRC):
         return rendered_html + "\n" + CODEPEN_SCRIPT
     return rendered_html
 
@@ -222,7 +249,7 @@ class CodePenExtension(Extension):
         }
         super().__init__(**kwargs)
 
-    def extendMarkdown(self, md: Markdown) -> None:
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the CodePen preprocessor and postprocessor.
 
         :param md: The Markdown instance to extend.
@@ -234,7 +261,7 @@ class CodePenExtension(Extension):
         md.postprocessors.register(postprocessor, "do-codepen-script", 15)
 
 
-def makeExtension(**kwargs: object) -> CodePenExtension:
+def makeExtension(**kwargs: object) -> CodePenExtension:  # noqa: N802 - Python-Markdown's loader name
     """Create and return the CodePenExtension instance.
 
     :param \\*\\*kwargs: Configuration options.

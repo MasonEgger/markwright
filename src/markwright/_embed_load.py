@@ -1,13 +1,22 @@
 # ABOUTME: The load option (eager, lazy, click) shared by the embeds that reach a third party.
-# Validates the option, wraps live markup in the versioned click-to-load preview, and finds eager embeds.
+# Validates the option and wraps live markup in the versioned click-to-load preview.
 
 from __future__ import annotations
 
 import html
-import re
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from markwright._diagnostics import OptionError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+URL_SCHEME_WWW_PREFIX = r"(?:(?:https?:)?//)?(?:www\.)?"
+"""Regex fragment matching an optional ``scheme://`` and an optional ``www.``.
+
+Shared by the Twitter and Instagram embed grammars (upstream ``twitter.js`` and ``instagram.js``),
+which both accept a URL prefix ranging from nothing (a bare path) up to a full ``https://www.<host>``.
+"""
 
 LOAD_EAGER = "eager"
 LOAD_LAZY = "lazy"
@@ -15,9 +24,6 @@ LOAD_CLICK = "click"
 
 # Version of the preview markup hosts code against; bump it on any breaking change to the contract.
 PREVIEW_VERSION = 1
-
-# The <template> wrapper holding live markup. Signatures inside it belong to deferred embeds.
-_DEFERRED_CONTENT_RE = re.compile(r'<template class="mw-embed-content">.*?</template>', re.DOTALL)
 
 
 def load_mode(options: Mapping[str, object] | None, allowed: tuple[str, ...]) -> str:
@@ -74,13 +80,3 @@ def wrap_preview(
         f"    </div>\n"
         f"</div>"
     )
-
-
-def has_eager_embed(rendered_html: str, signature: str) -> bool:
-    """Report whether an embed signature appears outside every deferred-content template.
-
-    :param rendered_html: Rendered HTML content.
-    :param signature: The embed's class signature, for example ``'class="twitter-tweet"'``.
-    :returns: ``True`` if at least one embed on the page loads eagerly.
-    """
-    return signature in _DEFERRED_CONTENT_RE.sub("", rendered_html)

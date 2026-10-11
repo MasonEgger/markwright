@@ -5,15 +5,20 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
+from pydantic import BaseModel, ConfigDict
 
-from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, has_eager_embed, load_mode, wrap_preview
-from markwright._util import URL_SCHEME_WWW_PREFIX
+from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, URL_SCHEME_WWW_PREFIX, load_mode, wrap_preview
+from markwright._html import provider_script_needed
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from markdown import Markdown
 
 # Scheme, "www.", the instagram.com host, and a "p/"-style path segment are
 # all optional, so inputs from a bare shortcode up to a full
@@ -30,7 +35,8 @@ INSTAGRAM_HREF_TEMPLATE = "https://instagram.com/p/{post_id}"
 INSTAGRAM_MIN_WIDTH = 326
 INSTAGRAM_MAX_WIDTH = 550
 
-INSTAGRAM_SIGNATURE = 'class="instagram-media"'
+# The class every instagram embed element carries; an eager one needs the provider script
+INSTAGRAM_EMBED_CLASS = "instagram-media"
 
 INSTAGRAM_SCRIPT_SRC = "https://www.instagram.com/embed.js"
 INSTAGRAM_SCRIPT = (
@@ -41,34 +47,49 @@ INSTAGRAM_SCRIPT = (
 LOAD_MODES = (LOAD_EAGER, LOAD_CLICK)
 
 
-def _parse_instagram_flags(raw_flags: str) -> dict[str, str | int | bool]:
-    """Parse space-separated Instagram flags into a settings dictionary.
+class InstagramSettings(BaseModel):
+    """Settings parsed from a Instagram embed line's flags.
 
-    :param raw_flags: Raw space-separated flags string.
-    :returns: Dictionary with caption, alignment, and width settings.
+    :ivar caption: Whether to show the caption.
+    :ivar alignment: ``left``, ``center``, or ``right``.
+    :ivar width: Embed width in pixels, or ``0`` for automatic.
     """
-    flags = raw_flags.split()
 
-    caption = "caption" in flags
+    model_config = ConfigDict(frozen=True)
 
-    alignment = "center"
-    for align_option in ("left", "right", "center"):
-        if align_option in flags:
-            alignment = align_option
-            break
+    caption: bool
+    alignment: str
+    width: int
 
-    width = 0
-    for flag in flags:
-        if flag.isdigit():
-            parsed_width = int(flag)
-            width = max(INSTAGRAM_MIN_WIDTH, min(INSTAGRAM_MAX_WIDTH, parsed_width))
-            break
+    @classmethod
+    def from_flags(cls, raw_flags: str) -> InstagramSettings:
+        """Parse space-separated Instagram flags.
 
-    return {
-        "caption": caption,
-        "alignment": alignment,
-        "width": width,
-    }
+        :param raw_flags: Raw space-separated flags string.
+        :returns: The parsed settings.
+        """
+        flags = raw_flags.split()
+
+        caption = "caption" in flags
+
+        alignment = "center"
+        for align_option in ("left", "right", "center"):
+            if align_option in flags:
+                alignment = align_option
+                break
+
+        width = 0
+        for flag in flags:
+            if flag.isdigit():
+                parsed_width = int(flag)
+                width = max(INSTAGRAM_MIN_WIDTH, min(INSTAGRAM_MAX_WIDTH, parsed_width))
+                break
+
+        return cls(
+            caption=caption,
+            alignment=alignment,
+            width=width,
+        )
 
 
 def _render_match(line: str, load: str) -> str | None:
@@ -84,15 +105,15 @@ def _render_match(line: str, load: str) -> str | None:
 
     post_id = instagram_match.group(1)
     raw_flags = instagram_match.group(2).strip()
-    settings = _parse_instagram_flags(raw_flags)
+    settings = InstagramSettings.from_flags(raw_flags)
 
     escaped_href = html.escape(INSTAGRAM_HREF_TEMPLATE.format(post_id=post_id))
     permalink = INSTAGRAM_PERMALINK_TEMPLATE.format(post_id=post_id)
     escaped_permalink = html.escape(permalink)
 
-    alignment = settings["alignment"]
-    width = int(settings["width"])
-    caption = settings["caption"]
+    alignment = settings.alignment
+    width = settings.width
+    caption = settings.caption
 
     align_attr = f' align="{alignment}"' if alignment != "center" else ""
     caption_attr = " data-instgrm-captioned" if caption else ""
@@ -137,21 +158,22 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
 
 
 def apply_html(
-    rendered_html: str, warnings: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Inject the Instagram embed script once if an eager Instagram embed is present.
 
     Used by the ``mw post`` CLI stage and the in-process postprocessor. The
-    script is appended only when the Instagram class signature is present outside
-    a click-to-load template and the script is not already injected, so the
-    transform is idempotent.
+    script is appended only when an embed element sits outside every ``<template>``
+    (an eager embed) and no ``<script>`` already loads the provider, so the transform
+    is idempotent.
 
     :param rendered_html: Rendered HTML content.
-    :param warnings: Optional warnings list; unused (signature injection never warns).
+    :param skip_reasons: Ignored (script injection never skips anything); accepted so the registry calls
+        every post stage with one signature.
     :param options: Ignored; accepted so the registry calls every post stage with one signature.
     :returns: HTML with the Instagram script appended if needed.
     """
-    if has_eager_embed(rendered_html, INSTAGRAM_SIGNATURE) and INSTAGRAM_SCRIPT not in rendered_html:
+    if provider_script_needed(rendered_html, INSTAGRAM_EMBED_CLASS, INSTAGRAM_SCRIPT_SRC):
         return rendered_html + "\n" + INSTAGRAM_SCRIPT
     return rendered_html
 
@@ -210,7 +232,7 @@ class InstagramExtension(Extension):
         }
         super().__init__(**kwargs)
 
-    def extendMarkdown(self, md: Markdown) -> None:
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the Instagram preprocessor and postprocessor.
 
         :param md: The Markdown instance to extend.
@@ -222,7 +244,7 @@ class InstagramExtension(Extension):
         md.postprocessors.register(postprocessor, "do-instagram-script", 15)
 
 
-def makeExtension(**kwargs: object) -> InstagramExtension:
+def makeExtension(**kwargs: object) -> InstagramExtension:  # noqa: N802 - Python-Markdown's loader name
     """Create and return the InstagramExtension instance.
 
     :param \\*\\*kwargs: Configuration options.

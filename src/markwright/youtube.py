@@ -3,16 +3,20 @@
 
 from __future__ import annotations
 
+import math
 import re
 import urllib.parse
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
 
 from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, LOAD_LAZY, load_mode, wrap_preview
-from markwright._util import reduce_fraction
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from markdown import Markdown
 
 YOUTUBE_RE = re.compile(r"^\[youtube (\S+?)(?:\s+(-?\d+))?(?:\s+(-?\d+))?\]$")
 
@@ -40,8 +44,9 @@ def _render_match(line: str, load: str) -> str | None:
         height, width = DEFAULT_HEIGHT, DEFAULT_WIDTH
 
     encoded_id = urllib.parse.quote(video_id, safe="")
-    aspect_width, aspect_height = reduce_fraction(width, height)
-    aspect_ratio = f"{aspect_width}/{aspect_height}"
+    # Both dimensions are positive here, so their greatest common divisor reduces the ratio
+    divisor = math.gcd(width, height)
+    aspect_ratio = f"{width // divisor}/{height // divisor}"
     lazy_attr = ' loading="lazy"' if load == LOAD_LAZY else ""
     watch_url = f"https://www.youtube.com/watch?v={encoded_id}"
 
@@ -121,7 +126,7 @@ class YouTubeExtension(Extension):
         }
         super().__init__(**kwargs)
 
-    def extendMarkdown(self, md: Markdown) -> None:
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the YouTube preprocessor.
 
         :param md: The Markdown instance to extend.
@@ -131,7 +136,7 @@ class YouTubeExtension(Extension):
         md.preprocessors.register(preprocessor, "do-youtube", 20)
 
 
-def makeExtension(**kwargs: object) -> YouTubeExtension:
+def makeExtension(**kwargs: object) -> YouTubeExtension:  # noqa: N802 - Python-Markdown's loader name
     """Create and return the YouTubeExtension instance.
 
     :param \\*\\*kwargs: Configuration options.

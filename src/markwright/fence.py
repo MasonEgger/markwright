@@ -31,15 +31,21 @@ import html
 import json
 import re
 import warnings
-from collections.abc import Mapping
-from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
-from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from markwright._diagnostics import ConfigWarning, OptionError
+from markwright._fences import find_fenced_blocks
+from markwright._html import HtmlToken, apply_edits, render_start_tag, tokenize
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from markdown import Markdown
 
 MARKER_NAME = "mw-fence"
 MARKER_VERSION = 1
@@ -50,11 +56,10 @@ DEFAULT_SECONDARY_LABEL_CLASS = "secondary-code-label"
 # default through parseBoolValue, which would turn a list into a bool, so a sentinel stands in.
 _ALL_ENVIRONMENTS = object()
 
-FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 LABEL_RE = re.compile(r"^\[label (.+)\]$")
 SECONDARY_LABEL_RE = re.compile(r"^\[secondary_label (.+)\]$")
 ENVIRONMENT_RE = re.compile(r"^\[environment (.+)\]$")
-COMMENT_RE = re.compile(rf"<!-- {MARKER_NAME}:(.*?) -->")
+MARKER_COMMENT_RE = re.compile(rf"<!-- {MARKER_NAME}:(.*?) -->")
 CUSTOM_PREFIX_RE = re.compile(r"^custom_prefix\((.+)\)$")
 
 
@@ -114,77 +119,52 @@ def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
     return cleaned_info, prefix_metadata
 
 
-_LINE_SPAN_OPEN = '<span class="line"'
-_SPAN_TAG_RE = re.compile(r"<(/?)span\b[^>]*>")
-
-
-def _split_line_spans(code_content: str) -> list[str]:
-    """Split Chroma-wrapped code into one string per ``<span class="line">`` block.
-
-    :param code_content: Rendered code containing ``<span class="line">`` line wrappers.
-    :returns: One balanced ``<span class="line">...</span>`` string per line.
-    """
-    lines: list[str] = []
-    cursor = 0
-    while True:
-        start = code_content.find(_LINE_SPAN_OPEN, cursor)
-        if start == -1:
-            break
-        depth = 0
-        end = len(code_content)
-        for tag_match in _SPAN_TAG_RE.finditer(code_content, start):
-            depth += -1 if tag_match.group(1) else 1
-            if depth == 0:
-                end = tag_match.end()
-                break
-        lines.append(code_content[start:end])
-        cursor = end
-    return lines
-
-
-def _split_rendered_lines(code_content: str) -> list[str]:
-    """Split rendered code content into visual lines for prefix wrapping.
-
-    Pygments-style highlighters emit flat, newline-delimited lines, so a split on
-    newlines is correct. Chroma (Hugo) wraps each line in ``<span class="line">...
-    </span>`` with the newline inside the span; splitting that on newlines would cut
-    a line span in half and emit a spurious empty prefixed line, so its line spans
-    are split on their own boundaries instead.
-
-    :param code_content: The raw content between <code> and </code> tags.
-    :returns: One string per visual line.
-    """
-    if _LINE_SPAN_OPEN in code_content:
-        return _split_line_spans(code_content)
-    flat = code_content[:-1] if code_content.endswith("\n") else code_content
-    return flat.split("\n")
-
-
-def _wrap_lines_with_prefix(code_content: str, prefix_metadata: dict[str, str]) -> str:
+def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: str) -> str:
     """Wrap each code line in <li> elements with data-prefix attributes inside an <ol>.
 
+    Pygments-style highlighters emit flat, newline-delimited lines, so a split on newlines is
+    correct. Chroma (Hugo) wraps each line in ``<span class="line">...</span>`` with the newline
+    inside the span; splitting that on newlines would cut a line span in half and emit a
+    spurious empty prefixed line, so its top-level line spans are taken whole instead.
+
     :param code_content: The raw content between <code> and </code> tags.
-    :param prefix_metadata: Metadata dict containing prefix_type and optionally prefix_value.
+    :param prefix_type: The marker's prefix type; ``line_numbers`` numbers the lines.
+    :param prefix_value: The prefix for every line, unused for ``line_numbers``.
     :returns: The content wrapped in <ol><li data-prefix="..."> elements.
     """
-    prefix_type = prefix_metadata["prefix_type"]
-    prefix_value = prefix_metadata.get("prefix_value", "")
+    code_tokens = tokenize(code_content)
 
-    code_lines = _split_rendered_lines(code_content)
+    # Collect Chroma's top-level line spans, if there are any
+    code_lines: list[str] = []
+    span_depth = 0
+    line_span: HtmlToken | None = None
+    for token in code_tokens:
+        if token.kind == "start" and token.tag == "span":
+            if span_depth == 0 and token.has_class("line"):
+                line_span = token
+            span_depth += 1
+        elif token.kind == "end" and token.tag == "span" and span_depth:
+            span_depth -= 1
+            if span_depth == 0 and line_span is not None:
+                code_lines.append(code_content[line_span.start : token.end])
+                line_span = None
+    if not code_lines:
+        code_lines = code_content.removesuffix("\n").split("\n")
+
     wrapped_lines: list[str] = []
-
     for line_index, line_text in enumerate(code_lines):
         current_prefix = str(line_index + 1) if prefix_type == "line_numbers" else prefix_value
-        escaped_prefix = html.escape(current_prefix)
-        wrapped_lines.append(f'<li data-prefix="{escaped_prefix}">{line_text}\n</li>')
-
+        wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}\n</li>')
     return "<ol>" + "".join(wrapped_lines) + "</ol>\n"
 
 
 def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> list[str]:
     """Extract fence directives and prefix flags, inserting the mw-fence marker comment.
 
-    Shared by the in-process preprocessor and the ``mw pre`` stage function.
+    Shared by the in-process preprocessor and the ``mw pre`` stage function. Fences are found
+    by the shared CommonMark scanner, so indented fences and fences in list items count. A marker
+    for an indented fence is written at the fence's indentation and followed by a blank line,
+    so it stays inside the list item and renders as its own block.
 
     :param lines: Source lines to process.
     :param allowed_environments: Allowed environment names, or ``None`` to allow every environment;
@@ -192,88 +172,43 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
     :returns: Modified lines with directives replaced by mw-fence marker comments.
     """
     output: list[str] = []
-    line_index = 0
-    while line_index < len(lines):
-        fence_match = FENCE_RE.match(lines[line_index])
-        if not fence_match:
-            output.append(lines[line_index])
-            line_index += 1
-            continue
+    cursor = 0
+    for block in find_fenced_blocks(lines):
+        output.extend(lines[cursor : block.opening])
 
-        fence_marker = fence_match.group(1)
-        fence_char = fence_marker[0]
-        fence_len = len(fence_marker)
-        fence_line = lines[line_index]
-
-        # Parse prefix flags from the info string (text after the fence markers)
-        info_string = fence_line[fence_len:].strip()
-        cleaned_info, prefix_metadata = _parse_prefix_from_info(info_string)
-
-        # Reconstruct the fence line with cleaned info (prefix flags removed, language kept)
+        # Parse prefix flags from the info string; the fence line keeps the language
+        cleaned_info, prefix_metadata = _parse_prefix_from_info(block.info.strip())
+        fence_line = lines[block.opening]
         if prefix_metadata:
-            fence_line = fence_marker + cleaned_info if cleaned_info else fence_marker
+            fence_line = block.indent + block.marker + cleaned_info
 
-        # Scan content lines for directives
-        metadata: dict[str, str] = {}
-        metadata.update(prefix_metadata)
-        content_lines: list[str] = []
-        scan_index = line_index + 1
-        directive_zone = True
-        while scan_index < len(lines):
-            # Check for closing fence
-            close_match = FENCE_RE.match(lines[scan_index])
-            if (
-                close_match
-                and close_match.group(1)[0] == fence_char
-                and len(close_match.group(1)) >= fence_len
-                and lines[scan_index].strip() == close_match.group(1)
+        # Directives are the leading content lines; the first other line ends them
+        metadata: dict[str, str] = dict(prefix_metadata)
+        content_index = block.opening + 1
+        while content_index < block.closing:
+            stripped_line = lines[content_index].strip()
+            if label_match := LABEL_RE.match(stripped_line):
+                metadata["label"] = label_match.group(1)
+            elif secondary_match := SECONDARY_LABEL_RE.match(stripped_line):
+                metadata["secondary_label"] = secondary_match.group(1)
+            elif (environment_match := ENVIRONMENT_RE.match(stripped_line)) and (
+                allowed_environments is None or environment_match.group(1) in allowed_environments
             ):
+                metadata["environment"] = environment_match.group(1)
+            else:
                 break
-
-            if directive_zone:
-                stripped_line = lines[scan_index].strip()
-                label_match = LABEL_RE.match(stripped_line)
-                secondary_match = SECONDARY_LABEL_RE.match(stripped_line)
-                environment_match = ENVIRONMENT_RE.match(stripped_line)
-
-                if label_match:
-                    metadata["label"] = label_match.group(1)
-                    scan_index += 1
-                    continue
-                elif secondary_match:
-                    metadata["secondary_label"] = secondary_match.group(1)
-                    scan_index += 1
-                    continue
-                elif environment_match:
-                    env_name = environment_match.group(1)
-                    if allowed_environments is None or env_name in allowed_environments:
-                        metadata["environment"] = env_name
-                        scan_index += 1
-                        continue
-                    else:
-                        directive_zone = False
-                else:
-                    directive_zone = False
-
-            content_lines.append(lines[scan_index])
-            scan_index += 1
+            content_index += 1
 
         if metadata:
-            payload: dict[str, object] = {"version": MARKER_VERSION}
-            payload.update(metadata)
-            output.append(f"<!-- {MARKER_NAME}:{_encode_marker_payload(payload)} -->")
-
+            payload: dict[str, object] = {"version": MARKER_VERSION, **metadata}
+            output.append(f"{block.indent}<!-- {MARKER_NAME}:{_encode_marker_payload(payload)} -->")
+            if block.indent:
+                output.append("")
         output.append(fence_line)
-        output.extend(content_lines)
+        output.extend(lines[content_index : block.closing + 1])
+        cursor = block.closing + 1
 
-        # Append closing fence if found
-        if scan_index < len(lines):
-            output.append(lines[scan_index])
-            scan_index += 1
-
-        line_index = scan_index
-        continue
-
+    output.extend(lines[cursor:])
     return output
 
 
@@ -292,14 +227,15 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     return "\n".join(_expand_lines(text.split("\n"), read_options(options).allowed_environments))
 
 
-@dataclass(frozen=True)
-class FenceOptions:
+class FenceOptions(BaseModel):
     """Validated fence options.
 
     :ivar allowed_environments: Environment names to honor, or ``None`` to honor every one.
     :ivar label_class: CSS class for the label div.
     :ivar secondary_label_class: CSS class for the secondary label div.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     allowed_environments: list[str] | None = None
     label_class: str = DEFAULT_LABEL_CLASS
@@ -348,7 +284,11 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
             raise OptionError(f"'{key}' must be a string")
         label_classes[key] = value
 
-    return FenceOptions(environments, label_classes["label_class"], label_classes["secondary_label_class"])
+    return FenceOptions(
+        allowed_environments=environments,
+        label_class=label_classes["label_class"],
+        secondary_label_class=label_classes["secondary_label_class"],
+    )
 
 
 class FencePreprocessor(Preprocessor):
@@ -371,133 +311,178 @@ class FencePreprocessor(Preprocessor):
         return _expand_lines(lines, self.options.allowed_environments)
 
 
-CODE_TAG_RE = re.compile(r"<code[^>]*>")
-CODE_CLOSE_RE = re.compile(r"</code>")
-PRE_TAG_RE = re.compile(r"<pre[^>]*>")
+class FenceMarker(BaseModel):
+    """A validated v1 mw-fence marker payload.
 
+    Strict, so a field of the wrong type fails validation instead of being coerced; unknown
+    fields are ignored, so a newer marker's additions do not stop its v1 fields from applying.
 
-def _add_pre_classes(text: str, search_start: int, css_classes: str) -> str:
-    """Add CSS classes to the <pre> tag nearest after search_start.
-
-    :param text: The full HTML string.
-    :param search_start: Position to start searching from.
-    :param css_classes: Space-separated CSS class string to add.
-    :returns: Modified HTML with classes added to <pre>.
+    :ivar version: The payload version, ``1``.
+    :ivar label: The label text, if the author set one.
+    :ivar secondary_label: The secondary label text, if set.
+    :ivar environment: The environment name, if set.
+    :ivar prefix_type: The line-prefix style, if set.
+    :ivar prefix_value: The rendered prefix, absent for ``line_numbers``.
     """
-    pre_match = PRE_TAG_RE.search(text, search_start)
-    if pre_match:
-        pre_tag = pre_match.group(0)
-        if 'class="' in pre_tag:
-            new_pre_tag = pre_tag.replace('class="', f'class="{css_classes} ')
-        else:
-            new_pre_tag = pre_tag.replace("<pre", f'<pre class="{css_classes}"')
-        text = text[: pre_match.start()] + new_pre_tag + text[pre_match.end() :]
-    return text
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="ignore")
+
+    version: int
+    label: str | None = None
+    secondary_label: str | None = None
+    environment: str | None = None
+    prefix_type: Literal["line_numbers", "command", "super_user", "custom_prefix"] | None = None
+    prefix_value: str | None = None
+
+
+class _InvalidMarkerError(Exception):
+    """A marker the post stage skips fail-soft; the message is the skip reason."""
+
+
+def _parse_marker(raw_payload: str) -> FenceMarker:
+    """Decode and validate a marker comment's JSON payload.
+
+    :param raw_payload: The text between ``mw-fence:`` and the comment's end.
+    :returns: The validated marker.
+    :raises _InvalidMarkerError: If the JSON is malformed, not an object, an unsupported version, or
+        has a field of the wrong type.
+    """
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError as decode_error:
+        raise _InvalidMarkerError(f"Skipping malformed {MARKER_NAME} marker: {raw_payload!r}") from decode_error
+    if not isinstance(payload, dict):
+        raise _InvalidMarkerError(f"Skipping {MARKER_NAME} marker whose payload is not an object: {raw_payload!r}")
+    if payload.get("version") != MARKER_VERSION:
+        raise _InvalidMarkerError(f"Skipping {MARKER_NAME} marker with unsupported version {payload.get('version')!r}")
+    try:
+        return FenceMarker.model_validate(payload)
+    except ValidationError as validation_error:
+        invalid_fields = ", ".join(str(error["loc"][0]) for error in validation_error.errors())
+        raise _InvalidMarkerError(
+            f"Skipping {MARKER_NAME} marker with invalid fields ({invalid_fields}): {raw_payload!r}"
+        ) from validation_error
 
 
 def _apply_marker(
     rendered_html: str,
-    warnings: list[str] | None,
+    skip_reasons: list[str] | None,
     label_class: str,
     secondary_label_class: str,
 ) -> str:
     """Style code blocks from their mw-fence marker comments, validating each marker.
 
-    A marker is skipped (and optionally warned about) when its JSON is malformed,
-    its version is unsupported, or no code block follows it. The recognized marker
-    comment is always removed from the output.
+    Each marker styles the first ``<pre>`` and ``<code>`` that follow it, before the next
+    marker. A marker is skipped (and optionally reported) when its payload is invalid (see
+    :func:`_parse_marker`) or no code block follows it. A recognized marker comment is always
+    removed from the output.
 
     :param rendered_html: Rendered HTML containing mw-fence marker comments.
-    :param warnings: Optional list to collect skip reasons; ``None`` suppresses warnings.
+    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
     :param label_class: CSS class for the label div.
     :param secondary_label_class: CSS class for the secondary label div.
     :returns: HTML with label divs, environment classes, and line prefixes injected.
     """
-    text = rendered_html
-    for match in reversed(list(COMMENT_RE.finditer(text))):
-        raw_payload = match.group(1)
-        comment_start = match.start()
-        comment_end = match.end()
+    tokens = tokenize(rendered_html)
+    markers = [
+        (token_index, comment_match)
+        for token_index, token in enumerate(tokens)
+        if token.kind == "comment"
+        and (comment_match := MARKER_COMMENT_RE.fullmatch(rendered_html, token.start, token.end))
+    ]
+
+    edits: list[tuple[int, int, str]] = []
+    for marker_number, (token_index, comment_match) in enumerate(markers):
+        comment = tokens[token_index]
+
+        # The marker's block is everything up to the next marker
+        block_end = markers[marker_number + 1][0] if marker_number + 1 < len(markers) else len(tokens)
+        block = tokens[token_index + 1 : block_end]
+        pre_tag = next((token for token in block if token.kind == "start" and token.tag == "pre"), None)
+        code_tag = next((token for token in block if token.kind == "start" and token.tag == "code"), None)
 
         try:
-            metadata = json.loads(raw_payload)
-        except json.JSONDecodeError:
-            if warnings is not None:
-                warnings.append(f"Skipping malformed {MARKER_NAME} marker: {raw_payload!r}")
-            text = text[:comment_start] + text[comment_end:]
+            marker = _parse_marker(comment_match.group(1))
+            if pre_tag is None and code_tag is None:
+                raise _InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following code block")
+        except _InvalidMarkerError as skipped:
+            if skip_reasons is not None:
+                skip_reasons.append(str(skipped))
+            edits.append((comment.start, comment.end, ""))
             continue
 
-        version = metadata.get("version")
-        if version != MARKER_VERSION:
-            if warnings is not None:
-                warnings.append(f"Skipping {MARKER_NAME} marker with unsupported version {version!r}")
-            text = text[:comment_start] + text[comment_end:]
-            continue
-
-        if PRE_TAG_RE.search(text, comment_end) is None and CODE_TAG_RE.search(text, comment_end) is None:
-            if warnings is not None:
-                warnings.append(f"Skipping {MARKER_NAME} marker with no following code block")
-            text = text[:comment_start] + text[comment_end:]
-            continue
-
+        # Replace the comment with the label div (or nothing)
         label_html = ""
-        if "label" in metadata:
-            label_text = html.escape(metadata["label"])
+        if marker.label is not None:
+            label_text = html.escape(marker.label)
             label_html = f'<div class="{label_class}" title="{label_text}">{label_text}</div>\n'
+        edits.append((comment.start, comment.end, label_html))
 
-        # Replace the comment with the label div (or empty string)
-        text = text[:comment_start] + label_html + text[comment_end:]
+        # Prefix and environment classes go in front of the <pre>'s existing classes
+        added_classes = []
+        if marker.prefix_type is not None:
+            added_classes.append(f"prefixed {marker.prefix_type}")
+        if marker.environment is not None:
+            added_classes.append(f"environment-{re.sub(r'[^a-zA-Z0-9-]', '', marker.environment)}")
+        if pre_tag is not None and added_classes:
+            edits.append((pre_tag.start, pre_tag.end, _with_classes(pre_tag, " ".join(added_classes))))
 
-        # Add environment class to <pre>
-        if "environment" in metadata:
-            env_name = re.sub(r"[^a-zA-Z0-9-]", "", metadata["environment"])
-            env_class = f"environment-{env_name}"
-            text = _add_pre_classes(text, comment_start, env_class)
+        # The secondary label opens the <code>; line prefixes wrap its content
+        if code_tag is not None:
+            code_inner = ""
+            if marker.secondary_label is not None:
+                secondary_text = html.escape(marker.secondary_label)
+                code_inner = f'<div class="{secondary_label_class}" title="{secondary_text}">{secondary_text}</div>'
+            code_close = next(
+                (
+                    token
+                    for token in tokens
+                    if token.kind == "end" and token.tag == "code" and token.start >= code_tag.end
+                ),
+                None,
+            )
+            if marker.prefix_type is not None and code_close is not None:
+                code_content = rendered_html[code_tag.end : code_close.start]
+                code_inner += _wrap_lines_with_prefix(code_content, marker.prefix_type, marker.prefix_value or "")
+                edits.append((code_tag.end, code_close.start, code_inner))
+            elif code_inner:
+                edits.append((code_tag.end, code_tag.end, code_inner))
 
-        # Add prefix classes to <pre> and wrap code lines
-        if "prefix_type" in metadata:
-            prefix_type = metadata["prefix_type"]
-            prefix_classes = f"prefixed {prefix_type}"
-            text = _add_pre_classes(text, comment_start, prefix_classes)
+    return apply_edits(rendered_html, edits)
 
-            # Find <code>...</code> block and wrap lines
-            code_open_match = CODE_TAG_RE.search(text, comment_start)
-            if code_open_match:
-                code_close_match = CODE_CLOSE_RE.search(text, code_open_match.end())
-                if code_close_match:
-                    code_content = text[code_open_match.end() : code_close_match.start()]
-                    wrapped_content = _wrap_lines_with_prefix(code_content, metadata)
-                    text = text[: code_open_match.end()] + wrapped_content + text[code_close_match.start() :]
 
-        if "secondary_label" in metadata:
-            secondary_text = html.escape(metadata["secondary_label"])
-            secondary_html = f'<div class="{secondary_label_class}" title="{secondary_text}">{secondary_text}</div>'
+def _with_classes(tag: HtmlToken, added_classes: str) -> str:
+    """Rebuild a start tag with classes placed in front of its existing ones.
 
-            # Find the first <code...> tag after where the comment was
-            code_match = CODE_TAG_RE.search(text, comment_start)
-            if code_match:
-                insert_pos = code_match.end()
-                text = text[:insert_pos] + secondary_html + text[insert_pos:]
-
-    return text
+    :param tag: The start tag token.
+    :param added_classes: Space-separated classes to add.
+    :returns: The rebuilt start tag; a tag without a ``class`` attribute gets one first.
+    """
+    existing_classes = tag.attribute("class")
+    if existing_classes is None:
+        return render_start_tag(tag.tag, (("class", added_classes), *tag.attrs))
+    attrs = tuple(
+        (name, f"{added_classes} {existing_classes}" if name == "class" else value) for name, value in tag.attrs
+    )
+    return render_start_tag(tag.tag, attrs)
 
 
 def apply_html(
-    rendered_html: str, warnings: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Style code blocks from their mw-fence marker comments.
 
     Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
-    pass a ``warnings`` list to collect skip reasons.
+    pass a ``skip_reasons`` list to collect why.
 
     :param rendered_html: Rendered HTML containing mw-fence marker comments.
-    :param warnings: Optional list to collect skip reasons; ``None`` suppresses warnings.
+    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
     :param options: The fence option table from config; its label classes style the label divs.
     :returns: HTML with label divs, environment classes, and line prefixes injected.
     :raises OptionError: If an option is invalid (see :func:`read_options`).
     """
     fence_options = read_options(options)
-    return _apply_marker(rendered_html, warnings, fence_options.label_class, fence_options.secondary_label_class)
+    return _apply_marker(rendered_html, skip_reasons, fence_options.label_class, fence_options.secondary_label_class)
 
 
 class FencePostprocessor(Postprocessor):
@@ -542,7 +527,7 @@ class FenceExtension(Extension):
         }
         super().__init__(**kwargs)
 
-    def extendMarkdown(self, md: Markdown) -> None:
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the fence preprocessor and postprocessor.
 
         Options are read here rather than at construction, so a ``setConfig`` call made
@@ -559,7 +544,7 @@ class FenceExtension(Extension):
         md.postprocessors.register(postprocessor, "mw-fence-post", 25)
 
 
-def makeExtension(**kwargs: object) -> FenceExtension:
+def makeExtension(**kwargs: object) -> FenceExtension:  # noqa: N802 - Python-Markdown's loader name
     """Create and return the FenceExtension instance.
 
     :param \\*\\*kwargs: Configuration options.

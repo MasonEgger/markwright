@@ -3,13 +3,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import markdown
 import pytest
 
 from markwright import OptionError, codepen, instagram, twitter, youtube
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)

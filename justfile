@@ -1,41 +1,32 @@
-# ABOUTME: Task runner for markwright development workflows.
-# Provides the default help menu plus install, test, lint, docs, and check commands.
+# ABOUTME: Task runner recipes; `just check` is the local gate (no pre-commit).
+# ABOUTME: `just test-all` runs the supported Python version matrix locally; docs recipes build and serve the site.
 
-# Show this help menu (run `just` with no arguments)
 default:
     @just --list
 
-# Install dependencies
-install:
-    uv sync
+check:
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run mypy .
+    uv run pytest
 
-# Run the unit suite with branch coverage, failing under 100% (excludes integration)
+fmt:
+    uv run ruff format .
+    uv run ruff check --fix .
+
 test:
-    uv run pytest -m "not integration" --cov=markwright --cov-branch --cov-fail-under=100 --cov-report=term-missing
+    uv run pytest
 
-# Run the unit suite verbosely with branch coverage, failing under 100%
-test-verbose:
-    uv run pytest -v -m "not integration" --cov=markwright --cov-branch --cov-fail-under=100 --cov-report=term-missing
+test-all:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for python_version in 3.11 3.12 3.13 3.14; do
+        uv run --python "$python_version" -m pytest
+    done
 
-# Run the end-to-end integration tests (requires hugo on PATH)
+# End-to-end Hugo pipeline and clean-install tests (skip when hugo or mw is not on PATH)
 test-integration:
     uv run pytest tests/integration -m integration -v
-
-# Check lint and formatting
-lint:
-    uv run ruff check src/ tests/
-    uv run ruff format --check src/ tests/
-
-# Auto-format the code
-format:
-    uv run ruff format src/ tests/
-
-# Type-check with mypy strict
-typecheck:
-    uv run mypy --strict src/
-
-# Run tests, lint, and type-check
-check: test lint typecheck
 
 # Build the docs site (strict mode)
 docs-build:

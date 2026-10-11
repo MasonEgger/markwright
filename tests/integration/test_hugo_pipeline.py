@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytestmark = pytest.mark.integration
 
@@ -134,3 +137,29 @@ def test_click_to_load_preview_survives_hugo(tmp_path: Path) -> None:
     # Only the eager CodePen embed gets its provider script.
     assert 'platform.twitter.com/widgets.js"></script>' not in final
     assert final.count('static.codepen.io/assets/embed/ei.js" type=') == 1
+
+
+@requires_tools
+def test_indented_and_list_item_fences_survive_hugo(tmp_path: Path) -> None:
+    assert HUGO is not None
+    site = tmp_path / "site"
+    (site / "content").mkdir(parents=True)
+    (site / "layouts" / "_default").mkdir(parents=True)
+    (site / "hugo.toml").write_text(HUGO_CONFIG)
+    (site / "layouts" / "_default" / "single.html").write_text(SINGLE_LAYOUT)
+    source = (
+        "- item\n\n    ```bash\n    [label a.sh]\n    [environment local]\n    echo hi\n    ```\n\n"
+        "  ```command\n  [label b.sh]\n  ls\n  ```\n"
+    )
+
+    pre_md = _run_mw(["pre"], source)
+    (site / "content" / "page.md").write_text('+++\ntitle = "Page"\n+++\n\n' + pre_md)
+    subprocess.run([HUGO, "--quiet"], cwd=site, check=True)
+    final = _run_mw(["post"], (site / "public" / "page" / "index.html").read_text())
+
+    # Both fences get their directives applied; none is left as literal code text
+    assert '<div class="code-label" title="a.sh">a.sh</div>' in final
+    assert '<div class="code-label" title="b.sh">b.sh</div>' in final
+    assert 'class="environment-local chroma"' in final
+    assert 'class="prefixed command chroma"' in final
+    assert "[label" not in final

@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-import dataclasses
 import tomllib
 import warnings
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -21,6 +20,9 @@ from markwright.config import (
     selected_extensions,
 )
 from markwright.registry import EXTENSION_NAMES
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 MAPPING_SOURCE = "bartleby.yml: markwright"
 
@@ -228,10 +230,8 @@ class TestConfigFromMapping:
         config_path = _write(tmp_path / "markwright.toml", toml_text)
         from_file = load_config(config_path, tmp_path)
         from_mapping = config_from_mapping(tomllib.loads(toml_text), MAPPING_SOURCE)
-        assert from_mapping == dataclasses.replace(
-            from_file,
-            source_path=None,
-            sources={key: MAPPING_SOURCE for key in from_file.sources},
+        assert from_mapping == from_file.model_copy(
+            update={"source_path": None, "sources": dict.fromkeys(from_file.sources, MAPPING_SOURCE)}
         )
 
     @pytest.mark.parametrize(("toml_text", "message_fragment"), INVALID_TOML)
@@ -356,7 +356,8 @@ class TestOptionErrors:
         def broken_check(options: object) -> None:
             raise ValueError("a bug inside the checker")
 
-        monkeypatch.setitem(registry.OPTION_CHECKS, "fence", broken_check)
+        broken_spec = registry.REGISTRY["fence"].model_copy(update={"check_options": broken_check})
+        monkeypatch.setitem(registry.REGISTRY, "fence", broken_spec)
         with pytest.raises(ValueError, match="a bug inside the checker") as raised:
             config_from_mapping({"fence": {}}, MAPPING_SOURCE)
         assert not isinstance(raised.value, ConfigError)
