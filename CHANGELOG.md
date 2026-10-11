@@ -70,7 +70,7 @@ With default settings, output is unchanged for documents 0.2.0 already rendered 
 
 - Requires `pymdown-extensions>=11.0.1` (was `>=10.5`), the first release without PYSEC-2026-3654.
 
-## [0.2.0]
+## [0.2.0] - 2026-09-23
 
 ### Added
 
@@ -80,7 +80,7 @@ With default settings, output is unchanged for documents 0.2.0 already rendered 
 
 - The `mw --use` flag; its allowlist lives in config as `enable`.
 
-## [0.1.0]
+## [0.1.0] - 2026-09-15
 
 ### Added
 
