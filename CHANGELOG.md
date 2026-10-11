@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Default output is byte-identical to 0.2.0.
 Both additions are opt-in.
+One fix changes behavior: an empty `enable` list.
 
 ### Added
 
@@ -21,6 +22,10 @@ Both additions are opt-in.
 - `mw config` reports the resolved `load` for each embed and where it came from.
 - Config validation rejects an unsupported `load` value, and `load` on an extension that does not take it.
 - A Click-to-Load docs page with the markup contract, the provider processor calls, and a sample host script.
+
+### Fixed
+
+- `enable = []` now runs no extensions; it used to run all of them (#13).
 
 ## [0.2.0]
 

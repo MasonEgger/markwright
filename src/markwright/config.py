@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from markwright.registry import EXTENSION_NAMES, LOAD_MODES, select_extensions
+from markwright.registry import EXTENSION_NAMES, LOAD_MODES
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
 
@@ -80,11 +80,16 @@ def config_from_mapping(table: Mapping[str, object], source: str) -> Config:
 def selected_extensions(config: Config) -> list[str]:
     """Resolve the extension names a config turns on.
 
+    An ``enable`` allowlist selects exactly its names, so an empty one selects nothing.
+
     :param config: The resolved config.
     :returns: Extension names after ``enable`` and ``disable``, in registry order.
     """
-    use = list(config.enable) if config.enable is not None else []
-    return select_extensions(use, list(config.disable))
+    return [
+        name
+        for name in EXTENSION_NAMES
+        if (config.enable is None or name in config.enable) and name not in config.disable
+    ]
 
 
 def extension_configs(config: Config, names: list[str]) -> dict[str, dict[str, object]]:

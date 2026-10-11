@@ -439,6 +439,17 @@ class TestCliConfig:
         assert exit_code == 0
         assert 'data-mw-load="click"' in captured.out
 
+    def test_empty_enable_runs_no_extensions(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text("enable = []\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("sys.stdin", io.StringIO("[youtube dQw4w9WgXcQ]\n"))
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.out == "[youtube dQw4w9WgXcQ]\n"
+
     def test_config_unknown_exclude_name_returns_two(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

@@ -43,6 +43,7 @@ The recognized top-level keys are `enable`, `disable`, `warn`, and one table per
 Both are lists of extension names, and they are mutually exclusive: setting both is an error.
 
 - `enable = ["fence", "youtube"]` runs only those two.
+- `enable = []` runs no extensions.
 - `disable = ["codepen"]` runs every extension except that one.
 - Neither key runs every extension (the default).
 

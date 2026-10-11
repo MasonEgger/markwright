@@ -255,6 +255,11 @@ class TestSelectedExtensions:
         config = Config(disable=("youtube", "fence"))
         assert selected_extensions(config) == [name for name in EXTENSION_NAMES if name not in ("youtube", "fence")]
 
+    def test_empty_enable_selects_nothing(self, tmp_path: Path) -> None:
+        config_path = _write(tmp_path / "markwright.toml", "enable = []\n")
+        assert selected_extensions(load_config(config_path, tmp_path)) == []
+        assert selected_extensions(config_from_mapping({"enable": []}, MAPPING_SOURCE)) == []
+
     def test_disabling_everything_selects_nothing(self) -> None:
         config = Config(disable=EXTENSION_NAMES)
         assert selected_extensions(config) == []
