@@ -11,6 +11,7 @@ from pathlib import Path
 import markdown
 
 from markwright import config, registry
+from markwright._embed_load import LOAD_EAGER
 from markwright.config import Config, ConfigError
 
 
@@ -65,9 +66,10 @@ def _run_list() -> int:
 def _resolve(args: argparse.Namespace) -> tuple[Config, list[str]] | None:
     """Load config and resolve the active extension names, reporting failures to stderr.
 
-    Selection resolves from config (``enable`` allowlist or ``disable`` denylist) with the
-    repeatable CLI ``--exclude`` applied on top. A config error or an unknown extension name
-    is reported to stderr and yields ``None`` so the caller returns exit code ``2``.
+    Selection resolves from config (``enable`` allowlist or ``disable`` denylist) through
+    :func:`config.selected_extensions`, with the repeatable CLI ``--exclude`` applied on top.
+    A config error or an unknown extension name is reported to stderr and yields ``None`` so
+    the caller returns exit code ``2``.
 
     :param args: Parsed arguments carrying ``config`` and ``exclude``.
     :returns: The resolved config and selected extension names, or ``None`` on failure.
@@ -78,32 +80,15 @@ def _resolve(args: argparse.Namespace) -> tuple[Config, list[str]] | None:
     except ConfigError as config_error:
         print(config_error, file=sys.stderr)
         return None
-    use = list(resolved_config.enable) if resolved_config.enable is not None else []
-    exclude = [*resolved_config.disable, *args.exclude]
+
+    # --exclude names are validated here; config names were validated when the config loaded
     try:
-        names = registry.select_extensions(use, exclude)
+        not_excluded = registry.select_extensions([], args.exclude)
     except ValueError as selection_error:
         print(selection_error, file=sys.stderr)
         return None
+    names = [name for name in config.selected_extensions(resolved_config) if name in not_excluded]
     return resolved_config, names
-
-
-def _extension_configs(resolved_config: Config, names: list[str]) -> dict[str, dict[str, object]]:
-    """Assemble ``markdown.Markdown`` extension configs from the resolved config.
-
-    Each selected ``markwright.*`` extension with a per-extension option table contributes
-    it, alongside the fixed ``pymdownx.highlight`` entry that keeps language classes on.
-
-    :param resolved_config: The resolved config carrying per-extension option dicts.
-    :param names: The selected extension names.
-    :returns: A mapping of extension name to its option dict.
-    """
-    configs: dict[str, dict[str, object]] = {"pymdownx.highlight": {"pygments_lang_class": True}}
-    for name in names:
-        options = resolved_config.options.get(name)
-        if options:
-            configs[f"markwright.{name}"] = options
-    return configs
 
 
 def _run_pre(args: argparse.Namespace) -> int:
@@ -155,7 +140,11 @@ def _run_render(args: argparse.Namespace) -> int:
     resolved_config, names = resolved
     instance = markdown.Markdown(
         extensions=["pymdownx.superfences", "pymdownx.highlight", *(f"markwright.{name}" for name in names)],
-        extension_configs=_extension_configs(resolved_config, names),
+        # pygments_lang_class is a CLI rendering choice, not markwright config
+        extension_configs={
+            "pymdownx.highlight": {"pygments_lang_class": True},
+            **config.extension_configs(resolved_config, names),
+        },
     )
     sys.stdout.write(instance.convert(sys.stdin.read()))
     return 0
@@ -195,6 +184,12 @@ def _format_config(resolved_config: Config, excluded: list[str]) -> list[str]:
         lines.append(f"  {name}: {status} ({source})")
     warn_source = resolved_config.sources.get("warn", "default")
     lines.append(f"warn: {str(resolved_config.warn).lower()} ({warn_source})")
+    lines.append("load:")
+    for extension_name in registry.LOAD_MODES:
+        extension_options = resolved_config.options.get(extension_name, {})
+        load = extension_options.get("load", LOAD_EAGER)
+        source = resolved_config.sources[extension_name] if "load" in extension_options else "default"
+        lines.append(f"  {extension_name}: {load} ({source})")
     if resolved_config.options:
         lines.append("options:")
         for extension_name, option_table in resolved_config.options.items():

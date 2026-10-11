@@ -414,6 +414,31 @@ class TestCliConfig:
         assert exit_code == 0
         assert f"warn: true ({config_path})" in captured.out
 
+    def test_config_reports_load_per_embed(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text('[twitter]\nload = "click"\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        exit_code = main(["config"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "load:\n" in captured.out
+        assert f"  twitter: click ({config_path})" in captured.out
+        assert "  youtube: eager (default)" in captured.out
+        assert "  slideshow: eager" not in captured.out
+
+    def test_render_applies_configured_load(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text('[youtube]\nload = "click"\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("sys.stdin", io.StringIO("[youtube dQw4w9WgXcQ]\n"))
+        exit_code = main(["render"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert 'data-mw-load="click"' in captured.out
+
     def test_config_unknown_exclude_name_returns_two(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

@@ -107,3 +107,30 @@ def test_pre_render_post_pipeline_through_hugo(tmp_path: Path) -> None:
     assert 'data-prefix="4"' not in final
     # The marker comment is consumed by post.
     assert "<!-- mw-fence" not in final
+
+
+@requires_tools
+def test_click_to_load_preview_survives_hugo(tmp_path: Path) -> None:
+    assert HUGO is not None
+    site = tmp_path / "site"
+    (site / "content").mkdir(parents=True)
+    (site / "layouts" / "_default").mkdir(parents=True)
+    (site / "hugo.toml").write_text(HUGO_CONFIG)
+    (site / "layouts" / "_default" / "single.html").write_text(SINGLE_LAYOUT)
+    config_path = tmp_path / "markwright.toml"
+    config_path.write_text('[youtube]\nload = "click"\n\n[twitter]\nload = "click"\n')
+    source = "[youtube dQw4w9WgXcQ]\n\n[twitter MattIPv4/status/1576415168426573825]\n\n[codepen MattCowley vwPzeX]\n"
+
+    pre_md = _run_mw(["pre", "--config", str(config_path)], source)
+    (site / "content" / "page.md").write_text('+++\ntitle = "Page"\n+++\n\n' + pre_md)
+    subprocess.run([HUGO, "--quiet"], cwd=site, check=True)
+    rendered = (site / "public" / "page" / "index.html").read_text()
+    final = _run_mw(["post", "--config", str(config_path)], rendered)
+
+    # Goldmark passes both previews through with the live markup still inside <template>.
+    assert final.count('<div class="mw-embed"') == 2
+    assert '<template class="mw-embed-content"><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"' in final
+    assert '<template class="mw-embed-content"><div class="twitter">' in final
+    # Only the eager CodePen embed gets its provider script.
+    assert 'platform.twitter.com/widgets.js"></script>' not in final
+    assert final.count('static.codepen.io/assets/embed/ei.js" type=') == 1

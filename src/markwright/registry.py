@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import TypedDict
 
+from markwright.codepen import LOAD_MODES as CODEPEN_LOAD_MODES
 from markwright.codepen import apply_html as codepen_post
 from markwright.codepen import expand_source as codepen_pre
 from markwright.fence import apply_html as fence_post
@@ -13,11 +14,14 @@ from markwright.fence import expand_source as fence_pre
 from markwright.highlight import apply_html as highlight_post
 from markwright.highlight import expand_source as highlight_pre
 from markwright.image_compare import expand_source as image_compare_pre
+from markwright.instagram import LOAD_MODES as INSTAGRAM_LOAD_MODES
 from markwright.instagram import apply_html as instagram_post
 from markwright.instagram import expand_source as instagram_pre
 from markwright.slideshow import expand_source as slideshow_pre
+from markwright.twitter import LOAD_MODES as TWITTER_LOAD_MODES
 from markwright.twitter import apply_html as twitter_post
 from markwright.twitter import expand_source as twitter_pre
+from markwright.youtube import LOAD_MODES as YOUTUBE_LOAD_MODES
 from markwright.youtube import expand_source as youtube_pre
 
 PreFn = Callable[[str, Mapping[str, object] | None], str]
@@ -51,6 +55,14 @@ REGISTRY: dict[str, StageSpec] = {
 }
 
 EXTENSION_NAMES: tuple[str, ...] = tuple(REGISTRY)
+
+# The embeds that reach a third party take a ``load`` option; each maps to the values it supports.
+LOAD_MODES: dict[str, tuple[str, ...]] = {
+    "youtube": YOUTUBE_LOAD_MODES,
+    "codepen": CODEPEN_LOAD_MODES,
+    "twitter": TWITTER_LOAD_MODES,
+    "instagram": INSTAGRAM_LOAD_MODES,
+}
 
 
 def select_extensions(use: list[str], exclude: list[str]) -> list[str]:

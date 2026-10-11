@@ -21,6 +21,10 @@ Each extension is standalone and can be loaded on its own or alongside the other
 - **Slideshow** builds an image slideshow with navigation arrows.
 - **Image Compare** renders two images with a draggable before/after slider.
 
+The embeds that contact a third party (YouTube, CodePen, Twitter, Instagram) take a `load` option.
+`load = "click"` renders an inert preview so nothing reaches the provider until the reader asks; see [Click-to-Load](https://masonegger.github.io/markwright/click-to-load/).
+A host tool can validate a markwright config table from its own config file with `markwright.config_from_mapping`; see [Configuration](https://masonegger.github.io/markwright/config/).
+
 ## Installation
 
 ```bash

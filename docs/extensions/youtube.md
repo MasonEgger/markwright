@@ -47,6 +47,31 @@ The aspect ratio is calculated automatically from the dimensions.
 
 [youtube dQw4w9WgXcQ 360 640]
 
+## Load Mode
+
+The `load` option decides when the embed contacts the provider.
+Set it in `markwright.toml`, or pass it through `extension_configs` in-process.
+
+| Value | Output |
+|-------|--------|
+| `eager` (default) | The live iframe. |
+| `lazy` | The live iframe with `loading="lazy"`, so the browser fetches it when it scrolls near the viewport. |
+| `click` | An inert preview with a "Load video" button and a "Watch on YouTube" link; no iframe until a host script loads it. |
+
+```toml
+[youtube]
+load = "click"
+```
+
+```python
+md = markdown.Markdown(
+    extensions=["markwright.youtube"],
+    extension_configs={"markwright.youtube": {"load": "click"}},
+)
+```
+
+See [Click-to-Load](../click-to-load.md) for the preview markup and a host script that swaps in the live embed.
+
 ## Notes
 
 - The embed must be on its own line (not inline with other text)

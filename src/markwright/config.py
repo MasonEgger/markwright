@@ -1,14 +1,15 @@
 # ABOUTME: Config discovery, TOML parsing, validation, and the resolved Config object.
-# Owns the markwright.toml / [tool.markwright] tuning surface; no dependency on cli.
+# Owns the markwright.toml / [tool.markwright] tuning surface and the public API host tools build on.
 
 from __future__ import annotations
 
+import dataclasses
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from markwright.registry import EXTENSION_NAMES
+from markwright.registry import EXTENSION_NAMES, LOAD_MODES, select_extensions
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
 
@@ -28,9 +29,10 @@ class Config:
     :ivar disable: Denylist of extension names, empty when unset.
     :ivar options: Per-extension option tables keyed by extension name.
     :ivar warn: Default for the post stage's marker warnings.
-    :ivar source_path: The file this config was loaded from, or ``None`` for built-in defaults.
-    :ivar sources: Maps each key set in the file (``enable``, ``disable``, ``warn``, or an
-        extension name) to the file path it came from; keys not present use defaults.
+    :ivar source_path: The file this config was loaded from, or ``None`` for built-in defaults
+        and for a config built from a mapping.
+    :ivar sources: Maps each key set in the table (``enable``, ``disable``, ``warn``, or an
+        extension name) to the file path or source label it came from; keys not present use defaults.
     """
 
     enable: tuple[str, ...] | None = None
@@ -56,7 +58,44 @@ def load_config(explicit_path: Path | None, start_dir: Path) -> Config:
         if discovered is None:
             return Config()
         path, table = discovered
-    return _build_config(table, path)
+    return dataclasses.replace(_build_config(table, str(path)), source_path=path)
+
+
+def config_from_mapping(table: Mapping[str, object], source: str) -> Config:
+    """Validate an already-parsed config table and resolve it into a :class:`Config`.
+
+    For host tools that carry markwright config inside their own config file. The table
+    gets the same validation as ``markwright.toml``; no file discovery happens here.
+
+    :param table: The markwright table, same shape as ``markwright.toml``.
+    :param source: A label for error messages and the source map, for example
+        ``"bartleby.yml: markwright"``.
+    :returns: The resolved config, with ``source_path`` left as ``None``.
+    :raises ConfigError: On any unknown key, bad type, unknown extension name, or
+        ``enable`` and ``disable`` both set.
+    """
+    return _build_config(table, source)
+
+
+def selected_extensions(config: Config) -> list[str]:
+    """Resolve the extension names a config turns on.
+
+    :param config: The resolved config.
+    :returns: Extension names after ``enable`` and ``disable``, in registry order.
+    """
+    use = list(config.enable) if config.enable is not None else []
+    return select_extensions(use, list(config.disable))
+
+
+def extension_configs(config: Config, names: list[str]) -> dict[str, dict[str, object]]:
+    """Assemble the ``extension_configs`` argument for ``markdown.Markdown``.
+
+    :param config: The resolved config carrying per-extension option tables.
+    :param names: The selected extension names.
+    :returns: Option dicts keyed by ``markwright.<name>``, only for selected extensions
+        with a non-empty option table.
+    """
+    return {f"markwright.{name}": config.options[name] for name in names if config.options.get(name)}
 
 
 def _load_explicit(path: Path) -> tuple[Path, dict[str, object]]:
@@ -130,47 +169,46 @@ def _pyproject_markwright_table(parsed: Mapping[str, object]) -> dict[str, objec
     return markwright_section
 
 
-def _build_config(table: Mapping[str, object], path: Path) -> Config:
+def _build_config(table: Mapping[str, object], source: str) -> Config:
     """Validate a raw config table and resolve it into a :class:`Config`.
 
-    :param table: The parsed config table (from a standalone file or a ``[tool.markwright]`` table).
-    :param path: The source path, recorded for the source map.
-    :returns: The resolved config.
+    :param table: The parsed config table (from a file, a ``[tool.markwright]`` table, or a host tool).
+    :param source: The source path or label, used to prefix errors and recorded for the source map.
+    :returns: The resolved config, with ``source_path`` unset.
     :raises ConfigError: If any key, type, or extension name is invalid.
     """
-    _reject_unknown_keys(table, path)
-    enable = _selection_list(table, "enable", path)
-    disable = _selection_list(table, "disable", path)
+    _reject_unknown_keys(table, source)
+    enable = _selection_list(table, "enable", source)
+    disable = _selection_list(table, "disable", source)
     if enable is not None and disable is not None:
-        raise ConfigError(f"{path}: 'enable' and 'disable' are mutually exclusive")
+        raise ConfigError(f"{source}: 'enable' and 'disable' are mutually exclusive")
     return Config(
         enable=enable,
         disable=disable if disable is not None else (),
-        options=_extension_options(table, path),
-        warn=_warn_value(table, path),
-        source_path=path,
-        sources={key: str(path) for key in table},
+        options=_extension_options(table, source),
+        warn=_warn_value(table, source),
+        sources={key: source for key in table},
     )
 
 
-def _reject_unknown_keys(table: Mapping[str, object], path: Path) -> None:
+def _reject_unknown_keys(table: Mapping[str, object], source: str) -> None:
     """Reject any top-level key that is neither a recognized setting nor an extension name.
 
     :param table: The config table.
-    :param path: The source path, for the error message.
+    :param source: The source path or label, for the error message.
     :raises ConfigError: On the first unrecognized key.
     """
     for key in table:
         if key not in _TOP_LEVEL_KEYS and key not in EXTENSION_NAMES:
-            raise ConfigError(f"{path}: unknown configuration key: {key!r}")
+            raise ConfigError(f"{source}: unknown configuration key: {key!r}")
 
 
-def _selection_list(table: Mapping[str, object], key: str, path: Path) -> tuple[str, ...] | None:
+def _selection_list(table: Mapping[str, object], key: str, source: str) -> tuple[str, ...] | None:
     """Read and validate an ``enable`` or ``disable`` list of extension names.
 
     :param table: The config table.
     :param key: Either ``"enable"`` or ``"disable"``.
-    :param path: The source path, for error messages.
+    :param source: The source path or label, for error messages.
     :returns: The names as a tuple, or ``None`` if the key is absent.
     :raises ConfigError: If the value is not a list of known extension names.
     """
@@ -178,18 +216,18 @@ def _selection_list(table: Mapping[str, object], key: str, path: Path) -> tuple[
         return None
     value = table[key]
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ConfigError(f"{path}: '{key}' must be a list of extension names")
+        raise ConfigError(f"{source}: '{key}' must be a list of extension names")
     for name in value:
         if name not in EXTENSION_NAMES:
-            raise ConfigError(f"{path}: unknown extension in '{key}': {name!r}")
+            raise ConfigError(f"{source}: unknown extension in '{key}': {name!r}")
     return tuple(value)
 
 
-def _warn_value(table: Mapping[str, object], path: Path) -> bool:
+def _warn_value(table: Mapping[str, object], source: str) -> bool:
     """Read and validate the boolean ``warn`` default.
 
     :param table: The config table.
-    :param path: The source path, for the error message.
+    :param source: The source path or label, for the error message.
     :returns: The ``warn`` value, defaulting to ``False`` when absent.
     :raises ConfigError: If ``warn`` is present but not a boolean.
     """
@@ -197,17 +235,18 @@ def _warn_value(table: Mapping[str, object], path: Path) -> bool:
         return False
     value = table["warn"]
     if not isinstance(value, bool):
-        raise ConfigError(f"{path}: 'warn' must be a boolean")
+        raise ConfigError(f"{source}: 'warn' must be a boolean")
     return value
 
 
-def _extension_options(table: Mapping[str, object], path: Path) -> dict[str, dict[str, object]]:
+def _extension_options(table: Mapping[str, object], source: str) -> dict[str, dict[str, object]]:
     """Collect the per-extension option tables from the config.
 
     :param table: The config table.
-    :param path: The source path, for error messages.
+    :param source: The source path or label, for error messages.
     :returns: Option dicts keyed by extension name, in registry order.
-    :raises ConfigError: If an extension key is present but not a table.
+    :raises ConfigError: If an extension key is present but not a table, or its ``load``
+        option is unsupported for that extension.
     """
     options: dict[str, dict[str, object]] = {}
     for name in EXTENSION_NAMES:
@@ -215,6 +254,16 @@ def _extension_options(table: Mapping[str, object], path: Path) -> dict[str, dic
             continue
         extension_table = table[name]
         if not isinstance(extension_table, dict):
-            raise ConfigError(f"{path}: '{name}' must be a table of options")
+            raise ConfigError(f"{source}: '{name}' must be a table of options")
+        # Validate only the options markwright defines; other keys pass through to the extension
+        if "load" in extension_table:
+            allowed_loads = LOAD_MODES.get(name)
+            if allowed_loads is None:
+                raise ConfigError(f"{source}: '{name}' does not take a 'load' option")
+            if extension_table["load"] not in allowed_loads:
+                load_value = extension_table["load"]
+                raise ConfigError(
+                    f"{source}: '{name}.load' must be one of {', '.join(allowed_loads)}; got {load_value!r}"
+                )
         options[name] = extension_table
     return options

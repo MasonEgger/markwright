@@ -3,11 +3,48 @@
 
 from __future__ import annotations
 
+import dataclasses
+import tomllib
 from pathlib import Path
 
 import pytest
 
-from markwright.config import Config, ConfigError, load_config
+import markwright
+from markwright.config import (
+    Config,
+    ConfigError,
+    config_from_mapping,
+    extension_configs,
+    load_config,
+    selected_extensions,
+)
+from markwright.registry import EXTENSION_NAMES
+
+MAPPING_SOURCE = "bartleby.yml: markwright"
+
+# Config files load_config accepts; config_from_mapping must resolve the same table identically.
+VALID_TOML = [
+    "",
+    'enable = ["fence", "youtube"]\n',
+    'disable = ["youtube", "twitter"]\nwarn = true\n',
+    '[fence]\nallowed_environments = ["staging"]\n',
+    '[youtube]\nload = "lazy"\n\n[twitter]\nload = "click"\n',
+]
+
+# Config files load_config rejects, each with a fragment of the expected message.
+INVALID_TOML = [
+    ('enable = ["fence"]\ndisable = ["youtube"]\n', "mutually exclusive"),
+    ("enabled = true\n", "enabled"),
+    ('enable = ["bogus"]\n', "bogus"),
+    ('disable = ["nope"]\n', "nope"),
+    ('enable = "fence"\n', "enable"),
+    ("enable = [1, 2]\n", "enable"),
+    ('warn = "yes"\n', "warn"),
+    ("fence = 3\n", "fence"),
+    ('[twitter]\nload = "lazy"\n', "twitter.load"),
+    ('[youtube]\nload = "sometimes"\n', "youtube.load"),
+    ('[slideshow]\nload = "click"\n', "slideshow"),
+]
 
 
 def _write(path: Path, text: str) -> Path:
@@ -169,3 +206,83 @@ class TestResolvedConfig:
         assert config.enable is None
         assert config.disable == ("youtube", "twitter")
         assert config.options == {}
+
+
+class TestConfigFromMapping:
+    """Tests that an already-parsed table validates exactly as a config file does."""
+
+    def test_empty_mapping_is_the_default_config(self) -> None:
+        config = config_from_mapping({}, MAPPING_SOURCE)
+        assert config == Config()
+
+    @pytest.mark.parametrize("toml_text", VALID_TOML)
+    def test_matches_load_config_for_valid_tables(self, tmp_path: Path, toml_text: str) -> None:
+        config_path = _write(tmp_path / "markwright.toml", toml_text)
+        from_file = load_config(config_path, tmp_path)
+        from_mapping = config_from_mapping(tomllib.loads(toml_text), MAPPING_SOURCE)
+        assert from_mapping == dataclasses.replace(
+            from_file,
+            source_path=None,
+            sources={key: MAPPING_SOURCE for key in from_file.sources},
+        )
+
+    @pytest.mark.parametrize(("toml_text", "message_fragment"), INVALID_TOML)
+    def test_rejects_what_load_config_rejects(self, tmp_path: Path, toml_text: str, message_fragment: str) -> None:
+        _write(tmp_path / "markwright.toml", toml_text)
+        with pytest.raises(ConfigError, match=message_fragment):
+            load_config(None, tmp_path)
+        with pytest.raises(ConfigError, match=message_fragment) as mapping_error:
+            config_from_mapping(tomllib.loads(toml_text), MAPPING_SOURCE)
+        assert str(mapping_error.value).startswith(f"{MAPPING_SOURCE}: ")
+
+    def test_source_map_uses_the_label(self) -> None:
+        config = config_from_mapping({"warn": True, "fence": {}}, MAPPING_SOURCE)
+        assert config.source_path is None
+        assert config.sources == {"warn": MAPPING_SOURCE, "fence": MAPPING_SOURCE}
+
+
+class TestSelectedExtensions:
+    """Tests that enable and disable resolve to extension names in registry order."""
+
+    def test_default_selects_every_extension(self) -> None:
+        assert selected_extensions(Config()) == list(EXTENSION_NAMES)
+
+    def test_enable_selects_only_those_in_registry_order(self) -> None:
+        config = Config(enable=("highlight", "youtube"))
+        assert selected_extensions(config) == ["youtube", "highlight"]
+
+    def test_disable_removes_names(self) -> None:
+        config = Config(disable=("youtube", "fence"))
+        assert selected_extensions(config) == [name for name in EXTENSION_NAMES if name not in ("youtube", "fence")]
+
+    def test_disabling_everything_selects_nothing(self) -> None:
+        config = Config(disable=EXTENSION_NAMES)
+        assert selected_extensions(config) == []
+
+
+class TestExtensionConfigs:
+    """Tests that per-extension option tables become markdown.Markdown extension_configs."""
+
+    def test_only_selected_extensions_with_options_appear(self) -> None:
+        config = Config(options={"fence": {"allowed_environments": ["staging"]}, "youtube": {}, "twitter": {"x": 1}})
+        assert extension_configs(config, ["fence", "youtube", "highlight"]) == {
+            "markwright.fence": {"allowed_environments": ["staging"]},
+        }
+
+    def test_no_options_yields_empty_mapping(self) -> None:
+        assert extension_configs(Config(), list(EXTENSION_NAMES)) == {}
+
+
+class TestPackageExports:
+    """Tests that host tools can import the config API from the package root."""
+
+    def test_package_reexports_the_config_api(self) -> None:
+        assert markwright.__all__ == [
+            "Config",
+            "ConfigError",
+            "config_from_mapping",
+            "extension_configs",
+            "selected_extensions",
+        ]
+        assert markwright.config_from_mapping is config_from_mapping
+        assert markwright.Config is Config

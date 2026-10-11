@@ -69,8 +69,32 @@ All of these resolve to the same post, and the embed permalink is canonicalized 
 
 [instagram https://www.instagram.com/p/CkQuv3_LRgS left 400]
 
+## Load Mode
+
+The `load` option decides when the embed contacts the provider.
+Set it in `markwright.toml`, or pass it through `extension_configs` in-process.
+
+| Value | Output |
+|-------|--------|
+| `eager` (default) | The live embed, with the provider script injected once per page. |
+| `click` | An inert preview with a load button and a direct link; no provider script. |
+
+```toml
+[instagram]
+load = "click"
+```
+
+```python
+md = markdown.Markdown(
+    extensions=["markwright.instagram"],
+    extension_configs={"markwright.instagram": {"load": "click"}},
+)
+```
+
+See [Click-to-Load](../click-to-load.md) for the preview markup and a host script that swaps in the live embed.
+
 ## Notes
 
 - The embed must be on its own line
 - Width is clamped to 326-550px (Instagram's supported range)
-- The Instagram embed script is injected once per page
+- The Instagram embed script is injected once per page, and only when at least one embed is `eager`

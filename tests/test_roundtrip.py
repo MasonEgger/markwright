@@ -6,9 +6,12 @@ from __future__ import annotations
 import re
 
 import markdown
+import pytest
 
 from markwright import registry
 from markwright.codepen import CODEPEN_SCRIPT
+from markwright.instagram import INSTAGRAM_SCRIPT
+from markwright.twitter import TWITTER_SCRIPT
 
 # A fixture exercising every feature in one document: a labeled command fence
 # (label directive + command prefix), an environment fence, a line-numbered
@@ -59,16 +62,18 @@ def stub_render(markdown_text: str) -> str:
     return instance.convert(markdown_text)
 
 
-def in_process_render(markdown_text: str, names: list[str]) -> str:
+def in_process_render(markdown_text: str, names: list[str], options: dict[str, dict[str, object]] | None = None) -> str:
     """Render Markdown through the in-process stack the ``mw render`` path builds.
 
     :param markdown_text: Source text.
     :param names: markwright extension names to load alongside the site stack.
+    :param options: Per-extension option tables keyed by extension name, or ``None``.
     :returns: Final HTML with every markwright stage applied in-process.
     """
+    markwright_configs = {f"markwright.{name}": table for name, table in (options or {}).items()}
     instance = markdown.Markdown(
         extensions=["pymdownx.superfences", "pymdownx.highlight", *(f"markwright.{name}" for name in names)],
-        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}, **markwright_configs},
     )
     return instance.convert(markdown_text)
 
@@ -173,3 +178,53 @@ class TestRoundTripDegradation:
         assert "youtube.com/embed/dQw4w9WgXcQ" in degraded
         assert "<mark>token</mark>" in degraded
         assert CODEPEN_SCRIPT in degraded
+
+
+# One of each embed that takes a load option, so every load value runs through both paths.
+EMBED_FIXTURE = """\
+[youtube dQw4w9WgXcQ]
+
+[codepen jcoulterdesign npyBME]
+
+[twitter MattIPv4/status/1576415168426573825]
+
+[instagram CkQuv3_LRgS]
+"""
+
+
+class TestRoundTripLoad:
+    """The pipeline and the in-process render agree for every load value."""
+
+    @pytest.mark.parametrize(
+        "load_by_embed",
+        [
+            {},
+            {"youtube": "eager", "codepen": "eager", "twitter": "eager", "instagram": "eager"},
+            {"youtube": "lazy"},
+            {"youtube": "click", "codepen": "click", "twitter": "click", "instagram": "click"},
+            {"youtube": "lazy", "codepen": "click", "twitter": "eager", "instagram": "click"},
+        ],
+    )
+    def test_pipeline_equals_in_process_render(self, load_by_embed: dict[str, str]) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {name: {"load": load} for name, load in load_by_embed.items()}
+        pipeline = registry.run_post(stub_render(registry.run_pre(EMBED_FIXTURE, names, options)), names, None)
+        in_process = in_process_render(EMBED_FIXTURE, names, options)
+        assert _normalize(pipeline) == _normalize(in_process)
+
+    def test_click_everywhere_injects_no_script(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {
+            name: {"load": "click"} for name in ("youtube", "codepen", "twitter", "instagram")
+        }
+        pipeline = registry.run_post(stub_render(registry.run_pre(EMBED_FIXTURE, names, options)), names, None)
+        assert pipeline.count('class="mw-embed"') == 4
+        assert "<script" not in pipeline
+
+    def test_mixed_page_injects_only_the_eager_embed_script(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"codepen": {"load": "click"}, "instagram": {"load": "click"}}
+        pipeline = registry.run_post(stub_render(registry.run_pre(EMBED_FIXTURE, names, options)), names, None)
+        assert pipeline.count(TWITTER_SCRIPT) == 1
+        assert CODEPEN_SCRIPT not in pipeline
+        assert INSTAGRAM_SCRIPT not in pipeline
