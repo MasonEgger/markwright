@@ -107,7 +107,8 @@ The `python` skill's rules apply. Project-specific points and the deliberate exe
 
 ## Plan & Progress Tracking
 
-- `spec.md`, `plan.md`, `todo.md` (repo root): the 0.2.0 config-system cycle (shipped in #10, not yet archived). `spec.md` still documents the config schema, discovery, and precedence.
+- `spec.md` (repo root): the living project spec in bpe's canonical sections, edited in place; its `## Roadmap / phase log` indexes the archives. There is no root `plan.md`/`todo.md`: markwright is maintained and issue-driven, so run `/bpe:brainstorm` to promote a Deferred item into Goals before `/bpe:plan`.
+- `.ai-sessions/config-system/{spec,plan,todo,accomplishment}.md`: the **completed** 0.2.0 config cycle (shipped in #10). The config schema, discovery, and precedence now live in `docs/config.md`.
 - GitHub issues drive work since 0.2.0 (0.3.0 was issues #11 and #13 plus the skill 2.0 audit). `CHANGELOG.md` records each release.
 - `.ai-sessions/v0.1-remediation/{spec,plan,todo,accomplishment}.md`: the **completed** step-55 remediation (R1 through R11, shipped as 0.1.0). `accomplishment.md` is the durable record; the marker contract and parity Decisions (D1, D2, D3) live in its `spec.md`.
 - `.ai-sessions/v1-init/{plan,todo}.md`: the archived v1 extension plan with the HTML Output Contracts.

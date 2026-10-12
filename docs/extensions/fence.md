@@ -31,6 +31,9 @@ md = markdown.Markdown(
 
 All three options apply the same way in-process, through `mw render`, and through the `mw pre | renderer | mw post` pipeline.
 
+Directives work in any fenced code block CommonMark recognizes, including a fence indented up to three spaces or one nested inside a list item.
+An unclosed fence is not a code block, so its directives are left as text.
+
 See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 ## Labels
