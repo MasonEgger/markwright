@@ -22,7 +22,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.1.0
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v4
 
       # The same pinned Hugo as CI, so the release gate runs the Hugo integration tests too
       - name: Install Hugo
