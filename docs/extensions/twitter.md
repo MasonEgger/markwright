@@ -71,9 +71,33 @@ All of these resolve to the same tweet:
 
 [twitter https://twitter.com/github/status/1234567890 400]
 
+## Load Mode
+
+The `load` option decides when the embed contacts the provider.
+Set it in `markwright.toml`, or pass it through `extension_configs` in-process.
+
+| Value | Output |
+|-------|--------|
+| `eager` (default) | The live embed, with the provider script injected once per page. |
+| `click` | An inert preview with a load button and a direct link; no provider script. |
+
+```toml
+[twitter]
+load = "click"
+```
+
+```python
+md = markdown.Markdown(
+    extensions=["markwright.twitter"],
+    extension_configs={"markwright.twitter": {"load": "click"}},
+)
+```
+
+See [Click-to-Load](../click-to-load.md) for the preview markup and a host script that swaps in the live embed.
+
 ## Notes
 
 - The embed must be on its own line
 - `x.com` URLs are automatically converted to `twitter.com`
 - Width is clamped to 250-550px (Twitter's supported range)
-- The Twitter widgets script is injected once per page
+- The Twitter widgets script is injected once per page, and only when at least one embed is `eager`

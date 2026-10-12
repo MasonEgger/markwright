@@ -5,21 +5,17 @@ from __future__ import annotations
 
 import argparse
 import sys
+import warnings
 from importlib.metadata import version
 from pathlib import Path
+from typing import TextIO
 
 import markdown
 
 from markwright import config, registry
+from markwright._diagnostics import ConfigWarning
+from markwright._embed_load import LOAD_EAGER
 from markwright.config import Config, ConfigError
-
-
-def _package_version() -> str:
-    """Return the installed markwright distribution version.
-
-    :returns: The version string for the ``markwright`` distribution.
-    """
-    return version("markwright")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     :returns: A parser exposing ``--version`` and the ``list`` subcommand.
     """
     parser = argparse.ArgumentParser(prog="mw", description="markwright Markdown pipeline CLI.")
-    parser.add_argument("--version", action="version", version=f"mw {_package_version()}")
+    parser.add_argument("--version", action="version", version=f"mw {version('markwright')}")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("list", help="List registered extensions and the stages each provides.")
     pre_parser = subparsers.add_parser("pre", help="Expand markwright source directives read from stdin.")
@@ -49,97 +45,69 @@ def _add_selection_flags(subparser: argparse.ArgumentParser) -> None:
     :param subparser: The subcommand parser to extend.
     """
     subparser.add_argument("--config", default=None, help="Load configuration from PATH, bypassing discovery.")
-    subparser.add_argument("--exclude", action="append", default=[], help="Drop the named extension (repeatable).")
+    subparser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        choices=registry.EXTENSION_NAMES,
+        metavar="NAME",
+        help="Drop the named extension (repeatable).",
+    )
 
 
-def _run_list() -> int:
-    """Print each registered extension and its available stages.
+def _resolve(args: argparse.Namespace) -> tuple[Config, list[str]]:
+    """Load config and resolve the active extension names.
 
-    :returns: Always ``0``.
-    """
-    for name, stages in registry.describe():
-        print(f"{name}: {', '.join(stages)}")
-    return 0
-
-
-def _resolve(args: argparse.Namespace) -> tuple[Config, list[str]] | None:
-    """Load config and resolve the active extension names, reporting failures to stderr.
-
-    Selection resolves from config (``enable`` allowlist or ``disable`` denylist) with the
-    repeatable CLI ``--exclude`` applied on top. A config error or an unknown extension name
-    is reported to stderr and yields ``None`` so the caller returns exit code ``2``.
+    Selection resolves from config (``enable`` allowlist or ``disable`` denylist) through
+    :func:`config.selected_extensions`, with the repeatable CLI ``--exclude`` applied on top
+    (argparse has already rejected unknown names).
 
     :param args: Parsed arguments carrying ``config`` and ``exclude``.
-    :returns: The resolved config and selected extension names, or ``None`` on failure.
+    :returns: The resolved config and selected extension names.
+    :raises ConfigError: If the config file is missing, malformed, or invalid.
     """
     explicit_path = Path(args.config) if args.config else None
-    try:
-        resolved_config = config.load_config(explicit_path, Path.cwd())
-    except ConfigError as config_error:
-        print(config_error, file=sys.stderr)
-        return None
-    use = list(resolved_config.enable) if resolved_config.enable is not None else []
-    exclude = [*resolved_config.disable, *args.exclude]
-    try:
-        names = registry.select_extensions(use, exclude)
-    except ValueError as selection_error:
-        print(selection_error, file=sys.stderr)
-        return None
+    resolved_config = config.load_config(explicit_path, Path.cwd())
+    config_selected = config.selected_extensions(resolved_config)
+    names = [name for name in config_selected if name not in args.exclude]
+
+    # An empty config selection already warned; only report the case --exclude caused
+    if config_selected and not names:
+        warnings.warn(
+            "no markwright extensions selected (--exclude removed every one);"
+            " markwright syntax passes through unprocessed",
+            ConfigWarning,
+            stacklevel=2,
+        )
     return resolved_config, names
 
 
-def _extension_configs(resolved_config: Config, names: list[str]) -> dict[str, dict[str, object]]:
-    """Assemble ``markdown.Markdown`` extension configs from the resolved config.
-
-    Each selected ``markwright.*`` extension with a per-extension option table contributes
-    it, alongside the fixed ``pymdownx.highlight`` entry that keeps language classes on.
-
-    :param resolved_config: The resolved config carrying per-extension option dicts.
-    :param names: The selected extension names.
-    :returns: A mapping of extension name to its option dict.
-    """
-    configs: dict[str, dict[str, object]] = {"pymdownx.highlight": {"pygments_lang_class": True}}
-    for name in names:
-        options = resolved_config.options.get(name)
-        if options:
-            configs[f"markwright.{name}"] = options
-    return configs
-
-
-def _run_pre(args: argparse.Namespace) -> int:
+def _run_pre(args: argparse.Namespace) -> None:
     """Expand source directives from stdin and write the result to stdout.
 
     :param args: Parsed arguments carrying ``config`` and ``exclude``.
-    :returns: ``0`` on success, ``2`` if config fails to load or a name is unknown.
+    :raises ConfigError: If the config is invalid.
     """
-    resolved = _resolve(args)
-    if resolved is None:
-        return 2
-    resolved_config, names = resolved
+    resolved_config, names = _resolve(args)
     sys.stdout.write(registry.run_pre(sys.stdin.read(), names, resolved_config.options))
-    return 0
 
 
-def _run_post(args: argparse.Namespace) -> int:
+def _run_post(args: argparse.Namespace) -> None:
     """Post-process HTML from stdin and write the result to stdout.
 
     :param args: Parsed arguments carrying ``config``, ``exclude``, and ``warn``.
-    :returns: ``0`` on success, ``2`` if config fails to load or a name is unknown.
+    :raises ConfigError: If the config is invalid.
     """
-    resolved = _resolve(args)
-    if resolved is None:
-        return 2
-    _, names = resolved
-    warnings: list[str] | None = [] if args.warn else None
-    rendered_html = registry.run_post(sys.stdin.read(), names, warnings)
+    resolved_config, names = _resolve(args)
+    marker_warnings: list[str] | None = [] if args.warn else None
+    rendered_html = registry.run_post(sys.stdin.read(), names, marker_warnings, resolved_config.options)
     sys.stdout.write(rendered_html)
-    if warnings is not None:
-        for warning in warnings:
-            print(warning, file=sys.stderr)
-    return 0
+    if marker_warnings is not None:
+        for marker_warning in marker_warnings:
+            print(marker_warning, file=sys.stderr)
 
 
-def _run_render(args: argparse.Namespace) -> int:
+def _run_render(args: argparse.Namespace) -> None:
     """Render Markdown from stdin to final HTML using the in-process stack.
 
     Builds a ``markdown.Markdown`` instance configured with ``pymdownx.superfences``
@@ -147,81 +115,99 @@ def _run_render(args: argparse.Namespace) -> int:
     the site stack so fence and highlight render correctly.
 
     :param args: Parsed arguments carrying ``config`` and ``exclude``.
-    :returns: ``0`` on success, ``2`` if config fails to load or a name is unknown.
+    :raises ConfigError: If the config is invalid.
     """
-    resolved = _resolve(args)
-    if resolved is None:
-        return 2
-    resolved_config, names = resolved
+    resolved_config, names = _resolve(args)
     instance = markdown.Markdown(
         extensions=["pymdownx.superfences", "pymdownx.highlight", *(f"markwright.{name}" for name in names)],
-        extension_configs=_extension_configs(resolved_config, names),
+        # pygments_lang_class is a CLI rendering choice, not markwright config
+        extension_configs={
+            "pymdownx.highlight": {"pygments_lang_class": True},
+            **config.extension_configs(resolved_config, names),
+        },
     )
     sys.stdout.write(instance.convert(sys.stdin.read()))
-    return 0
 
 
-def _extension_status(name: str, resolved_config: Config, excluded: list[str]) -> tuple[str, str]:
-    """Report whether an extension is on or off and where that decision came from.
-
-    Precedence matches selection: a CLI ``--exclude`` wins, then a config ``enable`` allowlist
-    or ``disable`` denylist, then the all-on default.
-
-    :param name: The extension name.
-    :param resolved_config: The resolved config.
-    :param excluded: Names passed to ``--exclude``.
-    :returns: An ``(status, source)`` pair, ``status`` being ``"on"`` or ``"off"``.
-    """
-    config_source = str(resolved_config.source_path) if resolved_config.source_path is not None else "default"
-    if name in excluded:
-        return "off", "--exclude"
-    if resolved_config.enable is not None:
-        return ("on" if name in resolved_config.enable else "off"), config_source
-    if name in resolved_config.disable:
-        return "off", config_source
-    return "on", "default"
-
-
-def _format_config(resolved_config: Config, excluded: list[str]) -> list[str]:
-    """Format the resolved configuration and value sources as printable lines.
-
-    :param resolved_config: The resolved config.
-    :param excluded: Names passed to ``--exclude``.
-    :returns: Output lines for ``mw config``, one per rendered value.
-    """
-    lines = ["extensions:"]
-    for name in registry.EXTENSION_NAMES:
-        status, source = _extension_status(name, resolved_config, excluded)
-        lines.append(f"  {name}: {status} ({source})")
-    warn_source = resolved_config.sources.get("warn", "default")
-    lines.append(f"warn: {str(resolved_config.warn).lower()} ({warn_source})")
-    if resolved_config.options:
-        lines.append("options:")
-        for extension_name, option_table in resolved_config.options.items():
-            source = resolved_config.sources.get(extension_name, "default")
-            lines.append(f"  {extension_name}: {option_table} ({source})")
-    else:
-        lines.append("options: none")
-    return lines
-
-
-def _run_config(args: argparse.Namespace) -> int:
+def _run_config(args: argparse.Namespace) -> None:
     """Print the resolved configuration and the source of each value.
 
+    Extension status follows selection precedence: a CLI ``--exclude`` wins, then the config's
+    ``enable`` allowlist or ``disable`` denylist, then the all-on default.
+
     :param args: Parsed arguments carrying ``config`` and ``exclude``.
-    :returns: ``0`` on success, ``2`` if config fails to load or a name is unknown.
+    :raises ConfigError: If the config is invalid.
     """
-    resolved = _resolve(args)
-    if resolved is None:
-        return 2
-    resolved_config, _ = resolved
-    for line in _format_config(resolved_config, args.exclude):
-        print(line)
-    return 0
+    resolved_config, _ = _resolve(args)
+    config_source = str(resolved_config.source_path) if resolved_config.source_path is not None else "default"
+
+    # Each extension's on/off state and the layer that decided it
+    print("extensions:")
+    for name in registry.EXTENSION_NAMES:
+        if name in args.exclude:
+            status, source = "off", "--exclude"
+        elif resolved_config.enable is not None:
+            status, source = ("on" if name in resolved_config.enable else "off"), config_source
+        elif name in resolved_config.disable:
+            status, source = "off", config_source
+        else:
+            status, source = "on", "default"
+        print(f"  {name}: {status} ({source})")
+
+    warn_source = resolved_config.sources.get("warn", "default")
+    print(f"warn: {str(resolved_config.warn).lower()} ({warn_source})")
+
+    # The load mode of every embed that takes one
+    print("load:")
+    load_embeds = [name for name in registry.EXTENSION_NAMES if "load" in registry.OPTION_NAMES[name]]
+    for extension_name in load_embeds:
+        extension_options = resolved_config.options.get(extension_name, {})
+        load = extension_options.get("load", LOAD_EAGER)
+        source = resolved_config.sources[extension_name] if "load" in extension_options else "default"
+        print(f"  {extension_name}: {load} ({source})")
+
+    # Every option table, with its source
+    if not resolved_config.options:
+        print("options: none")
+        return
+    print("options:")
+    for extension_name, option_table in resolved_config.options.items():
+        print(f"  {extension_name}: {option_table} ({resolved_config.sources.get(extension_name, 'default')})")
+
+
+def _show_warning(
+    message: Warning | str,
+    category: type[Warning],
+    filename: str,
+    lineno: int,
+    file: TextIO | None = None,
+    line: str | None = None,
+) -> None:
+    """Print a warning to stderr, as a one-line ``mw: warning:`` diagnostic when it is markwright's own.
+
+    Replaces :func:`warnings.showwarning` for the duration of a CLI run, so a
+    :class:`ConfigWarning` reads as tool output rather than a Python source location,
+    while warnings from other libraries keep Python's standard format.
+
+    :param message: The warning instance or text.
+    :param category: The warning class.
+    :param filename: The file that issued the warning.
+    :param lineno: The line that issued the warning.
+    :param file: The stream the default handler would write to; unused, stderr is always used.
+    :param line: The source line, or ``None`` to read it from ``filename``.
+    """
+    if issubclass(category, ConfigWarning):
+        print(f"mw: warning: {message}", file=sys.stderr)
+    else:
+        sys.stderr.write(warnings.formatwarning(message, category, filename, lineno, line))
 
 
 def main(argv: list[str] | None = None) -> int:
     """Parse ``argv`` and dispatch to the selected subcommand.
+
+    The CLI is the boundary where exceptions become exit codes: a :class:`ConfigError`, or a
+    :class:`ConfigWarning` escalated to an error (``python -W error``), prints one
+    ``mw: error:`` line and exits ``2``.
 
     :param argv: Argument vector, or ``None`` to read from ``sys.argv``.
     :returns: Process exit code (``0`` success, ``2`` usage error).
@@ -231,15 +217,27 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
     except SystemExit as exit_error:
         return exit_error.code if isinstance(exit_error.code, int) else 2
-    if args.command == "list":
-        return _run_list()
-    if args.command == "pre":
-        return _run_pre(args)
-    if args.command == "post":
-        return _run_post(args)
-    if args.command == "render":
-        return _run_render(args)
-    if args.command == "config":
-        return _run_config(args)
-    parser.print_usage()
-    return 2
+
+    # Show warnings as mw diagnostics on stderr; catch_warnings restores the handler afterward
+    with warnings.catch_warnings():
+        warnings.showwarning = _show_warning
+        try:
+            match args.command:
+                case "list":
+                    for name, stages in registry.describe():
+                        print(f"{name}: {', '.join(stages)}")
+                case "pre":
+                    _run_pre(args)
+                case "post":
+                    _run_post(args)
+                case "render":
+                    _run_render(args)
+                case "config":
+                    _run_config(args)
+                case _:
+                    parser.print_usage()
+                    return 2
+        except (ConfigError, ConfigWarning) as usage_error:
+            print(f"mw: error: {usage_error}", file=sys.stderr)
+            return 2
+    return 0

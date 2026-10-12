@@ -6,13 +6,7 @@ import re
 import markdown
 
 from markwright import registry
-from markwright.highlight import (
-    _ESCAPED_HIGHLIGHT_RE,
-    _HIGHLIGHT_PATTERN,
-    _PROSE_HIGHLIGHT_RE,
-    apply_html,
-    expand_source,
-)
+from markwright.highlight import apply_html, expand_source
 
 
 def _render(source: str) -> str:
@@ -254,15 +248,25 @@ class TestHighlightTildeFence:
         assert expand_source(source) == source
 
 
-class TestHighlightPatternGuards:
-    """Pin the escape guard shared by every highlight pattern.
+class TestHighlightPostStageScope:
+    """The post stage reads markers from rendered text only, never from markup."""
 
-    A future edit that drops the guard from one pattern would break
-    cross-consumer parity silently; this test fails loudly instead.
-    """
+    def test_marker_in_an_attribute_is_untouched(self) -> None:
+        rendered = '<span title="&lt;^&gt;">x</span>&lt;^&gt;y&lt;^&gt;'
+        assert apply_html(rendered) == '<span title="&lt;^&gt;">x</span><mark>y</mark>'
 
-    def test_all_patterns_carry_the_escape_guard(self) -> None:
-        guard = r"(?<!\\)"
-        assert guard in _HIGHLIGHT_PATTERN
-        assert guard in _ESCAPED_HIGHLIGHT_RE.pattern
-        assert guard in _PROSE_HIGHLIGHT_RE.pattern
+    def test_marker_in_a_script_is_untouched(self) -> None:
+        rendered = "<script>var a = '&lt;^&gt;b&lt;^&gt;';</script>"
+        assert apply_html(rendered) == rendered
+
+    def test_markers_on_different_lines_do_not_pair(self) -> None:
+        rendered = "<code>&lt;^&gt;a\nb&lt;^&gt;</code>"
+        assert apply_html(rendered) == rendered
+
+    def test_full_documents_pass_through_except_markers(self) -> None:
+        # Doctypes, processing instructions, CDATA, character references, and self-closing tags are copied byte for byte
+        page = (
+            '<?xml version="1.0"?>\n<!DOCTYPE html>\n<html><body><br/>'
+            "<![CDATA[raw]]><code>it&#39;s &#x27;a&#x27; &lt;^&gt;b&lt;^&gt;</code></body></html>"
+        )
+        assert apply_html(page) == page.replace("&lt;^&gt;b&lt;^&gt;", "<mark>b</mark>")

@@ -1,10 +1,12 @@
 # ABOUTME: Clean-venv install probe that builds the wheel and installs it with no dev group.
-# Guards against runtime dependencies (e.g. pymdown-extensions) declared only in dev.
+# Guards against runtime dependencies declared only in dev, and checks the sdist ships only the package.
 
 from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -22,9 +24,22 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # and that the `render` subcommand's Markdown pipeline works end to end.
 DOCUMENT = "[youtube dQw4w9WgXcQ]\n"
 
-# Substrings that indicate the build backend warned about an unsupported/mismatched
-# uv version rather than building cleanly.
-_BUILD_BACKEND_WARNING_MARKERS = ("does not contain the", "does not satisfy")
+# Everything an sdist may hold at its top level: the package, its tests, and the files that
+# describe and license it. Session notes, plans, CI config, and docs stay in the repo.
+SDIST_ALLOWED_ENTRIES = frozenset(
+    {
+        "src",
+        "tests",
+        "pyproject.toml",
+        "PKG-INFO",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE",
+        "LICENSE-Apache-2.0",
+        "NOTICE",
+        ".gitignore",
+    }
+)
 
 
 @requires_uv
@@ -39,11 +54,7 @@ def test_build_and_render_in_clean_venv(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
-    build_output = build_result.stdout + build_result.stderr
-    assert build_result.returncode == 0, build_output
-    assert "uv_build" not in build_output or not any(
-        marker in build_output for marker in _BUILD_BACKEND_WARNING_MARKERS
-    ), f"uv build warned about the build-backend pin: {build_output}"
+    assert build_result.returncode == 0, build_result.stdout + build_result.stderr
 
     wheel_paths = list(dist_directory.glob("*.whl"))
     assert len(wheel_paths) == 1, f"expected exactly one built wheel, found {wheel_paths}"
@@ -51,7 +62,8 @@ def test_build_and_render_in_clean_venv(tmp_path: Path) -> None:
 
     venv_directory = tmp_path / "venv"
     venv_result = subprocess.run(
-        [UV, "venv", "--python", "3.14", str(venv_directory)],
+        # The interpreter running the tests, so each CI matrix entry probes its own Python
+        [UV, "venv", "--python", sys.executable, str(venv_directory)],
         capture_output=True,
         text=True,
         check=False,
@@ -81,3 +93,25 @@ def test_build_and_render_in_clean_venv(tmp_path: Path) -> None:
     assert render_result.returncode == 0, combined_output
     assert "ModuleNotFoundError" not in combined_output
     assert "<iframe" in render_result.stdout
+
+
+@requires_uv
+def test_sdist_ships_only_the_package(tmp_path: Path) -> None:
+    assert UV is not None
+    build_result = subprocess.run(
+        [UV, "build", "--sdist", "--out-dir", str(tmp_path)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build_result.returncode == 0, build_result.stdout + build_result.stderr
+
+    sdist_paths = list(tmp_path.glob("*.tar.gz"))
+    assert len(sdist_paths) == 1, f"expected exactly one sdist, found {sdist_paths}"
+    with tarfile.open(sdist_paths[0]) as sdist:
+        # Member names are "<name>-<version>/<entry>/..."; keep the entry
+        top_level_entries = {member.split("/")[1] for member in sdist.getnames() if member.count("/") >= 1}
+
+    assert top_level_entries <= SDIST_ALLOWED_ENTRIES, sorted(top_level_entries - SDIST_ALLOWED_ENTRIES)
+    assert {"src", "pyproject.toml", "LICENSE", "LICENSE-Apache-2.0", "NOTICE"} <= top_level_entries

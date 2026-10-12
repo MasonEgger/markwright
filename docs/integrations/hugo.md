@@ -56,7 +56,7 @@ mw post < public/posts/deploy/index.html > public/posts/deploy/index.html.tmp &&
 ```
 
 The pre stage rewrites the content in place, Hugo builds it, and the post stage rewrites the rendered HTML in place.
-Pass the same `--use` or `--exclude` flags to both stages if you want a subset of the extensions.
+To run a subset of the extensions, set `enable` or `disable` in a `markwright.toml` that both stages discover (see [Configuration](../config.md)), or pass the same `--exclude` flags to both stages.
 
 ## Wrapping It in a Build Script
 

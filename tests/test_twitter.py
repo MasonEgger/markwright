@@ -58,7 +58,7 @@ class TestTwitterAlignment:
         assert 'align="right"' in result
 
     def test_center_alignment_default(self) -> None:
-        """Center is the default — no align attribute should be present."""
+        """Center is the default, so no align attribute should be present."""
         result = render("[twitter https://twitter.com/U/status/1]")
         assert "align=" not in result
 

@@ -25,7 +25,14 @@ md = markdown.Markdown(
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `allowed_environments` | `[]` (allow all) | List of allowed environment names. If empty, all names are accepted. |
+| `allowed_environments` | omitted (allow all) | List of allowed environment names. Omit it to allow every name; an empty list allows none and emits a `ConfigWarning`. |
+| `label_class` | `code-label` | CSS class for the label div. |
+| `secondary_label_class` | `secondary-code-label` | CSS class for the secondary label div. |
+
+All three options apply the same way in-process, through `mw render`, and through the `mw pre | renderer | mw post` pipeline.
+
+Directives work in any fenced code block CommonMark recognizes, including a fence indented up to three spaces or one nested inside a list item.
+An unclosed fence is not a code block, so its directives are left as text.
 
 See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 

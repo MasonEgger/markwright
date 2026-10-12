@@ -39,18 +39,20 @@ These extensions work with Python-Markdown directly, so you can use them in any 
 ````python
 import markdown
 
-md = markdown.Markdown(extensions=[
-    "pymdownx.superfences",
-    "pymdownx.highlight",
-    "markwright.highlight",
-    "markwright.fence",
-    "markwright.youtube",
-    "markwright.codepen",
-    "markwright.twitter",
-    "markwright.instagram",
-    "markwright.slideshow",
-    "markwright.image_compare",
-])
+md = markdown.Markdown(
+    extensions=[
+        "pymdownx.superfences",
+        "pymdownx.highlight",
+        "markwright.highlight",
+        "markwright.fence",
+        "markwright.youtube",
+        "markwright.codepen",
+        "markwright.twitter",
+        "markwright.instagram",
+        "markwright.slideshow",
+        "markwright.image_compare",
+    ]
+)
 
 source = """
 ```command

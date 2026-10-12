@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from markdown import Markdown
 
 COMPARE_RE = re.compile(r"^\[compare\s+(\S+)\s+(\S+)(?:\s+(\d+))?(?:\s+(\d+))?\]$")
 
@@ -41,7 +45,18 @@ def _render_match(line: str) -> str | None:
     height = int(compare_match.group(3)) if compare_match.group(3) else DEFAULT_HEIGHT
     width = int(compare_match.group(4)) if compare_match.group(4) else DEFAULT_WIDTH
 
-    return _build_compare_html(left_url, right_url, height, width)
+    escaped_left = html.escape(left_url)
+    escaped_right = html.escape(right_url)
+
+    return (
+        f'<div class="image-compare" style="--value:50%; height: {height}px; width: {width}px;">\n'
+        f'    <img class="image-left" src="{escaped_left}" alt="Image left"/>\n'
+        f'    <img class="image-right" src="{escaped_right}" alt="Image right"/>\n'
+        f'    <input type="range" class="control" min="0" max="100" value="50"\n'
+        f"      oninput=\"this.parentNode.style.setProperty('--value', `${{this.value}}%`)\" />\n"
+        f"    {SVG_ARROW}\n"
+        f"</div>"
+    )
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
@@ -83,36 +98,13 @@ class ImageComparePreprocessor(Preprocessor):
         return output
 
 
-def _build_compare_html(left_url: str, right_url: str, height: int, width: int) -> str:
-    """Build the image compare HTML from parsed arguments.
-
-    :param left_url: URL for the left image.
-    :param right_url: URL for the right image.
-    :param height: Compare widget height in pixels.
-    :param width: Compare widget width in pixels.
-    :returns: Complete image compare HTML string.
-    """
-    escaped_left = html.escape(left_url)
-    escaped_right = html.escape(right_url)
-
-    return (
-        f'<div class="image-compare" style="--value:50%; height: {height}px; width: {width}px;">\n'
-        f'    <img class="image-left" src="{escaped_left}" alt="Image left"/>\n'
-        f'    <img class="image-right" src="{escaped_right}" alt="Image right"/>\n'
-        f'    <input type="range" class="control" min="0" max="100" value="50"\n'
-        f"      oninput=\"this.parentNode.style.setProperty('--value', `${{this.value}}%`)\" />\n"
-        f"    {SVG_ARROW}\n"
-        f"</div>"
-    )
-
-
 class ImageCompareExtension(Extension):
     """Python-Markdown extension for side-by-side image comparison.
 
     :param \\*\\*kwargs: Configuration options passed to the extension.
     """
 
-    def extendMarkdown(self, md: Markdown) -> None:
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the image compare preprocessor.
 
         :param md: The Markdown instance to extend.
@@ -121,7 +113,7 @@ class ImageCompareExtension(Extension):
         md.preprocessors.register(preprocessor, "do-image-compare", 20)
 
 
-def makeExtension(**kwargs: object) -> ImageCompareExtension:
+def makeExtension(**kwargs: object) -> ImageCompareExtension:  # noqa: N802 - Python-Markdown's loader name
     """Create and return the ImageCompareExtension instance.
 
     :param \\*\\*kwargs: Configuration options.

@@ -9,6 +9,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -18,16 +21,24 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.1.0
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: ".python-version"
+      - name: Install just
+        uses: extractions/setup-just@v2
 
-      - run: uv sync
-      - run: uv run pytest -m "not integration" --cov=markwright --cov-branch --cov-fail-under=100 --cov-report=term-missing
-      - run: uv run ruff check src/ tests/
-      - run: uv run ruff format --check src/ tests/
-      - run: uv run mypy --strict src/
+      # The same pinned Hugo as CI, so the release gate runs the Hugo integration tests too
+      - name: Install Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: "0.165.0"
+          extended: true
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Audit dependencies
+        run: uv run --with pip-audit pip-audit
+
+      - name: Run the gate
+        run: just check
 
   build:
     runs-on: ubuntu-latest
@@ -36,11 +47,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.1.0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: ".python-version"
 
       - name: Build package
         run: uv build

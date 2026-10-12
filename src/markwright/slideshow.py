@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from markdown import Markdown
 
 SLIDESHOW_RE = re.compile(r"^\[slideshow\s+(.+)\]$")
 
@@ -62,7 +66,24 @@ def _render_match(line: str) -> str | None:
     if not urls:
         return None
 
-    return _build_slideshow_html(urls, height, width)
+    slides = "\n".join(
+        f'    <img src="{html.escape(url)}" alt="Slide #{slide_index}" />'
+        for slide_index, url in enumerate(urls, start=1)
+    )
+
+    scroll_left = "(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft"
+    left_arrow = f'  <div class="action left" onclick="{scroll_left} -= {width})()">&#8249;</div>\n'
+    right_arrow = f'  <div class="action right" onclick="{scroll_left} += {width})()">&#8250;</div>\n'
+
+    return (
+        f'<div class="slideshow" style="height: {height}px; width: {width}px;">\n'
+        f"{left_arrow}"
+        f"{right_arrow}"
+        f'  <div class="slides">\n'
+        f"{slides}\n"
+        f"  </div>\n"
+        f"</div>"
+    )
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
@@ -100,41 +121,13 @@ class SlideshowPreprocessor(Preprocessor):
         return output
 
 
-def _build_slideshow_html(urls: list[str], height: int, width: int) -> str:
-    """Build the slideshow HTML from parsed arguments.
-
-    :param urls: List of image URLs.
-    :param height: Slideshow height in pixels.
-    :param width: Slideshow width in pixels.
-    :returns: Complete slideshow HTML string.
-    """
-    slides = "\n".join(
-        f'    <img src="{html.escape(url)}" alt="Slide #{slide_index}" />'
-        for slide_index, url in enumerate(urls, start=1)
-    )
-
-    scroll_left = "(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft"
-    left_arrow = f'  <div class="action left" onclick="{scroll_left} -= {width})()">&#8249;</div>\n'
-    right_arrow = f'  <div class="action right" onclick="{scroll_left} += {width})()">&#8250;</div>\n'
-
-    return (
-        f'<div class="slideshow" style="height: {height}px; width: {width}px;">\n'
-        f"{left_arrow}"
-        f"{right_arrow}"
-        f'  <div class="slides">\n'
-        f"{slides}\n"
-        f"  </div>\n"
-        f"</div>"
-    )
-
-
 class SlideshowExtension(Extension):
     """Python-Markdown extension for image slideshow embeds.
 
     :param \\*\\*kwargs: Configuration options passed to the extension.
     """
 
-    def extendMarkdown(self, md: Markdown) -> None:
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the slideshow preprocessor.
 
         :param md: The Markdown instance to extend.
@@ -143,7 +136,7 @@ class SlideshowExtension(Extension):
         md.preprocessors.register(preprocessor, "do-slideshow", 20)
 
 
-def makeExtension(**kwargs: object) -> SlideshowExtension:
+def makeExtension(**kwargs: object) -> SlideshowExtension:  # noqa: N802 - Python-Markdown's loader name
     """Create and return the SlideshowExtension instance.
 
     :param \\*\\*kwargs: Configuration options.

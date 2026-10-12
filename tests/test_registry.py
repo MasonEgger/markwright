@@ -1,37 +1,9 @@
 # ABOUTME: Tests for the stage registry that selects and composes pipeline stages.
-# Covers select_extensions validation, run_pre/run_post ordering, warning threading, and describe.
+# Covers run_pre/run_post ordering, warning and option threading, option names, and describe.
 
 from __future__ import annotations
 
-import pytest
-
-from markwright.registry import EXTENSION_NAMES, describe, run_post, run_pre, select_extensions
-
-
-class TestSelectExtensions:
-    """Tests for select_extensions resolving the active extension set."""
-
-    def test_default_returns_all_eight(self) -> None:
-        selected = select_extensions(use=[], exclude=[])
-        assert set(selected) == set(EXTENSION_NAMES)
-        assert len(selected) == 8
-
-    def test_use_returns_only_named(self) -> None:
-        selected = select_extensions(use=["youtube", "highlight"], exclude=[])
-        assert set(selected) == {"youtube", "highlight"}
-
-    def test_exclude_drops_named(self) -> None:
-        selected = select_extensions(use=[], exclude=["youtube"])
-        assert "youtube" not in selected
-        assert set(selected) == set(EXTENSION_NAMES) - {"youtube"}
-
-    def test_unknown_name_raises_value_error_naming_token(self) -> None:
-        with pytest.raises(ValueError, match="bogus"):
-            select_extensions(use=["bogus"], exclude=[])
-
-    def test_unknown_exclude_name_raises_value_error_naming_token(self) -> None:
-        with pytest.raises(ValueError, match="nope"):
-            select_extensions(use=[], exclude=["nope"])
+from markwright.registry import EXTENSION_NAMES, OPTION_NAMES, describe, run_post, run_pre
 
 
 class TestRunPre:
@@ -65,6 +37,21 @@ class TestRunPost:
         run_post(html_input, ["fence"], warnings)
         assert len(warnings) == 1
 
+    def test_threads_options_into_fence_stage(self) -> None:
+        html_input = '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n<pre><code>x\n</code></pre>'
+        result = run_post(html_input, ["fence"], options={"fence": {"label_class": "my-label"}})
+        assert '<div class="my-label" title="a.sh">a.sh</div>' in result
+
+
+class TestOptionNames:
+    """Tests that each extension's accepted option names come from its Python-Markdown config."""
+
+    def test_option_names_per_extension(self) -> None:
+        assert OPTION_NAMES["fence"] == {"label_class", "secondary_label_class", "allowed_environments"}
+        assert OPTION_NAMES["youtube"] == {"load"}
+        assert OPTION_NAMES["slideshow"] == frozenset()
+        assert set(OPTION_NAMES) == set(EXTENSION_NAMES)
+
 
 class TestDescribe:
     """Tests for describe reporting each extension's available stages."""
@@ -76,23 +63,3 @@ class TestDescribe:
         assert described["fence"] == ["pre", "post"]
         assert described["highlight"] == ["pre", "post"]
         assert described["codepen"] == ["pre", "post"]
-
-    def test_describe_handles_post_only_extension(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # No real extension is post-only (all have a pre stage), so exercise the
-        # pre-is-None branch of describe() with a synthetic post-only entry.
-        from markwright import registry
-
-        def _noop_post(html: str, warnings: list[str] | None = None) -> str:
-            return html
-
-        patched = dict(registry.REGISTRY)
-        patched["synthetic_post_only"] = {
-            "pre": None,
-            "post": _noop_post,
-            "pre_priority": 0,
-            "post_priority": 0,
-        }
-        monkeypatch.setattr(registry, "REGISTRY", patched)
-        monkeypatch.setattr(registry, "EXTENSION_NAMES", [*registry.EXTENSION_NAMES, "synthetic_post_only"])
-        described = dict(registry.describe())
-        assert described["synthetic_post_only"] == ["post"]

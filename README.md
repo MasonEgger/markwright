@@ -21,6 +21,10 @@ Each extension is standalone and can be loaded on its own or alongside the other
 - **Slideshow** builds an image slideshow with navigation arrows.
 - **Image Compare** renders two images with a draggable before/after slider.
 
+The embeds that contact a third party (YouTube, CodePen, Twitter, Instagram) take a `load` option.
+`load = "click"` renders an inert preview so nothing reaches the provider until the reader asks; see [Click-to-Load](https://masonegger.github.io/markwright/click-to-load/).
+A host tool can validate a markwright config table from its own config file with `markwright.config_from_mapping`; see [Configuration](https://masonegger.github.io/markwright/config/).
+
 ## Installation
 
 ```bash
@@ -72,18 +76,20 @@ The extensions work with Python-Markdown directly, so you can use them in any Py
 ```python
 import markdown
 
-md = markdown.Markdown(extensions=[
-    "pymdownx.superfences",
-    "pymdownx.highlight",
-    "markwright.highlight",
-    "markwright.fence",
-    "markwright.youtube",
-    "markwright.codepen",
-    "markwright.twitter",
-    "markwright.instagram",
-    "markwright.slideshow",
-    "markwright.image_compare",
-])
+md = markdown.Markdown(
+    extensions=[
+        "pymdownx.superfences",
+        "pymdownx.highlight",
+        "markwright.highlight",
+        "markwright.fence",
+        "markwright.youtube",
+        "markwright.codepen",
+        "markwright.twitter",
+        "markwright.instagram",
+        "markwright.slideshow",
+        "markwright.image_compare",
+    ]
+)
 
 html = md.convert("This has a <^>highlighted word<^> in it.")
 print(html)
@@ -152,17 +158,16 @@ See the [extension docs](https://masonegger.github.io/markwright/) for every fla
 This project uses [`uv`](https://docs.astral.sh/uv/) and [`just`](https://github.com/casey/just).
 
 ```bash
-just install           # uv sync
-just test              # unit tests, 100% line + branch coverage
-just test-integration  # end-to-end Hugo pipeline test (needs hugo)
-just lint              # ruff check + ruff format --check
-just typecheck         # mypy --strict
-just check             # test + lint + typecheck
+just check             # the gate: ruff check, ruff format --check, mypy strict, pytest
+just fmt               # format and auto-fix
+just test              # pytest (integration tests skip without hugo on PATH)
+just test-all          # pytest across Python 3.11 through 3.15
+just test-integration  # only the end-to-end Hugo and clean-install tests
 just docs-serve        # serve the docs site at localhost:8000
 ```
 
 `just check` must pass before a change is complete.
-The tooling bar is strict: `mypy --strict`, a clean `ruff`, and full test coverage.
+Coverage is reported on every run.
 
 ## License
 

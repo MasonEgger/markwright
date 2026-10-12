@@ -68,7 +68,34 @@ Tab priority when multiple are specified: html > css > js.
 
 [codepen MattCowley vwPzeX 400 lazy editable]
 
+## Load Mode
+
+The `load` option decides when the embed contacts the provider.
+Set it in `markwright.toml`, or pass it through `extension_configs` in-process.
+
+| Value | Output |
+|-------|--------|
+| `eager` (default) | The live embed, with the provider script injected once per page. |
+| `click` | An inert preview with a load button and a direct link; no provider script. |
+
+```toml
+[codepen]
+load = "click"
+```
+
+```python
+md = markdown.Markdown(
+    extensions=["markwright.codepen"],
+    extension_configs={"markwright.codepen": {"load": "click"}},
+)
+```
+
+The `load` option is separate from the `lazy` flag above.
+The flag is CodePen's own preview mode, which still loads the CodePen script; `load = "click"` loads nothing from CodePen until the reader asks.
+
+See [Click-to-Load](../click-to-load.md) for the preview markup and a host script that swaps in the live embed.
+
 ## Notes
 
 - The embed must be on its own line
-- The CodePen embed script is injected once, even with multiple embeds on a page
+- The CodePen embed script is injected once, even with multiple embeds on a page, and only when at least one embed is `eager`

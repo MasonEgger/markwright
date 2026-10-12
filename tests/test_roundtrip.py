@@ -6,9 +6,14 @@ from __future__ import annotations
 import re
 
 import markdown
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from markwright import registry
 from markwright.codepen import CODEPEN_SCRIPT
+from markwright.instagram import INSTAGRAM_SCRIPT
+from markwright.twitter import TWITTER_SCRIPT
 
 # A fixture exercising every feature in one document: a labeled command fence
 # (label directive + command prefix), an environment fence, a line-numbered
@@ -59,16 +64,18 @@ def stub_render(markdown_text: str) -> str:
     return instance.convert(markdown_text)
 
 
-def in_process_render(markdown_text: str, names: list[str]) -> str:
+def in_process_render(markdown_text: str, names: list[str], options: dict[str, dict[str, object]] | None = None) -> str:
     """Render Markdown through the in-process stack the ``mw render`` path builds.
 
     :param markdown_text: Source text.
     :param names: markwright extension names to load alongside the site stack.
+    :param options: Per-extension option tables keyed by extension name, or ``None``.
     :returns: Final HTML with every markwright stage applied in-process.
     """
+    markwright_configs = {f"markwright.{name}": table for name, table in (options or {}).items()}
     instance = markdown.Markdown(
         extensions=["pymdownx.superfences", "pymdownx.highlight", *(f"markwright.{name}" for name in names)],
-        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}, **markwright_configs},
     )
     return instance.convert(markdown_text)
 
@@ -173,3 +180,125 @@ class TestRoundTripDegradation:
         assert "youtube.com/embed/dQw4w9WgXcQ" in degraded
         assert "<mark>token</mark>" in degraded
         assert CODEPEN_SCRIPT in degraded
+
+
+# One of each embed that takes a load option, so every load value runs through both paths.
+EMBED_FIXTURE = """\
+[youtube dQw4w9WgXcQ]
+
+[codepen jcoulterdesign npyBME]
+
+[twitter MattIPv4/status/1576415168426573825]
+
+[instagram CkQuv3_LRgS]
+"""
+
+
+class TestRoundTripLoad:
+    """The pipeline and the in-process render agree for every load value."""
+
+    @pytest.mark.parametrize(
+        "load_by_embed",
+        [
+            {},
+            {"youtube": "eager", "codepen": "eager", "twitter": "eager", "instagram": "eager"},
+            {"youtube": "lazy"},
+            {"youtube": "click", "codepen": "click", "twitter": "click", "instagram": "click"},
+            {"youtube": "lazy", "codepen": "click", "twitter": "eager", "instagram": "click"},
+        ],
+    )
+    def test_pipeline_equals_in_process_render(self, load_by_embed: dict[str, str]) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {name: {"load": load} for name, load in load_by_embed.items()}
+        pipeline = registry.run_post(stub_render(registry.run_pre(EMBED_FIXTURE, names, options)), names, None)
+        in_process = in_process_render(EMBED_FIXTURE, names, options)
+        assert _normalize(pipeline) == _normalize(in_process)
+
+    def test_click_everywhere_injects_no_script(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {
+            name: {"load": "click"} for name in ("youtube", "codepen", "twitter", "instagram")
+        }
+        pipeline = registry.run_post(stub_render(registry.run_pre(EMBED_FIXTURE, names, options)), names, None)
+        assert pipeline.count('class="mw-embed"') == 4
+        assert "<script" not in pipeline
+
+    def test_mixed_page_injects_only_the_eager_embed_script(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"codepen": {"load": "click"}, "instagram": {"load": "click"}}
+        pipeline = registry.run_post(stub_render(registry.run_pre(EMBED_FIXTURE, names, options)), names, None)
+        assert pipeline.count(TWITTER_SCRIPT) == 1
+        assert CODEPEN_SCRIPT not in pipeline
+        assert INSTAGRAM_SCRIPT not in pipeline
+
+
+class TestRoundTripFenceOptions:
+    """Fence label classes from config apply the same through the pipeline and in-process."""
+
+    def test_label_classes_match_in_process_render(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {
+            "fence": {"label_class": "my-label", "secondary_label_class": "my-sub"}
+        }
+        source = "```\n[label a.sh]\n[secondary_label Output]\necho hi\n```\n"
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        in_process = in_process_render(source, names, options)
+        assert 'class="my-label"' in pipeline
+        assert 'class="my-sub"' in pipeline
+        assert _normalize(pipeline) == _normalize(in_process)
+
+
+# Plain words for prose, labels, and code; markwright's grammar supplies the structure
+_WORDS = st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=8)
+_PHRASES = st.lists(_WORDS, min_size=1, max_size=4).map(" ".join)
+
+
+@st.composite
+def _prose_block(draw: st.DrawFn) -> str:
+    """Draw a paragraph, optionally with a highlighted word."""
+    phrase = draw(_PHRASES)
+    if draw(st.booleans()):
+        return f"{phrase} <^>{draw(_WORDS)}<^> {draw(_PHRASES)}"
+    return phrase
+
+
+@st.composite
+def _fence_block(draw: st.DrawFn) -> str:
+    """Draw a fenced code block with any mix of directives, a prefix flag, and in-code highlights."""
+    fence = draw(st.sampled_from(["```", "````", "~~~"]))
+    info = draw(st.sampled_from(["", "python", "bash", "command", "super_user", "line_numbers", "python,line_numbers"]))
+    directives = [
+        directive
+        for directive, include in (
+            (f"[label {draw(_WORDS)}.sh]", draw(st.booleans())),
+            (f"[secondary_label {draw(_PHRASES)}]", draw(st.booleans())),
+            (f"[environment {draw(st.sampled_from(['local', 'staging', 'production']))}]", draw(st.booleans())),
+        )
+        if include
+    ]
+    code_lines = draw(st.lists(_PHRASES, min_size=1, max_size=3))
+    if draw(st.booleans()):
+        code_lines[0] = f"{code_lines[0]} <^>{draw(_WORDS)}<^>"
+    return "\n".join([f"{fence}{info}", *directives, *code_lines, fence])
+
+
+_EMBED_BLOCKS = st.sampled_from(
+    [
+        "[youtube dQw4w9WgXcQ]",
+        "[codepen jcoulterdesign npyBME]",
+        "[twitter MattIPv4/status/1576415168426573825]",
+        "[instagram CkQuv3_LRgS]",
+    ]
+)
+
+
+class TestRoundTripProperty:
+    """Any document built from markwright's grammar renders the same through the pipeline and in-process."""
+
+    @settings(max_examples=150, deadline=None)
+    @given(blocks=st.lists(st.one_of(_prose_block(), _fence_block(), _EMBED_BLOCKS), min_size=1, max_size=6))
+    def test_pipeline_equals_in_process_render(self, blocks: list[str]) -> None:
+        document = "\n\n".join(blocks) + "\n"
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(document, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(document, names))

@@ -59,6 +59,7 @@ extra_css:
 nav:
   - Home: index.md
   - Configuration: config.md
+  - Click-to-Load: click-to-load.md
   - CLI:
       - Reference: cli.md
       - Pipeline Guide: pipeline.md
