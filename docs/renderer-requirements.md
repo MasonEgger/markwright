@@ -21,7 +21,7 @@ A renderer that drops comments disables fence styling and breaks nothing else: t
 
 ### 3. Span-Based Syntax Highlighting
 
-In-code highlighting (`<^>...<^>` inside a fence) depends on the renderer wrapping syntax-highlighted tokens in tags, so the post stage can place `<mark>` without crossing a token boundary.
+In-code highlighting (`\<^>...\<^>` inside a fence) depends on the renderer wrapping syntax-highlighted tokens in tags, so the post stage can place `<mark>` without crossing a token boundary.
 Any Pygments- or Chroma-style highlighter qualifies.
 A renderer that emits plain, untagged code text still highlights, but the `<mark>` placement has fewer token boundaries to respect.
 
