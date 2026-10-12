@@ -27,7 +27,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.1.0
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v4
 
       # The integration tests in `just check` drive a real Hugo build; pin it so a Hugo release cannot break CI unseen
       - name: Install Hugo
