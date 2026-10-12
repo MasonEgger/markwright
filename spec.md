@@ -50,6 +50,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 **Shipped:**
 - v1-init: the initial `do-markdownit` port (the eight extensions) and the `mw` pipeline CLI (.ai-sessions/v1-init/)
 - v0.1-remediation: the step-55 audit remediation (R1 through R11), shipped as 0.1.0 (.ai-sessions/v0.1-remediation/)
+- config-system: the 0.2.0 config system and `mw` CLI simplification, converged (.ai-sessions/config-system/)
 
 **Upcoming:**
 - none; work is issue-driven
