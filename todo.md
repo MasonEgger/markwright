@@ -10,13 +10,13 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [x] REFACTOR: fence uses _html.add_classes; highlight.expand_source uses map_prose
   - [x] Verify tests/test_fence.py and tests/test_highlight.py pass unchanged
   - [x] `just check` green
-- [ ] Step 2: The `_markers` module and `fence` refactored onto it
-  - [ ] RED: tests/test_markers.py (encode version/comment-safe, find_markers block_end and empty-page, decode fail-soft cases)
-  - [ ] Document the marker contract in the module header
-  - [ ] GREEN: src/markwright/_markers.py (encode_marker, MarkerComment, find_markers, InvalidMarkerError, decode_marker)
-  - [ ] REFACTOR: fence onto _markers (delete its private marker code); messages match
-  - [ ] Verify tests/test_fence.py and tests/test_markers.py pass
-  - [ ] `just check` green
+- [x] Step 2: The `_markers` module and `fence` refactored onto it
+  - [x] RED: tests/test_markers.py (encode version/comment-safe, find_markers block_end and empty-page, decode fail-soft cases)
+  - [x] Document the marker contract in the module header
+  - [x] GREEN: src/markwright/_markers.py (encode_marker, MarkerComment, find_markers, InvalidMarkerError, decode_marker)
+  - [x] REFACTOR: fence onto _markers (delete its private marker code); messages match
+  - [x] Verify tests/test_fence.py and tests/test_markers.py pass
+  - [x] `just check` green
 
 ## Section 2: Pre-only extensions
 

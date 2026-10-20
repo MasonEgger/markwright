@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- A shared helper that takes a payload dict should annotate the parameter `Mapping[str, object]`, not `dict[str, object]`: `dict` is invariant in its value type, so a caller holding `dict[str, str]` (fence's marker payload) fails mypy, while `Mapping` is covariant in the value (2026-10-20)
 - `/bpe:goal` resolves its verification command from the manifest before the spec: `pyproject.toml` present means `pytest -q`, and a `**Verification command:**` line in spec.md is only read when no manifest matches, so on a Python project the goal condition is always `pytest -q` and ruff and mypy run only through the executor's `just check` (2026-10-20)
 - A markwright `icons.packs` directory is static config, so a docs demo cannot point at an installed package's icon folder (mkdocs-material's `.icons`) portably; commit a small credited SVG set under `docs/icons/` and name that path, which also doubles as the worked `packs` example (2026-10-20)
 - When CLAUDE.md names a process skill (`/bpe:brainstorm`, `/bpe:plan`, `/bpe:goal`) that the session's skill list lacks, stop and report it before implementing; hand-written spec/plan/todo files plus direct implementation are not a substitute, and Mason discarded a green, fully tested pass over exactly this (2026-10-15)
@@ -11,7 +12,6 @@
 - Switching the build backend from uv_build to hatchling silently changed the sdist from the package plus tests to every git-tracked file (session notes, CLAUDE.md, plans, docs, CI config); set `[tool.hatch.build.targets.sdist] include` explicitly and keep an integration test that asserts the sdist's top-level entries against an allowlist (2026-10-11)
 - Before adding a new CPython to a project, update uv first (`uv self update`): uv 0.10.9 offered only `3.15.0a6`, where PyYAML's source build failed, while uv 0.13.0 installed the final 3.15.0 and everything passed; in CI, let uv supply the interpreter from `.python-version` instead of `actions/setup-python`, whose release list can lag a new CPython (2026-10-11)
 - To post-process rendered HTML without changing bytes you did not mean to touch, tokenize with the stdlib `html.parser` (`convert_charrefs=False`, offsets from `getpos()` against a `\n`-only line table, since `getpos` counts only `\n`) and apply span edits back to front; a tree parser such as lxml or selectolax re-serializes the whole page and breaks byte-identical output (2026-10-11)
-- Adding `pip-audit` to CI surfaced 22 known vulnerabilities in a lock nobody had upgraded; run it locally before wiring it in, upgrade the lock, and raise a runtime dependency's floor to the first release without the advisory (found by auditing pinned candidates with `pip-audit --no-deps --disable-pip -r`), here `pymdown-extensions>=11.0.1` (2026-10-11)
 
 ## Workflow
 - `/bpe:goal` resolves its verification command from the manifest before the spec: `pyproject.toml` present means `pytest -q`, and a `**Verification command:**` line in spec.md is only read when no manifest matches, so on a Python project the goal condition is always `pytest -q` and ruff and mypy run only through the executor's `just check` (2026-10-20)
@@ -62,6 +62,7 @@
 - Escaping `<`/`>` to their JSON `\uXXXX` forms after `json.dumps` is a general technique for embedding data inside an HTML comment (`<!-- ... -->`): it removes every literal `<`/`>` from the payload so `-->`/`<!--` can never form inside it, and `json.loads` decodes `\uXXXX` transparently, so the read side needs no change (2026-09-08)
 
 ## Python
+- A shared helper that takes a payload dict should annotate the parameter `Mapping[str, object]`, not `dict[str, object]`: `dict` is invariant in its value type, so a caller holding `dict[str, str]` (fence's marker payload) fails mypy, while `Mapping` is covariant in the value (2026-10-20)
 - mypy strict rejects indexing a `TypedDict` with a runtime/variable key (`spec[stage_key]` raises `literal-required`); to iterate over fields generically, pass literal-key accessor callables (`lambda spec: spec["pre"]`) instead of string key names (2026-06-28)
 - Make a shared math helper total rather than letting a degenerate input raise: `reduce_fraction`'s `math.gcd(0, 0) == 0` fed a floor division that raised `ZeroDivisionError` on any zero operand, and one caller (a youtube embed directive) could reach it with attacker- or author-controlled zero dimensions and abort a whole in-process MkDocs build; guard both the shared helper (return the operands unchanged on a zero operand, never raise) and the specific caller (normalize non-positive dimensions to a sane default before calling it), so the helper is safe for every future caller and the caller's fallback behavior stays caller-specific (2026-09-08)
 
