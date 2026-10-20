@@ -40,7 +40,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from markwright._diagnostics import ConfigWarning, OptionError
 from markwright._fences import find_fenced_blocks
-from markwright._html import HtmlToken, apply_edits, render_start_tag, tokenize
+from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -425,7 +425,7 @@ def _apply_marker(
         if marker.environment is not None:
             added_classes.append(f"environment-{re.sub(r'[^a-zA-Z0-9-]', '', marker.environment)}")
         if pre_tag is not None and added_classes:
-            edits.append((pre_tag.start, pre_tag.end, _with_classes(pre_tag, " ".join(added_classes))))
+            edits.append((pre_tag.start, pre_tag.end, add_classes(pre_tag, " ".join(added_classes))))
 
         # The secondary label opens the <code>; line prefixes wrap its content
         if code_tag is not None:
@@ -449,22 +449,6 @@ def _apply_marker(
                 edits.append((code_tag.end, code_tag.end, code_inner))
 
     return apply_edits(rendered_html, edits)
-
-
-def _with_classes(tag: HtmlToken, added_classes: str) -> str:
-    """Rebuild a start tag with classes placed in front of its existing ones.
-
-    :param tag: The start tag token.
-    :param added_classes: Space-separated classes to add.
-    :returns: The rebuilt start tag; a tag without a ``class`` attribute gets one first.
-    """
-    existing_classes = tag.attribute("class")
-    if existing_classes is None:
-        return render_start_tag(tag.tag, (("class", added_classes), *tag.attrs))
-    attrs = tuple(
-        (name, f"{added_classes} {existing_classes}" if name == "class" else value) for name, value in tag.attrs
-    )
-    return render_start_tag(tag.tag, attrs)
 
 
 def apply_html(

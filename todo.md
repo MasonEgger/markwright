@@ -4,12 +4,12 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 1: Shared helpers and the marker module
 
-- [ ] Step 1: Shared helpers in `_html` and `_fences`
-  - [ ] RED: tests/test_html_helpers.py (matching_end nesting and unclosed, add_classes front-insert, no-class, added_attrs) and tests/test_fences_map_prose.py (prose, fenced, inline-code boundaries)
-  - [ ] GREEN: add_classes (moved from fence, with added_attrs), matching_end, map_prose; move _INLINE_CODE_RE into _fences
-  - [ ] REFACTOR: fence uses _html.add_classes; highlight.expand_source uses map_prose
-  - [ ] Verify tests/test_fence.py and tests/test_highlight.py pass unchanged
-  - [ ] `just check` green
+- [x] Step 1: Shared helpers in `_html` and `_fences`
+  - [x] RED: tests/test_html_helpers.py (matching_end nesting and unclosed, add_classes front-insert, no-class, added_attrs) and tests/test_fences_map_prose.py (prose, fenced, inline-code boundaries)
+  - [x] GREEN: add_classes (moved from fence, with added_attrs), matching_end, map_prose; move _INLINE_CODE_RE into _fences
+  - [x] REFACTOR: fence uses _html.add_classes; highlight.expand_source uses map_prose
+  - [x] Verify tests/test_fence.py and tests/test_highlight.py pass unchanged
+  - [x] `just check` green
 - [ ] Step 2: The `_markers` module and `fence` refactored onto it
   - [ ] RED: tests/test_markers.py (encode version/comment-safe, find_markers block_end and empty-page, decode fail-soft cases)
   - [ ] Document the marker contract in the module header

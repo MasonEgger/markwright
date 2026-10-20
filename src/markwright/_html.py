@@ -186,6 +186,47 @@ def render_start_tag(tag: str, attrs: tuple[tuple[str, str | None], ...]) -> str
     return f"<{tag}{rendered_attrs}>"
 
 
+def add_classes(tag: HtmlToken, added_classes: str, added_attrs: tuple[tuple[str, str], ...] = ()) -> str:
+    """Rebuild a start tag with classes placed in front of its existing ones.
+
+    :param tag: The start tag token.
+    :param added_classes: Space-separated classes to add.
+    :param added_attrs: Extra ``(name, value)`` attributes, appended after the tag's existing ones.
+    :returns: The rebuilt start tag; a tag without a ``class`` attribute gets one first.
+    """
+    existing_classes = tag.attribute("class")
+    if existing_classes is None:
+        return render_start_tag(tag.tag, (("class", added_classes), *tag.attrs, *added_attrs))
+    attrs = tuple(
+        (name, f"{added_classes} {existing_classes}" if name == "class" else value) for name, value in tag.attrs
+    )
+    return render_start_tag(tag.tag, (*attrs, *added_attrs))
+
+
+def matching_end(tokens: list[HtmlToken], start_index: int) -> int | None:
+    """Find the end tag that closes the start tag at ``start_index``.
+
+    Depth is counted by tag name: a same-named start tag opens a level, a same-named end tag closes one.
+
+    :param tokens: Tokens from :func:`tokenize`.
+    :param start_index: Index of the start tag token to match.
+    :returns: The index of the closing end tag token, or ``None`` when the element is never closed.
+    """
+    tag_name = tokens[start_index].tag
+    depth = 0
+    for token_index in range(start_index, len(tokens)):
+        token = tokens[token_index]
+        if token.tag != tag_name:
+            continue
+        if token.kind == "start":
+            depth += 1
+        elif token.kind == "end":
+            depth -= 1
+            if depth == 0:
+                return token_index
+    return None
+
+
 def apply_edits(source: str, edits: list[tuple[int, int, str]]) -> str:
     """Replace non-overlapping spans of ``source``.
 

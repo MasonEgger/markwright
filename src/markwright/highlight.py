@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import itertools
 import re
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree
@@ -12,7 +11,7 @@ from markdown.extensions import Extension
 from markdown.inlinepatterns import InlineProcessor
 from markdown.postprocessors import Postprocessor
 
-from markwright._fences import find_fenced_blocks
+from markwright._fences import map_prose
 from markwright._html import RAW_TEXT_ELEMENTS, apply_edits, tokenize
 
 if TYPE_CHECKING:
@@ -33,9 +32,6 @@ _BACKSLASH_MARKER_RE = re.compile(r"\\&lt;\^&gt;")
 # Source-stage (``mw pre``) markers operate on raw, un-escaped text. They mirror
 # the escaped post-stage regex above.
 _PROSE_HIGHLIGHT_RE = re.compile(rf"{_ESCAPE_GUARD}<\^>(.*?){_ESCAPE_GUARD}<\^>")
-# An inline code span: a backtick run, content, and a closing run of exactly the same length.
-# Markers inside code are HTML-escaped during rendering and handled by :func:`apply_html` instead.
-_INLINE_CODE_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`).+?(?<!`)(?P=ticks)(?!`)")
 
 
 def _text_token_spans(rendered_html: str) -> list[tuple[int, int]]:
@@ -125,28 +121,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: Source with unescaped prose ``<^>...<^>`` markers wrapped in ``<mark>``.
     """
-    lines = text.split("\n")
-    fenced_lines = {
-        line_index for block in find_fenced_blocks(lines) for line_index in range(block.opening, block.closing + 1)
-    }
-
-    output_chunks: list[str] = []
-    for is_fenced, line_group in itertools.groupby(enumerate(lines), key=lambda entry: entry[0] in fenced_lines):
-        chunk = "\n".join(line for _, line in line_group)
-        if is_fenced:
-            output_chunks.append(chunk)
-            continue
-
-        # Within prose, inline code spans are skipped as well
-        highlighted_parts: list[str] = []
-        cursor = 0
-        for code_span in _INLINE_CODE_RE.finditer(chunk):
-            highlighted_parts.append(_PROSE_HIGHLIGHT_RE.sub(r"<mark>\1</mark>", chunk[cursor : code_span.start()]))
-            highlighted_parts.append(code_span.group(0))
-            cursor = code_span.end()
-        highlighted_parts.append(_PROSE_HIGHLIGHT_RE.sub(r"<mark>\1</mark>", chunk[cursor:]))
-        output_chunks.append("".join(highlighted_parts))
-    return "\n".join(output_chunks)
+    return map_prose(text, lambda prose: _PROSE_HIGHLIGHT_RE.sub(r"<mark>\1</mark>", prose))
 
 
 class HighlightInlineProcessor(InlineProcessor):
