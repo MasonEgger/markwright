@@ -20,11 +20,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 2: Pre-only extensions
 
-- [ ] Step 3: `button` extension
-  - [ ] RED: tests/test_button.py (basic, primary, escaping, no-text literal, inline mention, in-process `<p>`, shared paragraph, inline Markdown in text)
-  - [ ] GREEN: src/markwright/button.py (BUTTON_RE, _render_match, expand_source, preprocessor, extension)
-  - [ ] Wire up: register "button" in registry.py (pre_priority 20)
-  - [ ] `just check` green
+- [x] Step 3: `button` extension
+  - [x] RED: tests/test_button.py (basic, primary, escaping, no-text literal, inline mention, in-process `<p>`, shared paragraph, inline Markdown in text)
+  - [x] GREEN: src/markwright/button.py (BUTTON_RE, _render_match, expand_source, preprocessor, extension)
+  - [x] Wire up: register "button" in registry.py (pre_priority 20)
+  - [x] `just check` green
 - [ ] Step 4: `lightbox` extension
   - [ ] RED: tests/test_lightbox.py (url+alt, url-only empty alt, escaping, inline mention, in-process `<p>`)
   - [ ] GREEN: src/markwright/lightbox.py (LIGHTBOX_RE, _render_match, expand_source, preprocessor, extension)
