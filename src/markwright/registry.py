@@ -18,6 +18,7 @@ from markwright import (
     image_compare,
     instagram,
     lightbox,
+    mermaid,
     slideshow,
     twitter,
     youtube,
@@ -103,6 +104,7 @@ REGISTRY: dict[str, StageSpec] = {
     ),
     "button": StageSpec(pre=button.expand_source, pre_priority=20, extension=button.ButtonExtension),
     "lightbox": StageSpec(pre=lightbox.expand_source, pre_priority=20, extension=lightbox.LightboxExtension),
+    "mermaid": StageSpec(pre=mermaid.expand_source, pre_priority=45, extension=mermaid.MermaidExtension),
 }
 
 EXTENSION_NAMES: tuple[str, ...] = tuple(REGISTRY)
