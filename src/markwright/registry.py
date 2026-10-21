@@ -14,6 +14,7 @@ from markwright import (
     button,
     codepen,
     fence,
+    grid,
     highlight,
     icons,
     image_compare,
@@ -111,6 +112,13 @@ REGISTRY: dict[str, StageSpec] = {
         pre_priority=50,
         extension=icons.IconsExtension,
         check_options=icons.read_options,
+    ),
+    "grid": StageSpec(
+        pre=grid.expand_source,
+        post=grid.apply_html,
+        pre_priority=20,
+        post_priority=30,
+        extension=grid.GridExtension,
     ),
 }
 

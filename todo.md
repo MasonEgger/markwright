@@ -43,11 +43,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 3: Marker-comment extensions
 
-- [ ] Step 7: `grid` extension
-  - [ ] RED: tests/test_grid.py (marker + blank line, indent kept, inline/unknown-variant literal, classes on next list, cards, existing classes, one-marker-one-list, no-list skip+report, malformed/version/typed skips, idempotent, in-process)
-  - [ ] GREEN: src/markwright/grid.py (GridMarker, _expand_lines, apply_html via _markers + add_classes, pre/post processors priority 20/30)
-  - [ ] Wire up: register "grid" in registry.py (pre 20, post 30)
-  - [ ] `just check` green
+- [x] Step 7: `grid` extension
+  - [x] RED: tests/test_grid.py (marker + blank line, indent kept, inline/unknown-variant literal, classes on next list, cards, existing classes, one-marker-one-list, no-list skip+report, malformed/version/typed skips, idempotent, in-process)
+  - [x] GREEN: src/markwright/grid.py (GridMarker, _expand_lines, apply_html via _markers + add_classes, pre/post processors priority 20/30)
+  - [x] Wire up: register "grid" in registry.py (pre 20, post 30)
+  - [x] `just check` green
 - [ ] Step 8: `annotate` extension
   - [ ] RED: tests/test_annotate.py (source stage; prose links/ids/per-page/nested/existing-classes/idempotent/nested-same-tag; code Pygments+Chroma whole-comment, trailing newline, no-span marker-only, no-bang keeps comment; skips: no-block/unclosed/no-list/malformed/version; in-process paragraph, labeled fence, no-list consumed)
   - [ ] GREEN: src/markwright/annotate.py (AnnotateMarker, _expand_lines, _locate, apply_html, _enclosing_comment_span, pre/post processors priority 20/30)
