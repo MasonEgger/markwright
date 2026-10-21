@@ -27,7 +27,7 @@
 
 | Prompt/Command | Action Taken | Outcome |
 |---|---|---|
-| Mode: finalize, Step 11 | Ran `just check` and `just docs-build`, wrote summary and lesson, committed and pushed | One signed commit on material-parity-0.4.0 |
+| Mode: finalize, Step 11 | Ran `just check` and `just docs-build`, wrote the summary, committed and pushed (the lesson edit failed and was added in the following commit) | One signed commit on material-parity-0.4.0 |
 
 ## Efficiency Insights
 
@@ -51,7 +51,8 @@
   The mermaid and icons pre stages already use `_fences`; the directive-line stages do not.
   The round-trip hypothesis grammar never places a directive inside a fence, so the parity test misses it.
 - The `just docs-serve` visual check of the six live demos remains a human check for Mason.
-- One lesson recorded: the directive-in-fence parity gap.
+- The directive-in-fence parity gap lesson was meant to be recorded here, but the edit script failed before the commit; the orchestrator added it in the following commit.
+- The commit message's line about lessons.md is therefore wrong; the correction lives in that next commit.
 
 ## Suggested Skills for Next Session
 
