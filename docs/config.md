@@ -47,7 +47,7 @@ Both are lists of extension names, and they are mutually exclusive: setting both
 - `disable = ["codepen"]` runs every extension except that one.
 - Neither key runs every extension (the default).
 
-The valid names are `fence`, `highlight`, `youtube`, `codepen`, `twitter`, `instagram`, `slideshow`, and `image_compare`.
+The valid names are `fence`, `highlight`, `youtube`, `codepen`, `twitter`, `instagram`, `slideshow`, `image_compare`, `button`, `lightbox`, `mermaid`, `icons`, `grid`, and `annotate`.
 An unknown name is an error.
 
 ### `warn`
@@ -85,6 +85,20 @@ load = "click"
 
 Config validation checks `load`: an unsupported value, or `load` on an extension that does not take it, is an error.
 See [Click-to-Load](click-to-load.md) for the preview markup and a host script.
+
+The `icons` extension reads `packs`, a table that maps a shortcode prefix to a directory of SVG files.
+markwright ships no icons, so with `packs` omitted the extension does nothing and `:pack-name:` shortcodes pass through unchanged.
+
+```toml
+[icons.packs]
+lucide = "docs/icons/lucide"
+mw = "docs/icons/mw"
+```
+
+An empty `packs` table is a no-op and emits a `ConfigWarning`.
+A `packs` value that is not a table, a path that is not a string, or a directory that does not exist is a `ConfigError`.
+Relative directories resolve against the directory you run from.
+See [Icons](extensions/icons.md).
 
 An unknown top-level key, or a table named for an extension that does not exist, is an error.
 This catches typos rather than ignoring them.

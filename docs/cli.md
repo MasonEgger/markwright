@@ -24,7 +24,8 @@ See [Configuration](config.md) for the file format, discovery, and precedence.
 ### `mw pre`
 
 Reads Markdown source and writes Markdown with the source-stage transforms applied.
-It expands the embed directives (`[youtube ...]`, `[codepen ...]`, and the rest) into raw HTML and extracts fence directives into an `<!-- mw-fence:{JSON} -->` comment that the post stage reads back later.
+It expands the embed, `[button ...]`, and `[lightbox ...]` directives into raw HTML, turns `mermaid` fences into `<pre class="mermaid">` blocks, and resolves `:pack-name:` icon shortcodes to inline SVG.
+It extracts fence, `[grid]`, and `[annotate]` directives into marker comments (`<!-- mw-fence:{JSON} -->` and its siblings) that the post stage reads back later.
 With the highlight extension active, it also wraps prose `\<^>...\<^>` runs in `<mark>`, leaving in-code markers for the post stage.
 
 The output is meant to feed your renderer.
@@ -34,7 +35,7 @@ See [Renderer Requirements](renderer-requirements.md).
 ### `mw post`
 
 Reads rendered HTML and writes HTML with the HTML-stage transforms applied.
-It styles fence code blocks from their `mw-fence` markers (label divs, environment classes, `<ol><li data-prefix>` wrapping), wraps any remaining highlight markers in `<mark>`, and injects each embed script exactly once.
+It styles fence code blocks from their `mw-fence` markers (label divs, environment classes, `<ol><li data-prefix>` wrapping), classes grid lists and links annotations from their markers, wraps any remaining highlight markers in `<mark>`, and injects each embed script exactly once.
 
 The post stage is the complete path on its own.
 It needs no marker from the pre stage to inject scripts: it detects each embed's class signature in the rendered HTML, so it also works on hand-authored embeds.
@@ -62,7 +63,18 @@ extensions:
   instagram: on (default)
   fence: on (default)
   highlight: on (default)
+  button: on (default)
+  lightbox: on (default)
+  mermaid: on (default)
+  icons: on (default)
+  grid: on (default)
+  annotate: on (default)
 warn: false (default)
+load:
+  youtube: eager (default)
+  codepen: eager (default)
+  twitter: eager (default)
+  instagram: eager (default)
 options: none
 ```
 
@@ -80,6 +92,12 @@ twitter: pre, post
 instagram: pre, post
 fence: pre, post
 highlight: pre, post
+button: pre
+lightbox: pre
+mermaid: pre
+icons: pre
+grid: pre, post
+annotate: pre, post
 ```
 
 An extension labeled `pre` has only a source-stage transform.

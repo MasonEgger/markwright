@@ -3,6 +3,38 @@
 All notable changes to markwright are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Six new extensions that cover the Material for MkDocs authoring features (#16), plus the docs-site pieces that demonstrate them.
+With default settings, output is unchanged for documents that already rendered: none of the new directives or shortcodes appear in them, and the new extensions only act on their own syntax.
+
+### Upgrading from 0.3.0
+
+- No action is needed.
+  The new extensions are on by default in `mw`, so `mw list` and `mw config` show 14 extensions instead of 8.
+  A document that happens to contain a standalone `[button ...]`, `[lightbox ...]`, `[grid]`, or `[annotate]` line, or a `mermaid` fence, now renders differently; use `disable` or `--exclude` to turn one off.
+- `icons` does nothing until you configure `packs`, so `:name:` text is untouched by default.
+- If your `mkdocs.yml` has a `pymdownx.superfences` `custom_fences` entry named `mermaid` and you load `markwright.mermaid`, remove the entry: markwright replaces the fence first.
+
+### Added
+
+- `markwright.button`: `[button URL TEXT]` and `[button primary URL TEXT]` become `<a class="mw-button">` links.
+- `markwright.lightbox`: `[lightbox URL ALT]` becomes an `<a class="mw-lightbox">` wrapping an `<img>`.
+- `markwright.mermaid`: a `mermaid` fence becomes `<pre class="mermaid">` for a host script to draw.
+- `markwright.icons`: `:pack-name:` shortcodes become inline SVG wrapped in `<span class="mw-icon">`, read from directories named by the new `packs` option.
+  markwright ships no icons.
+- `markwright.grid`: `[grid]` and `[grid cards]` add `mw-grid` classes to the next list, through a versioned `mw-grid` marker comment.
+- `markwright.annotate`: `[annotate]` links `(N)` markers in a block to the items of the ordered list after it, through a versioned `mw-annotate` marker comment.
+- A shared marker module for the fence, grid, and annotate marker comments.
+- Docs pages for all six extensions, each with the `mw-` HTML contract and a live demo.
+- Demo-site host assets that show how a host styles the output: CSS in `extra.css`, scripts for mermaid, the lightbox, and annotation tooltips, and two small icon packs under `docs/icons/` with credits in `CREDITS.txt`.
+  These are not part of the package.
+- The docs `mw list` and `mw config` samples, `config.md`, and the MkDocs integration guide now cover the six extensions and the `icons` `packs` option.
+
+### Changed
+
+- The docs site no longer carries a `custom_fences` mermaid entry; `markwright.mermaid` replaces it.
+
 ## [0.3.0] - 2026-10-11
 
 Two opt-in features (a config API for host tools and click-to-load embeds), one rule for every config list, a round of correctness fixes, and Python 3.15 support.

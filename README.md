@@ -20,6 +20,15 @@ Each extension is standalone and can be loaded on its own or alongside the other
 - **Instagram** embeds a post with caption and alignment options.
 - **Slideshow** builds an image slideshow with navigation arrows.
 - **Image Compare** renders two images with a draggable before/after slider.
+- **Button** turns `[button URL TEXT]` into a link styled as a button.
+- **Lightbox** turns `[lightbox URL ALT]` into an image link a host script can open in an overlay.
+- **Mermaid** turns a `mermaid` code fence into a `<pre class="mermaid">` block a host script draws.
+- **Icons** replaces `:pack-name:` shortcodes with inline SVG from directories you configure.
+- **Grid** classes the list after `[grid]` or `[grid cards]` for a grid or card layout.
+- **Annotate** links `(N)` markers in a code block to the items of the numbered list after it.
+
+The six material-style extensions (Button, Lightbox, Mermaid, Icons, Grid, Annotate) emit plain `mw-` classes and markup.
+markwright ships no CSS, JavaScript, or icons; the host site supplies them, and the docs site is a worked example.
 
 The embeds that contact a third party (YouTube, CodePen, Twitter, Instagram) take a `load` option.
 `load = "click"` renders an inert preview so nothing reaches the provider until the reader asks; see [Click-to-Load](https://masonegger.github.io/markwright/click-to-load/).

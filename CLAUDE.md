@@ -48,6 +48,8 @@ The codebase has **two consumers over one set of pure stage functions**, so the 
 - `_fences.py` finds fenced code blocks by CommonMark's rules (0 to 3 space indent or under a list item, closing fence of the same character and at least the opening length, unclosed fences are not code). Fence's directive extraction and highlight's prose pass both use it, which is what keeps the two pre stages in parity.
 - `_html.py` tokenizes rendered HTML with the stdlib `html.parser` and keeps each token's source offsets (`HtmlToken`). Post stages find elements from tokens and apply span edits (`apply_edits`), so everything they do not touch stays byte-identical. A tree parser (lxml, selectolax) would re-serialize the whole page and is deliberately not used. `provider_script_needed` decides script injection from parsed classes and `src` attributes.
 
+- `_markers.py` owns the versioned `<!-- NAME:{JSON} -->` marker comment (`encode_marker`, `find_markers`, `decode_marker`) that carries data from a pre stage to a post stage. It is fail-soft on read and comment-safe on write (`<` and `>` are `\uXXXX`-escaped). Fence, grid, and annotate share it, so the contract lives in one place.
+
 Regex remains for single-line token grammars (the `[youtube ...]`-style directive lines ported from do-markdownit, fence info strings, the marker comment's own format, inline code spans and `<^>` markers within known text).
 
 **Config.** `config.py` owns the tuning surface: `load_config(explicit_path, start_dir) -> Config` discovers a standalone `markwright.toml` or a `[tool.markwright]` table in `pyproject.toml` by walking up with `pathlib`, parses it with stdlib `tomllib`, and validates it fail-loud into a frozen pydantic `Config` (a boundary `ConfigError`, never a traceback). `Config` carries the selection intent (`enable`/`disable`), per-extension option tables, the `warn` default, and a source map for `mw config`. It depends on `registry` (`EXTENSION_NAMES`, `OPTION_NAMES`, `REGISTRY`) and nothing else; keep that direction. It drops `None` values (omitted), rejects option keys outside `OPTION_NAMES`, and runs each `StageSpec.check_options` (the extension's own reader), wrapping its `OptionError` (a `ValueError` subclass in `_diagnostics.py`) in a `ConfigError`; any other exception from a checker is a bug and propagates.
@@ -56,7 +58,7 @@ Regex remains for single-line token grammars (the `[youtube ...]`-style directiv
 
 **Registry and CLI.** `registry.py` maps each extension name to a frozen pydantic `StageSpec` (`pre`, optional `post`, priorities, the Python-Markdown `extension` class, optional `check_options`) and provides `run_pre`, `run_post` (each threads every extension its option dict from config), and `describe`. `OPTION_NAMES` derives each extension's accepted keys from its class's declared `config`, so a new option is declared once. `cli.py` is a stdlib `argparse` CLI (`main(argv) -> int`) with subcommands `pre`, `post`, `render`, `config`, and `list`; the entry point is `mw = markwright.cli:main`. Selection resolves from config with `--exclude` (argparse `choices`) applied last via `_resolve`. Helpers raise; `main` is the only place exceptions become exit codes (`ConfigError`, or a `ConfigWarning` escalated by `-W error`, prints `mw: error:` and returns 2), because library code raises and only the CLI boundary returns codes. `render` builds a `markdown.Markdown` with `pymdownx.superfences` + `pymdownx.highlight` + the selected extensions and their config. `config` prints the resolved configuration and the source of each value.
 
-### The Three Extension Patterns
+### The Extension Patterns
 
 1. **Fence** (`fence.py`): `expand_source` extracts directives (`[label]`, `[secondary_label]`, `[environment]`) and prefix flags (`line_numbers`, `command`, `super_user`, `custom_prefix(...)`) and emits one `<!-- mw-fence:{JSON} -->` comment before the fence (at the fence's indentation, plus a blank line when indented, so it stays inside a list item), keeping the fence so the renderer still highlights it. `apply_html` validates each marker with the strict pydantic `FenceMarker` (unknown fields ignored), then applies label divs, environment classes, and `<ol><li data-prefix>` wrapping to the first `<pre>`/`<code>` before the next marker. The marker is a cross-tool contract: it carries `"version": 1` and is read fail-soft (malformed JSON, a non-object payload, an unsupported version, a wrongly typed field, or no following block is skipped and reported under `--warn`). Line-prefix wrapping handles two renderers: Pygments emits flat newline-delimited lines, while Chroma (Hugo) wraps each line in `<span class="line">`, which are taken whole from the tokens.
 
@@ -66,13 +68,27 @@ Regex remains for single-line token grammars (the `[youtube ...]`-style directiv
 
 3. **Highlight** (`highlight.py`): keeps an InlineProcessor for in-process prose. `apply_html` reads escaped `&lt;^&gt;` markers only from text tokens (never attributes, `<script>`, or `<style>`), pairs each with the next on the same line, and wraps every text run between them so it never crosses a syntax-highlight `<span>`. `expand_source` is the CLI pre stage: it wraps prose `<^>` only outside fenced code (via `_fences`) and inline code spans (n-backtick runs), leaving in-code markers for `apply_html`. The `\<^>` backslash escape renders a literal marker in both stages.
 
+4. **Button and lightbox** follow the embed pattern: `expand_source` replaces a standalone `[button ...]` or `[lightbox ...]` line with an `<a class="mw-...">`, through `_render_match(line)`, with no `apply_html`. They take no options.
+
+5. **Mermaid** is a fence-replacing pre stage with no stash. It finds closed `mermaid` fences with `_fences.find_fenced_blocks` and emits a raw `<pre class="mermaid">` inline (never stashed, because the in-process preprocessor runs above Python-Markdown's whitespace normalizer). It runs at 45, ahead of fence and superfences, so a `custom_fences` mermaid entry is inert.
+
+6. **Icons** is a pre stage over `_fences.map_prose` (so fences and code spans are skipped) plus an InlineProcessor (175) in-process. `markwright` ships no icons: `packs` maps a prefix to an SVG directory, read and validated by `icons.read_options` (omitted is silent, empty warns, bad shape or directory raises `OptionError`). It uses a sentinel default like fence, and reads options in `extendMarkdown`.
+
+7. **Grid and annotate** follow the fence marker-comment pattern through `_markers.py`: `expand_source` swaps `[grid]`, `[grid cards]`, or `[annotate]` for a versioned marker, and `apply_html` reads it back (strict pydantic payload, fail-soft skip reported under `--warn`), edits the list or the annotated block through `_html` spans, and removes the marker. Their `mw-grid` and `mw-annotate` markers and the `mw-annotation-B-N` ids are public contracts, versioned like `mw-fence`.
+
+markwright emits classes and markup only and ships no CSS, JavaScript, or icons; the docs site (`docs/stylesheets/extra.css`, `docs/javascripts/`, `docs/icons/`) is the worked host example.
+
 ### Processor Priority Reference (in-process)
 
 | Priority | Type | Extension | Relationship |
 |----------|------|-----------|-------------|
 | 40 | Preprocessor | fence | Runs *before* `pymdownx.superfences` (~38) |
+| 50 | Preprocessor | icons | Resolves shortcodes before anything else sees them (`mw pre` runs it first) |
+| 45 | Preprocessor | mermaid | Replaces mermaid fences before fence and superfences |
+| 20 | Preprocessor | button, lightbox, grid, annotate | Same slot as the embeds, after superfences |
 | 20 | Preprocessor | all embeds | Runs *after* superfences (embed syntax in fences is already stashed) |
-| 175 | InlineProcessor | highlight | Runs before emphasis |
+| 175 | InlineProcessor | highlight, icons | Runs before emphasis |
+| 30 | Postprocessor | grid, annotate | Runs ahead of fence, so annotate still sees the fence marker as a comment |
 | 25 | Postprocessor | fence, highlight | Standard post-processing |
 | 15 | Postprocessor | codepen, twitter, instagram | Script injection (runs after other postprocessors) |
 
@@ -107,7 +123,7 @@ The `python` skill's rules apply. Project-specific points and the deliberate exe
 
 ## Plan & Progress Tracking
 
-- `spec.md` (repo root): the living project spec in bpe's canonical sections, edited in place; its `## Roadmap / phase log` indexes the archives. There is no root `plan.md`/`todo.md`: markwright is maintained and issue-driven, so run `/bpe:brainstorm` to promote a Deferred item into Goals before `/bpe:plan`.
+- `spec.md` (repo root): the living project spec in bpe's canonical sections, edited in place; its `## Roadmap / phase log` indexes the archives. The root `plan.md` and `todo.md` are the live 0.4.0 cycle (issue #16, the six material-parity extensions) until archived; after that markwright is issue-driven again, so run `/bpe:brainstorm` to promote a Deferred item into Goals before `/bpe:plan`.
 - `.ai-sessions/config-system/{spec,plan,todo,accomplishment}.md`: the **completed** 0.2.0 config cycle (shipped in #10). The config schema, discovery, and precedence now live in `docs/config.md`.
 - GitHub issues drive work since 0.2.0 (0.3.0 was issues #11 and #13 plus the skill 2.0 audit). `CHANGELOG.md` records each release.
 - `.ai-sessions/v0.1-remediation/{spec,plan,todo,accomplishment}.md`: the **completed** step-55 remediation (R1 through R11, shipped as 0.1.0). `accomplishment.md` is the durable record; the marker contract and parity Decisions (D1, D2, D3) live in its `spec.md`.

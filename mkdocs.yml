@@ -25,11 +25,7 @@ theme:
     - toc.follow
 
 markdown_extensions:
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.superfences
   - pymdownx.highlight:
       pygments_lang_class: true
   - pymdownx.inlinehilite
@@ -88,6 +84,12 @@ nav:
       - Instagram: extensions/instagram.md
       - Slideshow: extensions/slideshow.md
       - Image Compare: extensions/image-compare.md
+      - Button: extensions/button.md
+      - Lightbox: extensions/lightbox.md
+      - Mermaid: extensions/mermaid.md
+      - Icons: extensions/icons.md
+      - Grid: extensions/grid.md
+      - Annotate: extensions/annotate.md
   - Integrations:
       - MkDocs: integrations/mkdocs.md
       - Hugo: integrations/hugo.md

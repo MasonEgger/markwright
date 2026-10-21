@@ -16,6 +16,12 @@ See [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) for attr
 - **[Instagram](extensions/instagram.md)** embeds a post with caption and alignment options.
 - **[Slideshow](extensions/slideshow.md)** builds an image slideshow with navigation arrows.
 - **[Image Compare](extensions/image-compare.md)** renders two images with a draggable before/after slider.
+- **[Button](extensions/button.md)** turns `[button URL TEXT]` into a link styled as a button.
+- **[Lightbox](extensions/lightbox.md)** turns `[lightbox URL ALT]` into an image link a host script can open in an overlay.
+- **[Mermaid](extensions/mermaid.md)** turns a `mermaid` code fence into a `<pre class="mermaid">` block a host script draws.
+- **[Icons](extensions/icons.md)** replaces `:pack-name:` shortcodes with inline SVG from directories you configure.
+- **[Grid](extensions/grid.md)** classes the list after `[grid]` or `[grid cards]` for a grid or card layout.
+- **[Annotate](extensions/annotate.md)** links `(N)` markers in a code block to the items of the numbered list after it.
 
 ## Installation
 
@@ -51,6 +57,11 @@ md = markdown.Markdown(
         "markwright.instagram",
         "markwright.slideshow",
         "markwright.image_compare",
+        "markwright.button",
+        "markwright.lightbox",
+        "markwright.mermaid",
+        "markwright.grid",
+        "markwright.annotate",
     ]
 )
 
@@ -85,13 +96,21 @@ See the [CLI Reference](cli.md) for the commands and flags, and the [Hugo integr
 
 ## Architecture
 
-Each extension is a standalone Python-Markdown extension loaded by name (e.g., `markwright.highlight`). The extensions use three processor patterns:
+Each extension is a standalone Python-Markdown extension loaded by name (e.g., `markwright.highlight`). The extensions use these processor patterns:
 
 1. **Fence** uses a Preprocessor (priority 40) that runs *before* `pymdownx.superfences` to extract directives. A Postprocessor (priority 25) injects labels, classes, and prefix markup into rendered HTML.
 
 2. **Embeds** use Preprocessors (priority 20) that run *after* superfences, matching standalone `[name ...]` lines. Social embeds add a Postprocessor (priority 15) for one-time script injection.
 
 3. **Highlight** uses an InlineProcessor (priority 175) for regular text, plus a Postprocessor (priority 25) for `<^>` markers inside code blocks where the delimiters are HTML-escaped.
+
+4. **Button, Lightbox, and Mermaid** use Preprocessors only. Button and Lightbox (priority 20) match standalone directive lines like the embeds. Mermaid (priority 45) replaces `mermaid` fences with a raw `<pre>` before superfences sees them.
+
+5. **Icons** uses a Preprocessor (priority 50) for the `mw pre` stage and an InlineProcessor (priority 175) in-process, both resolving `:pack-name:` shortcodes against SVG directories you configure.
+
+6. **Grid and Annotate** follow the fence marker-comment pattern: a Preprocessor (priority 20) swaps the directive for a versioned marker comment, and a Postprocessor (priority 30) reads it from the rendered HTML.
+
+markwright ships no CSS, JavaScript, or icons. The extensions emit classes and markup, and the host site styles them.
 
 ## License
 

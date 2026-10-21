@@ -71,10 +71,10 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [x] docs/icons/<pack>/*.svg demo set + docs/icons/LICENSE credit
   - [x] mkdocs.yml extra_javascript and markwright.icons packs
   - [x] Verify `just docs-build` strict-clean; human visual check on `just docs-serve`
-- [ ] Step 11: Docs pages, nav, README, and CHANGELOG (task)
-  - [ ] Six docs/extensions/*.md pages (contract + live demo)
-  - [ ] mkdocs.yml nav; docs/index.md and README feature lists
-  - [ ] docs/cli.md list/config output; docs/config.md icons packs; docs/integrations/mkdocs.md example
-  - [ ] CHANGELOG Unreleased Added section (the version bump is the release step)
-  - [ ] CLAUDE.md patterns, priority table, _markers boundary
-  - [ ] Verify `just docs-build` strict-clean, `just check` green, content-design review of prose
+- [x] Step 11: Docs pages, nav, README, and CHANGELOG (task)
+  - [x] Six docs/extensions/*.md pages (contract + live demo)
+  - [x] mkdocs.yml nav; docs/index.md and README feature lists
+  - [x] docs/cli.md list/config output; docs/config.md icons packs; docs/integrations/mkdocs.md example
+  - [x] CHANGELOG Unreleased Added section (the version bump is the release step)
+  - [x] CLAUDE.md patterns, priority table, _markers boundary
+  - [x] Verify `just docs-build` strict-clean, `just check` green, content-design review of prose
