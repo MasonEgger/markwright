@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- Hatch's default `license-files` glob matches any `LICENSE`-named file under the project, so a `docs/icons/LICENSE` crediting third-party assets lands in the sdist and fails the sdist allowlist test; name such credits `CREDITS.txt` (2026-10-20)
 - A spec `paths:` fence must name every file the plan's docs and release steps touch (`mkdocs.yml`, `README.md`, `CHANGELOG.md`, `CLAUDE.md`, `plan.md`, `todo.md`, `.ai-sessions/**`), and `deps: frozen` blocks a version-only `pyproject.toml` edit too; check Section 5-style steps against both lines at `/bpe:plan` time, or the goal loop stalls at the first non-code step waiting on a spec change (2026-10-20)
 - The `mw` console script resolves only inside the uv environment, so the Hugo integration test silently skips under a bare `pytest` or a shell `which mw`; `just check` or `just test-integration` is the way to be sure it ran (2026-10-20)
 - The annotate postprocessor runs at a higher priority than the fence postprocessor so the fence marker is still a comment token when the annotated block is located; at fence's priority the marker is already consumed and the block cannot be found (2026-10-20)
@@ -11,7 +12,6 @@
 - A markwright `icons.packs` directory is static config, so a docs demo cannot point at an installed package's icon folder (mkdocs-material's `.icons`) portably; commit a small credited SVG set under `docs/icons/` and name that path, which also doubles as the worked `packs` example (2026-10-20)
 - When CLAUDE.md names a process skill (`/bpe:brainstorm`, `/bpe:plan`, `/bpe:goal`) that the session's skill list lacks, stop and report it before implementing; hand-written spec/plan/todo files plus direct implementation are not a substitute, and Mason discarded a green, fully tested pass over exactly this (2026-10-15)
 - Python-Markdown's `normalize_whitespace` preprocessor (priority 30) strips the STX/ETX bytes around an `htmlStash` placeholder, so a preprocessor registered above 30 (anything that must run ahead of superfences) cannot stash; emit raw HTML inline and let the `html_block` preprocessor (priority 20) carry it, which is why the embeds at 20 can stash and a fence-replacing stage cannot (2026-10-15)
-- Python-Markdown serializes element attributes in sorted order, so a pre stage that emits the same element as an in-process `InlineProcessor` must write its attributes alphabetically (`aria-hidden` before `class`) or the roundtrip parity test fails on byte order (2026-10-15)
 
 ## Workflow
 - A spec `paths:` fence must name every file the plan's docs and release steps touch (`mkdocs.yml`, `README.md`, `CHANGELOG.md`, `CLAUDE.md`, `plan.md`, `todo.md`, `.ai-sessions/**`), and `deps: frozen` blocks a version-only `pyproject.toml` edit too; check Section 5-style steps against both lines at `/bpe:plan` time, or the goal loop stalls at the first non-code step waiting on a spec change (2026-10-20)
@@ -29,6 +29,7 @@
 - Give an argparse-based `main(argv) -> int` a testable exit-code contract by wrapping `parser.parse_args` in `try/except SystemExit` and returning `exit_error.code`; this captures both the `action="version"` exit (0) and invalid-choice usage errors (2) without letting `SystemExit` escape to `capsys`-driven tests (2026-06-28)
 
 ## Testing
+- Python-Markdown serializes element attributes in sorted order, so a pre stage that emits the same element as an in-process `InlineProcessor` must write its attributes alphabetically (`aria-hidden` before `class`) or the roundtrip parity test fails on byte order (2026-10-15)
 - When rewriting test helpers into fixtures with a split-by-`def test_` script, the fixture definition lands inside a neighboring piece and gets rewritten too (here into a self-recursive call), and an end marker like the next `class` can swallow an adjacent helper; scope such scripts to function bodies and diff the result before running tests (2026-10-11)
 - Porting an upstream regex for parity means matching its exact tolerance, including what it rejects: the ported Instagram grammar (`INSTAGRAM_RE`) dropped a trailing-query tolerance markwright's own regex had added, because upstream's grammar ends right after the shortcode capture group; a test that pinned the old, more permissive behavior had to be replaced rather than kept alongside the new one (2026-09-14)
 - A "make every consumer agree" fix is only proven by a test that drives every consumer (in-process render, `mw pre`, `mw pre | post`) from one shared input; a per-consumer test suite let a third divergence (an escaped prose marker surviving `mw pre` but not the `pre | post` pipeline) hide behind two passing single-consumer tests until the parity test forced all three through the same case (2026-09-14)
@@ -39,6 +40,7 @@
 - Adding a parallel code path for an existing behavior needs its own test even when an analogous test exists for the old path (2026-06-26)
 
 ## Tooling
+- Hatch's default `license-files` glob matches any `LICENSE`-named file under the project, so a `docs/icons/LICENSE` crediting third-party assets lands in the sdist and fails the sdist allowlist test; name such credits `CREDITS.txt` (2026-10-20)
 - Switching the build backend from uv_build to hatchling silently changed the sdist from the package plus tests to every git-tracked file (session notes, CLAUDE.md, plans, docs, CI config); set `[tool.hatch.build.targets.sdist] include` explicitly and keep an integration test that asserts the sdist's top-level entries against an allowlist (2026-10-11)
 - Before adding a new CPython to a project, update uv first (`uv self update`): uv 0.10.9 offered only `3.15.0a6`, where PyYAML's source build failed, while uv 0.13.0 installed the final 3.15.0 and everything passed; in CI, let uv supply the interpreter from `.python-version` instead of `actions/setup-python`, whose release list can lag a new CPython (2026-10-11)
 - Ruff's TC fixer moves imports used only in annotations under `TYPE_CHECKING`, which breaks pydantic models (field annotations resolve at runtime) and decorators like `@pytest.fixture`; keep those imports at runtime with a per-line `# noqa: TC00x` naming pydantic as the reason, and re-check imports after any `--fix` pass (2026-10-11)

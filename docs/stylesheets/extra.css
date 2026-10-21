@@ -310,3 +310,111 @@ iframe.youtube {
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
     color: white;
 }
+
+/* Host styles for the 0.4.0 extensions. markwright ships no CSS. */
+
+a.mw-button {
+    display: inline-block;
+    padding: 0.5em 1.2em;
+    border: 2px solid var(--md-primary-fg-color);
+    border-radius: 0.2rem;
+    color: var(--md-primary-fg-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+a.mw-button:hover {
+    background: var(--md-primary-fg-color--light);
+    color: var(--md-primary-bg-color);
+}
+
+a.mw-button.mw-button-primary {
+    background: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+}
+
+a.mw-button.mw-button-primary:hover {
+    background: var(--md-accent-fg-color);
+    border-color: var(--md-accent-fg-color);
+}
+
+ul.mw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1rem;
+    padding: 0;
+    list-style: none;
+}
+
+ul.mw-grid > li {
+    margin: 0;
+}
+
+ul.mw-grid.mw-cards > li {
+    padding: 1rem;
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 0.2rem;
+}
+
+a.mw-lightbox img {
+    cursor: zoom-in;
+    max-width: 100%;
+}
+
+dialog.mw-lightbox-dialog {
+    max-width: 92vw;
+    max-height: 92vh;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+dialog.mw-lightbox-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+dialog.mw-lightbox-dialog img {
+    display: block;
+    max-width: 92vw;
+    max-height: 92vh;
+    cursor: zoom-out;
+}
+
+.mw-icon {
+    display: inline-block;
+    vertical-align: -0.125em;
+}
+
+.mw-icon svg {
+    width: 1.1em;
+    height: 1.1em;
+    fill: none;
+    stroke: currentColor;
+}
+
+.mw-icon svg[fill="currentColor"] {
+    fill: currentColor;
+    stroke: none;
+}
+
+a.mw-annotation {
+    font-size: 0.75em;
+    vertical-align: super;
+    text-decoration: none;
+}
+
+ol.mw-annotations {
+    font-size: 0.9em;
+}
+
+.mw-annotation-tooltip {
+    position: absolute;
+    z-index: 10;
+    max-width: 20rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.2rem;
+    background: var(--md-default-fg-color);
+    color: var(--md-default-bg-color);
+    font-size: 0.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}

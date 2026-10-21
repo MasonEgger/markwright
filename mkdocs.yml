@@ -52,9 +52,24 @@ markdown_extensions:
   - markwright.instagram
   - markwright.slideshow
   - markwright.image_compare
+  - markwright.button
+  - markwright.lightbox
+  - markwright.mermaid
+  - markwright.grid
+  - markwright.annotate
+  - markwright.icons:
+      packs:
+        lucide: docs/icons/lucide
+        mw: docs/icons/mw
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - path: javascripts/mermaid.js
+    type: module
+  - javascripts/lightbox.js
+  - javascripts/annotate.js
 
 nav:
   - Home: index.md
