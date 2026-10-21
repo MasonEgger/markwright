@@ -48,11 +48,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [x] GREEN: src/markwright/grid.py (GridMarker, _expand_lines, apply_html via _markers + add_classes, pre/post processors priority 20/30)
   - [x] Wire up: register "grid" in registry.py (pre 20, post 30)
   - [x] `just check` green
-- [ ] Step 8: `annotate` extension
-  - [ ] RED: tests/test_annotate.py (source stage; prose links/ids/per-page/nested/existing-classes/idempotent/nested-same-tag; code Pygments+Chroma whole-comment, trailing newline, no-span marker-only, no-bang keeps comment; skips: no-block/unclosed/no-list/malformed/version; in-process paragraph, labeled fence, no-list consumed)
-  - [ ] GREEN: src/markwright/annotate.py (AnnotateMarker, _expand_lines, _locate, apply_html, _enclosing_comment_span, pre/post processors priority 20/30)
-  - [ ] Wire up: register "annotate" in registry.py (pre 20, post 30)
-  - [ ] `just check` green
+- [x] Step 8: `annotate` extension
+  - [x] RED: tests/test_annotate.py (source stage; prose links/ids/per-page/nested/existing-classes/idempotent/nested-same-tag; code Pygments+Chroma whole-comment, trailing newline, no-span marker-only, no-bang keeps comment; skips: no-block/unclosed/no-list/malformed/version; in-process paragraph, labeled fence, no-list consumed)
+  - [x] GREEN: src/markwright/annotate.py (AnnotateMarker, _expand_lines, _locate, apply_html, _enclosing_comment_span, pre/post processors priority 20/30)
+  - [x] Wire up: register "annotate" in registry.py (pre 20, post 30)
+  - [x] `just check` green
 
 ## Section 4: Cross-cutting tests and registration checks
 

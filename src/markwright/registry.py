@@ -11,6 +11,7 @@ from markdown.extensions import Extension  # noqa: TC002
 from pydantic import BaseModel, ConfigDict
 
 from markwright import (
+    annotate,
     button,
     codepen,
     fence,
@@ -119,6 +120,13 @@ REGISTRY: dict[str, StageSpec] = {
         pre_priority=20,
         post_priority=30,
         extension=grid.GridExtension,
+    ),
+    "annotate": StageSpec(
+        pre=annotate.expand_source,
+        post=annotate.apply_html,
+        pre_priority=20,
+        post_priority=30,
+        extension=annotate.AnnotateExtension,
     ),
 }
 
