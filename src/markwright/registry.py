@@ -15,6 +15,7 @@ from markwright import (
     codepen,
     fence,
     highlight,
+    icons,
     image_compare,
     instagram,
     lightbox,
@@ -105,6 +106,12 @@ REGISTRY: dict[str, StageSpec] = {
     "button": StageSpec(pre=button.expand_source, pre_priority=20, extension=button.ButtonExtension),
     "lightbox": StageSpec(pre=lightbox.expand_source, pre_priority=20, extension=lightbox.LightboxExtension),
     "mermaid": StageSpec(pre=mermaid.expand_source, pre_priority=45, extension=mermaid.MermaidExtension),
+    "icons": StageSpec(
+        pre=icons.expand_source,
+        pre_priority=50,
+        extension=icons.IconsExtension,
+        check_options=icons.read_options,
+    ),
 }
 
 EXTENSION_NAMES: tuple[str, ...] = tuple(REGISTRY)

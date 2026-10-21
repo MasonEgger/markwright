@@ -35,11 +35,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [x] GREEN: src/markwright/mermaid.py (_expand_lines inline raw, no stash; preprocessor priority 45)
   - [x] Wire up: register "mermaid" in registry.py (pre_priority 45)
   - [x] `just check` green
-- [ ] Step 6: `icons` extension
-  - [ ] RED: tests/test_icons.py (flat resolve, nested join + XML strip, unknown pack/name literal, code untouched, no-packs passthrough, in-process, options: empty warns, non-table/bad-value/missing-dir OptionError, construction error, config ConfigError, valid config stored)
-  - [ ] GREEN: src/markwright/icons.py (read_options, _shortcode_pattern, _load_icon, expand_source via map_prose, InlineProcessor priority 175, sentinel _NO_PACKS)
-  - [ ] Wire up: register "icons" in registry.py (pre_priority 50, check_options)
-  - [ ] `just check` green
+- [x] Step 6: `icons` extension
+  - [x] RED: tests/test_icons.py (flat resolve, nested join + XML strip, unknown pack/name literal, code untouched, no-packs passthrough, in-process, options: empty warns, non-table/bad-value/missing-dir OptionError, construction error, config ConfigError, valid config stored)
+  - [x] GREEN: src/markwright/icons.py (read_options, _shortcode_pattern, _load_icon, expand_source via map_prose, InlineProcessor priority 175, sentinel _NO_PACKS)
+  - [x] Wire up: register "icons" in registry.py (pre_priority 50, check_options)
+  - [x] `just check` green
 
 ## Section 3: Marker-comment extensions
 
