@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- The `mw` console script resolves only inside the uv environment, so the Hugo integration test silently skips under a bare `pytest` or a shell `which mw`; `just check` or `just test-integration` is the way to be sure it ran (2026-10-20)
 - The annotate postprocessor runs at a higher priority than the fence postprocessor so the fence marker is still a comment token when the annotated block is located; at fence's priority the marker is already consumed and the block cannot be found (2026-10-20)
 - When replacing a whole comment span (a code-block annotation comment), keep the span's trailing newline, or the next code line merges into the previous one (2026-10-20)
 - A shared helper that takes a payload dict should annotate the parameter `Mapping[str, object]`, not `dict[str, object]`: `dict` is invariant in its value type, so a caller holding `dict[str, str]` (fence's marker payload) fails mypy, while `Mapping` is covariant in the value (2026-10-20)

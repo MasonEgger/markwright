@@ -50,6 +50,7 @@ class TestOptionNames:
         assert OPTION_NAMES["fence"] == {"label_class", "secondary_label_class", "allowed_environments"}
         assert OPTION_NAMES["youtube"] == {"load"}
         assert OPTION_NAMES["slideshow"] == frozenset()
+        assert OPTION_NAMES["icons"] == {"packs"}
         assert set(OPTION_NAMES) == set(EXTENSION_NAMES)
 
 
@@ -63,3 +64,7 @@ class TestDescribe:
         assert described["fence"] == ["pre", "post"]
         assert described["highlight"] == ["pre", "post"]
         assert described["codepen"] == ["pre", "post"]
+        for name in ("button", "lightbox", "mermaid", "icons"):
+            assert described[name] == ["pre"]
+        for name in ("grid", "annotate"):
+            assert described[name] == ["pre", "post"]

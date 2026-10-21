@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 import markdown
 import pytest
@@ -14,6 +15,9 @@ from markwright import registry
 from markwright.codepen import CODEPEN_SCRIPT
 from markwright.instagram import INSTAGRAM_SCRIPT
 from markwright.twitter import TWITTER_SCRIPT
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # A fixture exercising every feature in one document: a labeled command fence
 # (label directive + command prefix), an environment fence, a line-numbered
@@ -42,6 +46,32 @@ value = "<^>token<^>"
 [codepen jcoulterdesign npyBME]
 
 Prose with a <^>marked<^> word.
+
+[button primary /start Get started]
+
+[lightbox /a.png A diagram]
+
+```mermaid
+graph LR
+    A --> B
+```
+
+[grid cards]
+
+- card one
+- card two
+
+[annotate]
+```python
+x = 1  # (1)!
+```
+
+1. The first note.
+
+[annotate]
+Prose with a marker (1).
+
+1. A prose note.
 """
 
 _PRE_BLOCK_RE = re.compile(r"<pre.*?</pre>", re.DOTALL)
@@ -129,6 +159,28 @@ class TestRoundTripEquivalence:
         assert "youtube.com/embed/dQw4w9WgXcQ" in pipeline
         assert 'class="codepen"' in pipeline
         assert CODEPEN_SCRIPT in pipeline
+        assert '<a class="mw-button mw-button-primary" href="/start">Get started</a>' in pipeline
+        assert '<a class="mw-lightbox" href="/a.png"><img src="/a.png" alt="A diagram" /></a>' in pipeline
+        assert '<pre class="mermaid">graph LR\n    A --&gt; B\n</pre>' in pipeline
+        assert '<ul class="mw-grid mw-cards">' in pipeline
+        assert '<a class="mw-annotation" href="#mw-annotation-1-1">1</a>' in pipeline
+        assert "(1)!" not in pipeline
+        assert '<li id="mw-annotation-2-1">A prose note.</li>' in pipeline
+
+
+class TestRoundTripIcons:
+    """Icon shortcodes expand from a configured pack the same through the pipeline and in-process."""
+
+    def test_pipeline_equals_in_process_render(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        source = "A :demo-check: icon and `:demo-check:` as code.\n"
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
 
 
 class TestRoundTripIdempotency:
@@ -180,6 +232,11 @@ class TestRoundTripDegradation:
         assert "youtube.com/embed/dQw4w9WgXcQ" in degraded
         assert "<mark>token</mark>" in degraded
         assert CODEPEN_SCRIPT in degraded
+        # The marker-comment extensions degrade; the comment-free ones survive.
+        assert "mw-grid" not in degraded
+        assert "mw-annotation" not in degraded
+        assert 'class="mw-button' in degraded
+        assert '<pre class="mermaid">' in degraded
 
 
 # One of each embed that takes a load option, so every load value runs through both paths.
@@ -292,11 +349,50 @@ _EMBED_BLOCKS = st.sampled_from(
 )
 
 
+@st.composite
+def _grid_block(draw: st.DrawFn) -> str:
+    """Draw a grid directive followed by a short bullet list."""
+    directive = draw(st.sampled_from(["[grid]", "[grid cards]"]))
+    items = draw(st.lists(_PHRASES, min_size=1, max_size=3))
+    return directive + "\n\n" + "\n".join(f"- {item}" for item in items)
+
+
+@st.composite
+def _annotate_block(draw: st.DrawFn) -> str:
+    """Draw an annotate directive with a prose or code body and its numbered notes."""
+    marker = draw(st.integers(min_value=1, max_value=3))
+    if draw(st.booleans()):
+        body = f"{draw(_PHRASES)} ({marker}) {draw(_PHRASES)}"
+    else:
+        body = f"```python\n{draw(_WORDS)} = 1  # ({marker})!\n```"
+    notes = draw(st.lists(_PHRASES, min_size=1, max_size=3))
+    numbered = "\n".join(f"{note_number}. {note}" for note_number, note in enumerate(notes, start=1))
+    return f"[annotate]\n{body}\n\n{numbered}"
+
+
+_DIRECTIVE_BLOCKS = st.sampled_from(
+    [
+        "[button primary /start Get started]",
+        "[button /docs Read the docs]",
+        "[lightbox /a.png A diagram]",
+        "```mermaid\ngraph LR\n    A --> B\n```",
+    ]
+)
+
+
 class TestRoundTripProperty:
     """Any document built from markwright's grammar renders the same through the pipeline and in-process."""
 
     @settings(max_examples=150, deadline=None)
-    @given(blocks=st.lists(st.one_of(_prose_block(), _fence_block(), _EMBED_BLOCKS), min_size=1, max_size=6))
+    @given(
+        blocks=st.lists(
+            st.one_of(
+                _prose_block(), _fence_block(), _EMBED_BLOCKS, _DIRECTIVE_BLOCKS, _grid_block(), _annotate_block()
+            ),
+            min_size=1,
+            max_size=6,
+        )
+    )
     def test_pipeline_equals_in_process_render(self, blocks: list[str]) -> None:
         document = "\n\n".join(blocks) + "\n"
         names = list(registry.EXTENSION_NAMES)

@@ -56,12 +56,12 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 4: Cross-cutting tests and registration checks
 
-- [ ] Step 9: Round-trip, registry, CLI, and Hugo coverage
-  - [ ] Extend tests/test_roundtrip.py (FIXTURE, presence assertions, degradation, TestRoundTripIcons, hypothesis grammar)
-  - [ ] Extend tests/test_registry.py and tests/test_cli.py (OPTION_NAMES icons, describe stages, list/config output)
-  - [ ] Extend tests/integration/test_hugo_pipeline.py (MATERIAL_SOURCE through Hugo with a demo pack)
-  - [ ] Fix the responsible extension for any failing assertion (not the test)
-  - [ ] `just check` and `just test-integration` green
+- [x] Step 9: Round-trip, registry, CLI, and Hugo coverage
+  - [x] Extend tests/test_roundtrip.py (FIXTURE, presence assertions, degradation, TestRoundTripIcons, hypothesis grammar)
+  - [x] Extend tests/test_registry.py and tests/test_cli.py (OPTION_NAMES icons, describe stages, list/config output)
+  - [x] Extend tests/integration/test_hugo_pipeline.py (MATERIAL_SOURCE through Hugo with a demo pack)
+  - [x] Fix the responsible extension for any failing assertion (not the test)
+  - [x] `just check` and `just test-integration` green
 
 ## Section 5: Demo assets, docs, and release
 

@@ -44,6 +44,38 @@ gamma
 ```
 """
 
+# The 0.4.0 constructs: button, lightbox, mermaid, grid, both annotate forms, and an icon.
+# The annotate code case uses bash so Chroma emits a comment token around the marker.
+MATERIAL_SOURCE = """\
+[button primary /start Get started]
+
+[lightbox /a.png A diagram]
+
+```mermaid
+graph LR
+    A --> B
+```
+
+[grid cards]
+
+- card one
+- card two
+
+[annotate]
+```bash
+./deploy.sh --prod # (1)!
+```
+
+1. The first note.
+
+[annotate]
+Prose with a marker (1).
+
+1. A prose note.
+
+A :demo-check: icon.
+"""
+
 # Goldmark must pass raw HTML and the mw-fence comment through (unsafe), and Chroma
 # must emit CSS classes (noClasses = false) so the highlight markup carries class hooks.
 HUGO_CONFIG = """\
@@ -163,3 +195,35 @@ def test_indented_and_list_item_fences_survive_hugo(tmp_path: Path) -> None:
     assert 'class="environment-local chroma"' in final
     assert 'class="prefixed command chroma"' in final
     assert "[label" not in final
+
+
+@requires_tools
+def test_material_parity_directives_survive_hugo(tmp_path: Path) -> None:
+    assert HUGO is not None
+    site = tmp_path / "site"
+    (site / "content").mkdir(parents=True)
+    (site / "layouts" / "_default").mkdir(parents=True)
+    (site / "hugo.toml").write_text(HUGO_CONFIG)
+    (site / "layouts" / "_default" / "single.html").write_text(SINGLE_LAYOUT)
+    pack = tmp_path / "demo"
+    pack.mkdir()
+    (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+    config_path = tmp_path / "markwright.toml"
+    config_path.write_text(f'[icons.packs]\ndemo = "{pack}"\n')
+
+    pre_md = _run_mw(["pre", "--config", str(config_path)], MATERIAL_SOURCE)
+    (site / "content" / "page.md").write_text('+++\ntitle = "Page"\n+++\n\n' + pre_md)
+    subprocess.run([HUGO, "--quiet"], cwd=site, check=True)
+    rendered = (site / "public" / "page" / "index.html").read_text()
+    final = _run_mw(["post", "--config", str(config_path)], rendered)
+
+    assert '<a class="mw-button mw-button-primary" href="/start">Get started</a>' in final
+    assert '<a class="mw-lightbox" href="/a.png"><img src="/a.png" alt="A diagram" /></a>' in final
+    assert '<pre class="mermaid">graph LR\n    A --&gt; B\n</pre>' in final
+    assert '<ul class="mw-grid mw-cards">' in final
+    assert "<!-- mw-" not in final
+    assert '<a class="mw-annotation" href="#mw-annotation-1-1">1</a>' in final
+    assert "(1)!" not in final
+    assert '<li id="mw-annotation-1-1">The first note.</li>' in final
+    assert '<li id="mw-annotation-2-1">A prose note.</li>' in final
+    assert final.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
