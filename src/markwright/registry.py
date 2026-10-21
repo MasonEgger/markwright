@@ -10,7 +10,18 @@ from functools import partial
 from markdown.extensions import Extension  # noqa: TC002
 from pydantic import BaseModel, ConfigDict
 
-from markwright import button, codepen, fence, highlight, image_compare, instagram, slideshow, twitter, youtube
+from markwright import (
+    button,
+    codepen,
+    fence,
+    highlight,
+    image_compare,
+    instagram,
+    lightbox,
+    slideshow,
+    twitter,
+    youtube,
+)
 from markwright._embed_load import load_mode
 
 PreFn = Callable[[str, Mapping[str, object] | None], str]
@@ -91,6 +102,7 @@ REGISTRY: dict[str, StageSpec] = {
         extension=highlight.HighlightExtension,
     ),
     "button": StageSpec(pre=button.expand_source, pre_priority=20, extension=button.ButtonExtension),
+    "lightbox": StageSpec(pre=lightbox.expand_source, pre_priority=20, extension=lightbox.LightboxExtension),
 }
 
 EXTENSION_NAMES: tuple[str, ...] = tuple(REGISTRY)

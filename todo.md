@@ -25,11 +25,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [x] GREEN: src/markwright/button.py (BUTTON_RE, _render_match, expand_source, preprocessor, extension)
   - [x] Wire up: register "button" in registry.py (pre_priority 20)
   - [x] `just check` green
-- [ ] Step 4: `lightbox` extension
-  - [ ] RED: tests/test_lightbox.py (url+alt, url-only empty alt, escaping, inline mention, in-process `<p>`)
-  - [ ] GREEN: src/markwright/lightbox.py (LIGHTBOX_RE, _render_match, expand_source, preprocessor, extension)
-  - [ ] Wire up: register "lightbox" in registry.py (pre_priority 20)
-  - [ ] `just check` green
+- [x] Step 4: `lightbox` extension
+  - [x] RED: tests/test_lightbox.py (url+alt, url-only empty alt, escaping, inline mention, in-process `<p>`)
+  - [x] GREEN: src/markwright/lightbox.py (LIGHTBOX_RE, _render_match, expand_source, preprocessor, extension)
+  - [x] Wire up: register "lightbox" in registry.py (pre_priority 20)
+  - [x] `just check` green
 - [ ] Step 5: `mermaid` extension
   - [ ] RED: tests/test_mermaid.py (fence to pre, tilde, escaping, other fences, prose, label-stays-text, indented in list, unclosed, in-process no highlight)
   - [ ] GREEN: src/markwright/mermaid.py (_expand_lines inline raw, no stash; preprocessor priority 45)
