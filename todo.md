@@ -71,10 +71,10 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [ ] docs/icons/<pack>/*.svg demo set + docs/icons/LICENSE credit
   - [ ] mkdocs.yml extra_javascript and markwright.icons packs
   - [ ] Verify `just docs-build` strict-clean; human visual check on `just docs-serve`
-- [ ] Step 11: Docs pages, nav, README, CHANGELOG, and the 0.4.0 bump (task)
+- [ ] Step 11: Docs pages, nav, README, and CHANGELOG (task)
   - [ ] Six docs/extensions/*.md pages (contract + live demo)
   - [ ] mkdocs.yml nav; docs/index.md and README feature lists
   - [ ] docs/cli.md list/config output; docs/config.md icons packs; docs/integrations/mkdocs.md example
-  - [ ] CHANGELOG 0.4.0 Added section; pyproject version 0.4.0
+  - [ ] CHANGELOG Unreleased Added section (the version bump is the release step)
   - [ ] CLAUDE.md patterns, priority table, _markers boundary
   - [ ] Verify `just docs-build` strict-clean, `just check` green, content-design review of prose

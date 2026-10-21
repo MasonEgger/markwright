@@ -20,7 +20,7 @@ The gotchas that pass found are folded into the relevant steps as `**NOTE**` blo
 - Section 2 adds the four pre-only extensions, simplest first (button, lightbox), then the two that parse structure (mermaid, icons). Each registers itself, so the registry-driven tests see it immediately.
 - Section 3 adds the two marker-comment extensions, which depend on `_markers` (Section 1) and `_html.add_classes` / `_html.matching_end`.
 - Section 4 extends the cross-cutting tests (roundtrip, registry, CLI, Hugo integration) once all six extensions exist.
-- Section 5 is non-code: demo host assets, docs pages, the version bump, and the CHANGELOG.
+- Section 5 is non-code: demo host assets, docs pages, and the CHANGELOG. The pyproject.toml version bump is Mason's release step (as for 0.3.0), since the spec freezes deps.
 
 ## Stage Priority Reference
 
@@ -381,13 +381,13 @@ Why icons (50) runs before mermaid (45) in the pipeline: icons' `expand_source` 
    - docs/icons/LICENSE records each icon set and its license (the credit the invariant requires).
 ```
 
-### Step 11: Docs pages, nav, README, CHANGELOG, and the 0.4.0 bump (task)
+### Step 11: Docs pages, nav, README, and CHANGELOG (task)
 
 **NOTE**: Prose follows the `content-design` skill and the writing hard rules (no em-dashes, no banned vocab, Title Case headings, straight quotes, one sentence per line in committed Markdown). Each extension page mirrors the shape of the existing `docs/extensions/*.md`: intro, usage, syntax table, the mw- contract, a live demo, and the host CSS or script it needs.
 
 ```text
 1. Scope:
-   - Artifacts: docs/extensions/{button,lightbox,mermaid,icons,grid,annotate}.md; mkdocs.yml nav; docs/index.md and README.md feature lists; docs/cli.md (mw list and mw config now show 14 extensions); docs/config.md (the icons packs option and its Config Rules behavior); docs/integrations/mkdocs.md (the six added to the example); CHANGELOG.md (an Added section under a new 0.4.0 heading); pyproject.toml version 0.3.0 -> 0.4.0; CLAUDE.md (the new patterns, the priority table, the _markers boundary).
+   - Artifacts: docs/extensions/{button,lightbox,mermaid,icons,grid,annotate}.md; mkdocs.yml nav; docs/index.md and README.md feature lists; docs/cli.md (mw list and mw config now show 14 extensions); docs/config.md (the icons packs option and its Config Rules behavior); docs/integrations/mkdocs.md (the six added to the example); CHANGELOG.md (an Added section under an Unreleased heading; the version bump is the release step, not this step); CLAUDE.md (the new patterns, the priority table, the _markers boundary).
    - Desired end state: every nav page exists, the docs build strict-clean, and the version and CHANGELOG reflect 0.4.0.
 
 2. Tooling:
@@ -402,13 +402,12 @@ Why icons (50) runs before mermaid (45) in the pipeline: icons' `expand_source` 
    - Update docs/cli.md so the mw list and mw config sample output include the six (keep the existing format).
    - Add the icons packs option to docs/config.md with its Config Rules behavior (omitted silent, empty warns, bad directory errors).
    - Add the six to the docs/integrations/mkdocs.md example markdown_extensions block, with the markwright.icons packs note.
-   - Add a CHANGELOG.md "## [0.4.0] - <date>" with an Added section listing the six extensions and the demo-site changes, and an Upgrading note that output for existing documents is unchanged.
-   - Bump version in pyproject.toml to 0.4.0.
+   - Add a CHANGELOG.md "## [Unreleased]" heading with an Added section listing the six extensions and the demo-site changes, and an Upgrading note that output for existing documents is unchanged.
    - Update CLAUDE.md: add the four new patterns to The Three Extension Patterns discussion (or note the six follow existing patterns), add the new rows to the Processor Priority Reference table, and add the _markers.py module to the Architecture description.
 
 4. Verify:
    - `just docs-build` exits 0 with no "^WARNING|^ERROR" lines and every nav page present.
-   - `just check` still green (the version bump and docs do not touch the gate, but confirm).
+   - `just check` still green (docs do not touch the gate, but confirm).
    - Run the content-design review over the new and changed prose.
 
 5. Document:
@@ -433,4 +432,4 @@ Why icons (50) runs before mermaid (45) in the pipeline: icons' `expand_source` 
 - `just test-integration` green: the six new constructs through a real Hugo build, plus the clean-venv wheel install.
 - `just docs-build` strict-clean with every nav page present, and a visual check that all six render live.
 - The six extensions match their contracts in `.ai-sessions/material-parity/spec.md`; the `mw-grid` and `mw-annotate` markers and the `mw-annotation` version read fail-soft.
-- Version bumped to 0.4.0 with a matching CHANGELOG entry; no existing extension's output changed.
+- CHANGELOG.md carries an Unreleased entry for the six extensions (the 0.4.0 bump is the release step); no existing extension's output changed.

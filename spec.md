@@ -22,7 +22,7 @@ The project is maintained rather than in active feature development: it stays at
 - Stack: a pure-Python package on Python 3.11 through 3.15, built with `hatchling`, managed with `uv`; `just check` (ruff, ruff format, mypy strict, pytest) is the gate and runs after every change
 - Runtime dependencies are `markdown`, `pymdown-extensions` (floor `>=11.0.1`, set by a security fix), and `pydantic`; adding another needs a spec change
 - deps: frozen
-- paths: src/markwright/**, tests/**, docs/**
+- paths: src/markwright/**, tests/**, docs/**, mkdocs.yml, README.md, CHANGELOG.md, CLAUDE.md, plan.md, todo.md, .ai-sessions/**
 - Coverage is reported (line and branch) but not gated; read it and either test or delete what it shows uncovered
 - Output stays at `do-markdownit` parity (the eight ported extensions) unless a Decision documents a divergence; the cross-tool contracts are versioned and read fail-soft: the `mw-fence`, `mw-grid`, and `mw-annotate` marker-comment payloads, the `mw-embed` preview, and the `mw-annotation` list's `data-mw-version`
 - The package ships no JavaScript, no CSS, and no bundled assets, icons included: markwright owns markup and inlines host-supplied SVGs; hosts own behavior, styling, and the icon files
