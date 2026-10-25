@@ -51,6 +51,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - v1-init: the initial `do-markdownit` port (the eight extensions) and the `mw` pipeline CLI (.ai-sessions/v1-init/)
 - v0.1-remediation: the step-55 audit remediation (R1 through R11), shipped as 0.1.0 (.ai-sessions/v0.1-remediation/)
 - config-system: the 0.2.0 config system and `mw` CLI simplification, converged (.ai-sessions/config-system/)
+- material-parity-0.4.0: the six Material-reference extensions (#16) and the shared `_markers` module, converged and staged for the 0.4.0 release (.ai-sessions/material-parity-0.4.0/)
 
 **Upcoming:**
 - material-parity (0.4.0): issue #16, the six Material-reference extensions (button, lightbox, grid, mermaid, icons, annotate) so a host theme can render every feature on the mkdocs-material reference from markwright markup alone. Decided: directive and fence syntax in the existing family, `mw-` hooks, a fully-live docs demo (a pinned mermaid.js CDN, a new `docs/javascripts/`, and a small committed demo icon set), and `fence` refactored onto a shared marker-comment module with no change to its output. Decisions D1 through D7 and the byte-level contracts are in .ai-sessions/material-parity/spec.md, with a draft step plan beside it
