@@ -186,3 +186,7 @@ class TestTwitterStageFunctions:
         warnings: list[str] = []
         apply_html('<blockquote class="twitter-tweet"></blockquote>', warnings)
         assert warnings == []
+
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[twitter https://twitter.com/User/status/123]\n```"
+        assert expand_source(source) == source

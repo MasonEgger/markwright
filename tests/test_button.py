@@ -41,6 +41,10 @@ class TestButtonExpandSource:
         source = "Use [button /docs Docs] here."
         assert expand_source(source) == source
 
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[button /start Go]\n```"
+        assert expand_source(source) == source
+
 
 class TestButtonInProcess:
     """Tests for the in-process Python-Markdown render."""

@@ -13,6 +13,7 @@ from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
 from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, URL_SCHEME_WWW_PREFIX, load_mode, wrap_preview
+from markwright._fences import map_lines
 from markwright._html import provider_script_needed
 
 if TYPE_CHECKING:
@@ -147,7 +148,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :raises OptionError: If ``load`` is not a supported value.
     """
     load = load_mode(options, LOAD_MODES)
-    return "\n".join(_render_match(line, load) or line for line in text.split("\n"))
+    return map_lines(text, lambda line: [_render_match(line, load) or line])
 
 
 def apply_html(

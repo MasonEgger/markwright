@@ -42,6 +42,10 @@ class TestLightboxExpandSource:
         source = "Use [lightbox /a.png Alt] here."
         assert expand_source(source) == source
 
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[lightbox /a.png Alt]\n```"
+        assert expand_source(source) == source
+
 
 class TestLightboxInProcess:
     """Tests for the in-process Python-Markdown render."""

@@ -169,3 +169,7 @@ class TestCodePenStageFunctions:
         warnings: list[str] = []
         apply_html('<p class="codepen"></p>', warnings)
         assert warnings == []
+
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[codepen MattCowley vwPzeX]\n```"
+        assert expand_source(source) == source

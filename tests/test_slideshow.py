@@ -175,3 +175,7 @@ class TestSlideshowExpandSource:
     def test_no_embed_passes_through(self) -> None:
         source = "just some text\nmore text"
         assert expand_source(source) == source
+
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[slideshow https://a.jpg https://b.jpg]\n```"
+        assert expand_source(source) == source

@@ -12,11 +12,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 2: Directive stages onto the mapper
 
-- [ ] Step 2: The eight one-to-one directive stages
-  - [ ] RED: a directive-in-fence assertion in each of tests/test_{youtube,slideshow,image_compare,codepen,twitter,instagram,button,lightbox}.py
-  - [ ] GREEN: expand_source onto map_lines in each of src/markwright/{youtube,codepen,twitter,instagram}.py (closure over load) and {slideshow,image_compare,button,lightbox}.py; import map_lines
-  - [ ] Verify the eight existing suites pass unchanged; correct any test that encoded the bug
-  - [ ] `just check` green
+- [x] Step 2: The eight one-to-one directive stages
+  - [x] RED: a directive-in-fence assertion in each of tests/test_{youtube,slideshow,image_compare,codepen,twitter,instagram,button,lightbox}.py
+  - [x] GREEN: expand_source onto map_lines in each of src/markwright/{youtube,codepen,twitter,instagram}.py (closure over load) and {slideshow,image_compare,button,lightbox}.py; import map_lines
+  - [x] Verify the eight existing suites pass unchanged; correct any test that encoded the bug
+  - [x] `just check` green
 - [ ] Step 3: `grid` and `annotate` (one-to-many)
   - [ ] RED: a directive-in-fence assertion in tests/test_grid.py and tests/test_annotate.py
   - [ ] GREEN: replace _expand_lines with _transform_line(line) -> list[str] and call via map_lines in src/markwright/grid.py and annotate.py; import map_lines; delete old _expand_lines

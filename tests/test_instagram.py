@@ -204,3 +204,7 @@ class TestInstagramStageFunctions:
         warnings: list[str] = []
         apply_html('<blockquote class="instagram-media"></blockquote>', warnings)
         assert warnings == []
+
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[instagram https://www.instagram.com/p/CkQuv3_LRgS]\n```"
+        assert expand_source(source) == source
