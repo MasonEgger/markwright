@@ -35,6 +35,10 @@ With default settings, output is unchanged for documents that already rendered: 
 
 - The docs site no longer carries a `custom_fences` mermaid entry; `markwright.mermaid` replaces it.
 
+### Fixed
+
+- `mw pre` no longer expands directive lines inside fenced code blocks: the six embeds, `button`, `lightbox`, `grid`, and `annotate` now leave a directive literal inside a fence, matching the in-process render (#20).
+
 ## [0.3.0] - 2026-10-11
 
 Two opt-in features (a config API for host tools and click-to-load embeds), one rule for every config list, a round of correctness fixes, and Python 3.15 support.

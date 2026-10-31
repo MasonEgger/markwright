@@ -380,6 +380,67 @@ _DIRECTIVE_BLOCKS = st.sampled_from(
 )
 
 
+@st.composite
+def _directive_in_fence(draw: st.DrawFn) -> str:
+    """Draw one directive line wrapped in a fenced code block."""
+    directive = draw(
+        st.sampled_from(
+            [
+                "[button primary /start Get started]",
+                "[lightbox /a.png A diagram]",
+                "[youtube dQw4w9WgXcQ]",
+                "[grid]",
+                "[annotate]",
+            ]
+        )
+    )
+    return f"```\n{directive}\n```"
+
+
+# One fence per directive form, so the explicit test reads the whole case at a glance.
+FENCED_DIRECTIVE_FIXTURE = """\
+```
+[button primary /start Get started]
+```
+
+```
+[lightbox /a.png A diagram]
+```
+
+```
+[youtube dQw4w9WgXcQ]
+```
+
+```
+[grid]
+```
+
+```
+[annotate]
+```
+"""
+
+
+class TestRoundTripFencedDirective:
+    """A directive inside a fenced code block stays literal through both paths."""
+
+    def test_run_pre_leaves_every_fenced_directive_literal(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        expanded = registry.run_pre(FENCED_DIRECTIVE_FIXTURE, names)
+        # No stage expands a directive line that sits inside a fence.
+        assert '<a class="mw-button' not in expanded
+        assert '<a class="mw-lightbox"' not in expanded
+        assert "youtube.com/embed/" not in expanded
+        assert "mw-grid" not in expanded
+        assert "mw-annotate" not in expanded
+        assert '<pre class="mermaid"' not in expanded
+
+    def test_pipeline_equals_in_process_render(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(FENCED_DIRECTIVE_FIXTURE, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(FENCED_DIRECTIVE_FIXTURE, names))
+
+
 class TestRoundTripProperty:
     """Any document built from markwright's grammar renders the same through the pipeline and in-process."""
 
@@ -387,7 +448,13 @@ class TestRoundTripProperty:
     @given(
         blocks=st.lists(
             st.one_of(
-                _prose_block(), _fence_block(), _EMBED_BLOCKS, _DIRECTIVE_BLOCKS, _grid_block(), _annotate_block()
+                _prose_block(),
+                _fence_block(),
+                _EMBED_BLOCKS,
+                _DIRECTIVE_BLOCKS,
+                _grid_block(),
+                _annotate_block(),
+                _directive_in_fence(),
             ),
             min_size=1,
             max_size=6,

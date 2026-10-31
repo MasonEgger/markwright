@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- Routing every directive-line pre stage through `_fences.map_lines` (not raw line iteration) is what makes `mw pre` leave a `[button]`, `[grid]`, `[annotate]`, or embed directive literal inside a fenced code block, matching the in-process render whose preprocessors run after superfences stashes the fence; the fix is one shared fence-aware mapper, not per-stage regex, and the `tests/test_roundtrip.py` hypothesis grammar needs a fenced-directive case or the parity gap passes silently (2026-10-31)
 - `/bpe:plan --archive` moves `plan.md` into `.ai-sessions/<slug>/` with a plain `mv`, so a slug matching an existing cycle directory (a brainstorm draft's `spec.md` and `plan.md`) silently overwrites the draft; check the directory first and pick a distinct slug such as `<phase>-<version>` (2026-10-25)
 - A finalize dispatch must treat a failed lessons.md or session-summary edit as a hard stop before `git commit`; the Step 11 executor's edit script raised, the commit ran anyway, and the commit message and summary both claimed a lesson that was never written, which the one-commit rule then made unfixable in place (2026-10-20)
 - `mw pre` expands `[grid]`, `[annotate]`, and the 0.1.0 embed directive lines inside fenced code blocks, while the in-process render does not (its preprocessors at priority 20 run after superfences stashes the fences); mermaid and icons already scan through `_fences`, the directive-line stages do not, and `tests/test_roundtrip.py`'s hypothesis grammar never places a directive inside a fence, so the parity test misses it; add that case to the grammar when fixing (2026-10-20)
@@ -11,7 +12,9 @@
 - The annotate postprocessor runs at a higher priority than the fence postprocessor so the fence marker is still a comment token when the annotated block is located; at fence's priority the marker is already consumed and the block cannot be found (2026-10-20)
 - When replacing a whole comment span (a code-block annotation comment), keep the span's trailing newline, or the next code line merges into the previous one (2026-10-20)
 - A shared helper that takes a payload dict should annotate the parameter `Mapping[str, object]`, not `dict[str, object]`: `dict` is invariant in its value type, so a caller holding `dict[str, str]` (fence's marker payload) fails mypy, while `Mapping` is covariant in the value (2026-10-20)
-- `/bpe:goal` resolves its verification command from the manifest before the spec: `pyproject.toml` present means `pytest -q`, and a `**Verification command:**` line in spec.md is only read when no manifest matches, so on a Python project the goal condition is always `pytest -q` and ruff and mypy run only through the executor's `just check` (2026-10-20)
+
+## Architecture
+- Routing every directive-line pre stage through `_fences.map_lines` (not raw line iteration) is what makes `mw pre` leave a `[button]`, `[grid]`, `[annotate]`, or embed directive literal inside a fenced code block, matching the in-process render whose preprocessors run after superfences stashes the fence; the fix is one shared fence-aware mapper, not per-stage regex, and the `tests/test_roundtrip.py` hypothesis grammar needs a fenced-directive case or the parity gap passes silently (2026-10-31)
 
 ## Workflow
 - `/bpe:plan --archive` moves `plan.md` into `.ai-sessions/<slug>/` with a plain `mv`, so a slug matching an existing cycle directory (a brainstorm draft's `spec.md` and `plan.md`) silently overwrites the draft; check the directory first and pick a distinct slug such as `<phase>-<version>` (2026-10-25)

@@ -25,8 +25,8 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 3: Cross-tool parity net and release note
 
-- [ ] Step 4: Round-trip grammar coverage and the CHANGELOG entry
-  - [ ] RED/extend: _directive_in_fence composite + st.one_of entry + TestRoundTripFencedDirective explicit fixture in tests/test_roundtrip.py
-  - [ ] GREEN: no source change expected; fix the responsible stage if a hypothesis example fails
-  - [ ] Document: CHANGELOG.md "### Fixed" under "## [Unreleased]" referencing #20
-  - [ ] Verify `just check` and `just test-integration` green
+- [x] Step 4: Round-trip grammar coverage and the CHANGELOG entry
+  - [x] RED/extend: _directive_in_fence composite + st.one_of entry + TestRoundTripFencedDirective explicit fixture in tests/test_roundtrip.py
+  - [x] GREEN: no source change expected; fix the responsible stage if a hypothesis example fails
+  - [x] Document: CHANGELOG.md "### Fixed" under "## [Unreleased]" referencing #20
+  - [x] Verify `just check` and `just test-integration` green

@@ -11,9 +11,9 @@ This is a correctness fix toward parity, not a divergence: `mw pre` is made to m
 
 ## Current Status
 
-- [ ] Section 1: The fence-aware line mapper (Step 1)
-- [ ] Section 2: Directive stages onto the mapper (Steps 2-3)
-- [ ] Section 3: Cross-tool parity net and release note (Step 4)
+- [x] Section 1: The fence-aware line mapper (Step 1)
+- [x] Section 2: Directive stages onto the mapper (Steps 2-3)
+- [x] Section 3: Cross-tool parity net and release note (Step 4)
 
 ## Ordering and Dependencies
 
