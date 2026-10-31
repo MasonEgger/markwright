@@ -11,6 +11,7 @@ from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
+from markwright._fences import map_lines
 from markwright._html import add_classes, apply_edits, tokenize
 from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
 
@@ -42,35 +43,30 @@ class GridMarker(BaseModel):
     cards: bool = False
 
 
-def _expand_lines(lines: list[str]) -> list[str]:
-    """Replace each ``[grid]`` or ``[grid cards]`` line with a marker comment and a blank line.
+def _transform_line(line: str) -> list[str]:
+    """Replace a ``[grid]`` or ``[grid cards]`` line with a marker comment and a blank line.
 
-    :param lines: Source lines to process.
-    :returns: The lines with grid directives replaced by mw-grid markers, indented as the directive was.
+    :param line: A single source line.
+    :returns: The marker comment and a blank line for a grid directive, else the line unchanged.
     """
-    output: list[str] = []
-    for line in lines:
-        grid_match = GRID_RE.match(line.strip())
-        if grid_match is None:
-            output.append(line)
-            continue
-        indent = line[: len(line) - len(line.lstrip())]
-        payload = {"cards": True} if grid_match.group("cards") else {}
-        output.append(f"{indent}{encode_marker(MARKER_NAME, payload)}")
-        output.append("")
-    return output
+    grid_match = GRID_RE.match(line.strip())
+    if grid_match is None:
+        return [line]
+    indent = line[: len(line) - len(line.lstrip())]
+    payload = {"cards": True} if grid_match.group("cards") else {}
+    return [f"{indent}{encode_marker(MARKER_NAME, payload)}", ""]
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
     """Replace grid directives with mw-grid marker comments in raw source.
 
-    Used by the ``mw pre`` CLI stage.
+    Used by the ``mw pre`` CLI stage. A directive inside a fenced code block is left literal.
 
     :param text: The source text.
     :param options: Accepted for the registry's shared signature; grid has no options.
     :returns: The text with grid directives replaced by markers.
     """
-    return "\n".join(_expand_lines(text.split("\n")))
+    return map_lines(text, _transform_line)
 
 
 def _apply_markers(rendered_html: str, skip_reasons: list[str] | None) -> str:
@@ -132,7 +128,7 @@ class GridPreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines.
         """
-        return _expand_lines(lines)
+        return [output_line for line in lines for output_line in _transform_line(line)]
 
 
 class GridPostprocessor(Postprocessor):

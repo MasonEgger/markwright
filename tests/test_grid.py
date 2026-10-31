@@ -34,6 +34,14 @@ class TestExpandSource:
         source = "[grid tiles]\n- a"
         assert expand_source(source) == source
 
+    def test_cards_line_inside_a_fence_is_unchanged(self) -> None:
+        source = "```\n[grid cards]\n- a\n```"
+        assert expand_source(source) == source
+
+    def test_plain_grid_line_inside_a_fence_is_unchanged(self) -> None:
+        source = "```\n[grid]\n- a\n```"
+        assert expand_source(source) == source
+
 
 class TestApplyHtml:
     def test_cards_marker_classes_the_next_list(self) -> None:

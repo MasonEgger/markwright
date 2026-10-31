@@ -11,6 +11,7 @@ from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
+from markwright._fences import map_lines
 from markwright._html import (
     RAW_TEXT_ELEMENTS,
     HtmlToken,
@@ -54,33 +55,28 @@ class AnnotateMarker(BaseModel):
     version: int
 
 
-def _expand_lines(lines: list[str]) -> list[str]:
-    """Replace each ``[annotate]`` line with a marker comment and a blank line.
+def _transform_line(line: str) -> list[str]:
+    """Replace an ``[annotate]`` line with a marker comment and a blank line.
 
-    :param lines: Source lines to process.
-    :returns: The lines with annotate directives replaced by mw-annotate markers, indented as the directive was.
+    :param line: A single source line.
+    :returns: The marker comment and a blank line for an annotate directive, else the line unchanged.
     """
-    output: list[str] = []
-    for line in lines:
-        if ANNOTATE_RE.match(line.strip()) is None:
-            output.append(line)
-            continue
-        indent = line[: len(line) - len(line.lstrip())]
-        output.append(f"{indent}{encode_marker(MARKER_NAME, {})}")
-        output.append("")
-    return output
+    if ANNOTATE_RE.match(line.strip()) is None:
+        return [line]
+    indent = line[: len(line) - len(line.lstrip())]
+    return [f"{indent}{encode_marker(MARKER_NAME, {})}", ""]
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
     """Replace annotate directives with mw-annotate marker comments in raw source.
 
-    Used by the ``mw pre`` CLI stage.
+    Used by the ``mw pre`` CLI stage. A directive inside a fenced code block is left literal.
 
     :param text: The source text.
     :param options: Accepted for the registry's shared signature; annotate has no options.
     :returns: The text with annotate directives replaced by markers.
     """
-    return "\n".join(_expand_lines(text.split("\n")))
+    return map_lines(text, _transform_line)
 
 
 def _locate(rendered_html: str, tokens: list[HtmlToken], token_index: int, block_end: int) -> tuple[int, int, int, int]:
@@ -236,7 +232,7 @@ class AnnotatePreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines.
         """
-        return _expand_lines(lines)
+        return [output_line for line in lines for output_line in _transform_line(line)]
 
 
 class AnnotatePostprocessor(Postprocessor):

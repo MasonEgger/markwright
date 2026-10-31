@@ -46,6 +46,10 @@ class TestExpandSource:
         source = "Use [annotate] in prose."
         assert expand_source(source) == source
 
+    def test_line_inside_a_fence_is_unchanged(self) -> None:
+        source = "```\n[annotate]\nText (1)\n```"
+        assert expand_source(source) == source
+
 
 class TestProse:
     def test_block_list_and_markers_are_annotated(self) -> None:
