@@ -148,3 +148,26 @@ def map_prose(text: str, transform: Callable[[str], str]) -> str:
         mapped_parts.append(transform(chunk[cursor:]))
         output_chunks.append("".join(mapped_parts))
     return "\n".join(output_chunks)
+
+
+def map_lines(text: str, transform: Callable[[str], list[str]]) -> str:
+    """Apply a line-level transform to Markdown source, skipping fenced code.
+
+    The line-level twin of :func:`map_prose`. Lines inside a fenced code block (found by
+    :func:`find_fenced_blocks`) pass through unchanged; every other line is replaced by the lines
+    ``transform`` returns, so a directive can rewrite in place (a one-element list) or expand to a
+    marker plus a blank line (several lines).
+
+    :param text: Raw Markdown source.
+    :param transform: A function returning the replacement lines for one source line.
+    :returns: The source with every non-fenced line transformed.
+    """
+    lines = text.split("\n")
+    fenced_lines = {
+        line_index for block in find_fenced_blocks(lines) for line_index in range(block.opening, block.closing + 1)
+    }
+
+    output: list[str] = []
+    for line_index, line in enumerate(lines):
+        output.extend([line] if line_index in fenced_lines else transform(line))
+    return "\n".join(output)

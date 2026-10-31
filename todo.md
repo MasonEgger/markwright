@@ -4,11 +4,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 1: The fence-aware line mapper
 
-- [ ] Step 1: `_fences.map_lines`
-  - [ ] RED: tests/test_fences_map_lines.py (one-to-one skips a fence, one-to-many expands only outside, indented in-list fence skipped, unclosed fence still transformed)
-  - [ ] GREEN: add map_lines to src/markwright/_fences.py (fenced-line index set from find_fenced_blocks, extend with [line] inside a fence else transform(line))
-  - [ ] Verify tests/test_fences_map_prose.py and tests/test_fences_map_lines.py pass
-  - [ ] `just check` green
+- [x] Step 1: `_fences.map_lines`
+  - [x] RED: tests/test_fences_map_lines.py (one-to-one skips a fence, one-to-many expands only outside, indented in-list fence skipped, unclosed fence still transformed)
+  - [x] GREEN: add map_lines to src/markwright/_fences.py (fenced-line index set from find_fenced_blocks, extend with [line] inside a fence else transform(line))
+  - [x] Verify tests/test_fences_map_prose.py and tests/test_fences_map_lines.py pass
+  - [x] `just check` green
 
 ## Section 2: Directive stages onto the mapper
 
