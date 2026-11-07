@@ -1,5 +1,5 @@
 # ABOUTME: Tests for markwright._fences.map_lines, the line-level twin that transforms lines and skips fenced code.
-# The shared scanner is private infrastructure with its own contract, so it is tested directly.
+# Exempt from the public-API-only rule: the _fences scanner has a contract of its own and is tested directly.
 
 from __future__ import annotations
 

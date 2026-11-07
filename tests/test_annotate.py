@@ -107,6 +107,22 @@ class TestProse:
         result = apply_html(MARKER + "\n<div><div>(1)</div> (1)</div>\n" + ONE_NOTE)
         assert result.startswith('\n<div class="mw-annotated"><div>' + LINK_1 + "</div> " + LINK_1 + "</div>")
 
+    def test_list_attrs_follow_existing_attributes(self) -> None:
+        result = apply_html(MARKER + '\n<p>a (1)</p>\n<ol class="steps" id="x">\n<li>x</li>\n</ol>')
+        assert '<ol class="mw-annotations steps" id="x" data-mw-version="1">' in result
+
+    def test_list_without_a_class_gets_one_and_keeps_its_attributes(self) -> None:
+        result = apply_html(MARKER + '\n<p>a (1)</p>\n<ol id="x">\n<li>x</li>\n</ol>')
+        assert '<ol class="mw-annotations" id="x" data-mw-version="1">' in result
+
+    def test_self_closing_tag_inside_a_block_does_not_end_it(self) -> None:
+        result = apply_html(MARKER + "\n<p>a<br/>(1)</p>\n" + ONE_NOTE)
+        assert '<p class="mw-annotated">a<br/>' + LINK_1 + "</p>" in result
+
+    def test_self_closing_tag_of_the_same_name_does_not_end_the_block(self) -> None:
+        result = apply_html(MARKER + "\n<div><div/>(1)</div>\n" + ONE_NOTE)
+        assert '<div class="mw-annotated"><div/>' + LINK_1 + "</div>" in result
+
     def test_bare_pre_block_is_annotated(self) -> None:
         result = apply_html(MARKER + "\n<pre><code>x (1)</code></pre>\n" + ONE_NOTE)
         assert '<pre class="mw-annotated"><code>x ' + LINK_1 + "</code></pre>" in result

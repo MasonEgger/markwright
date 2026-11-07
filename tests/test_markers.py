@@ -1,5 +1,5 @@
 # ABOUTME: Tests for the shared marker-comment module: encoding, finding, and fail-soft decoding.
-# Uses a tiny strict pydantic model to stand in for an extension's own marker schema.
+# Exempt from the public-API-only rule: the _markers contract is tested directly.
 
 import json
 

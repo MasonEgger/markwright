@@ -38,11 +38,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 4: Test Policy and Conformity
 
-- [ ] Step 5: Public-API coverage for the _html helpers (task)
-  - [ ] Map the nine tests/test_html_helpers.py cases to grid and annotate apply_html (name the already-covered ones; add the four missing to tests/test_annotate.py TestProse)
-  - [ ] Delete tests/test_html_helpers.py; confirm the three exempt files state the exemption in their ABOUTME
-  - [ ] CLAUDE.md Testing Approach: the _fences and _markers exemption sentence
-  - [ ] Verify grep shows only the three exempt private imports; `just check` green with _html.py at 100%
+- [x] Step 5: Public-API coverage for the _html helpers (task)
+  - [x] Map the nine tests/test_html_helpers.py cases to grid and annotate apply_html (name the already-covered ones; add the four missing to tests/test_annotate.py TestProse)
+  - [x] Delete tests/test_html_helpers.py; confirm the three exempt files state the exemption in their ABOUTME
+  - [x] CLAUDE.md Testing Approach: the _fences and _markers exemption sentence
+  - [x] Verify grep shows only the three exempt private imports; `just check` green with _html.py at 100%
 - [ ] Step 6: Fold _apply_markers and add the future import (task)
   - [ ] Fold _apply_markers into apply_html in src/markwright/grid.py and src/markwright/annotate.py; postprocessors call apply_html(text)
   - [ ] Add from __future__ import annotations to tests/test_annotate.py, tests/test_fence.py, tests/test_grid.py, tests/test_highlight.py, tests/test_markers.py
