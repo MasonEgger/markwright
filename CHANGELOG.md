@@ -38,6 +38,8 @@ With default settings, output is unchanged for documents that already rendered: 
 ### Fixed
 
 - `mw pre` no longer expands directive lines inside fenced code blocks: the six embeds, `button`, `lightbox`, `grid`, and `annotate` now leave a directive literal inside a fence, matching the in-process render (#20).
+- `mw pre` now reads a tab as four columns when scanning fences, so a tab-indented fence inside a list item is code to every pre stage, matching the in-process render (#29).
+  `mw pre` also leaves top-level indented code blocks alone (#29).
 
 ## [0.3.0] - 2026-10-11
 

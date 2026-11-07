@@ -61,3 +61,13 @@ class TestButtonInProcess:
     def test_inline_markdown_in_text_renders(self) -> None:
         result = render_button("[button /docs Read *the* docs]")
         assert ">Read <em>the</em> docs</a>" in result
+
+
+class TestButtonSkipsIndentedCode:
+    def test_indented_code_block_is_unchanged(self) -> None:
+        source = "para\n\n    [button /x Go]\n"
+        assert expand_source(source) == source
+
+    def test_tab_indented_in_list_fence_is_unchanged(self) -> None:
+        source = "- item\n\n\t```\n\t[button /x Go]\n\t```"
+        assert expand_source(source) == source

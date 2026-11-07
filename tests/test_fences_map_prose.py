@@ -23,3 +23,11 @@ class TestMapProse:
 
     def test_preserves_text_with_no_prose_to_change(self) -> None:
         assert map_prose("", str.upper) == ""
+
+    def test_leaves_a_top_level_indented_code_block_untouched(self) -> None:
+        assert map_prose("para\n\n    code here\n", str.upper) == "PARA\n\n    code here\n"
+
+    def test_leaves_a_tab_indented_in_list_fence_untouched(self) -> None:
+        source = "- item\n\n\t```\n\tcode\n\t```\nafter"
+
+        assert map_prose(source, str.upper) == "- ITEM\n\n\t```\n\tcode\n\t```\nAFTER"

@@ -618,6 +618,12 @@ class TestFenceScanner:
         source = "    ```\n    [label a.sh]\n    ```\n"
         assert expand_source(source) == source
 
+    def test_tab_indented_in_list_fence_gets_its_directives(self) -> None:
+        result = expand_source("- item\n\n\t```\n\t[label a.sh]\n\techo\n\t```")
+        assert "[label a.sh]" not in result
+        assert '    <!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n\n' in result
+        assert result.endswith("\t```\n\techo\n\t```")
+
     def test_fence_holding_only_directives(self) -> None:
         result = expand_source("```\n[label a.sh]\n```\n")
         assert result == '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n```\n```\n'

@@ -189,6 +189,14 @@ class TestHighlightExpandSource:
         source = "use `<^>x<^>` here"
         assert expand_source(source) == source
 
+    def test_marker_in_tab_indented_list_fence_untouched(self) -> None:
+        source = "- item\n\n\t```\n\t<^>x<^>\n\t```"
+        assert expand_source(source) == source
+
+    def test_marker_in_indented_code_block_untouched(self) -> None:
+        source = "para\n\n    <^>x<^>\n"
+        assert expand_source(source) == source
+
     def test_backslash_escaped_prose_marker_left_literal(self) -> None:
         """Escaped prose markers are left untouched by the pre stage.
 

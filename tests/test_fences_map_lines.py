@@ -34,3 +34,43 @@ class TestMapLines:
             return ["X"] if line.strip() == "hit" else [line]
 
         assert map_lines("```\nhit", transform) == "```\nX"
+
+
+def _hit_to_x(line: str) -> list[str]:
+    return ["X"] if line.strip() == "hit" else [line]
+
+
+class TestMapLinesIndentation:
+    def test_skips_a_tab_indented_in_list_fence(self) -> None:
+        source = "- item\n\n\t```\n\thit\n\t```"
+
+        assert map_lines(source, _hit_to_x) == source
+
+    def test_skips_a_top_level_indented_code_block(self) -> None:
+        source = "para\n\n    hit\n"
+
+        assert map_lines(source, _hit_to_x) == source
+
+    def test_treats_a_tab_indented_top_level_line_as_code(self) -> None:
+        source = "para\n\n\thit"
+
+        assert map_lines(source, _hit_to_x) == source
+
+    def test_treats_four_column_fence_lines_outside_a_list_as_code(self) -> None:
+        source = "para\n\n    ```\n    hit\n    ```"
+
+        assert map_lines(source, _hit_to_x) == source
+
+    def test_transforms_an_indented_line_under_a_list_item(self) -> None:
+        assert map_lines("- item\n\n    hit", _hit_to_x) == "- item\n\nX"
+
+    def test_transforms_a_lazy_continuation_line(self) -> None:
+        assert map_lines("para\n    hit", _hit_to_x) == "para\nX"
+
+    def test_keeps_an_indented_code_block_open_across_a_blank_line(self) -> None:
+        source = "para\n\n    hit\n\n    hit\n"
+
+        assert map_lines(source, _hit_to_x) == source
+
+    def test_ends_an_indented_code_block_at_a_less_indented_line(self) -> None:
+        assert map_lines("para\n\n    hit\nhit", _hit_to_x) == "para\n\n    hit\nX"

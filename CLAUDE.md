@@ -45,7 +45,9 @@ The codebase has **two consumers over one set of pure stage functions**, so the 
 
 **Parsing structured text.** Two private modules own it, so no stage parses Markdown structure or HTML with ad hoc regex:
 
-- `_fences.py` finds fenced code blocks by CommonMark's rules (0 to 3 space indent or under a list item, closing fence of the same character and at least the opening length, unclosed fences are not code). Fence's directive extraction and highlight's prose pass both use it, which is what keeps the two pre stages in parity.
+- `_fences.py` finds fenced code blocks by CommonMark's rules (0 to 3 column indent or under a list item, a tab counting as four columns, closing fence of the same character and at least the opening length, unclosed fences are not code).
+  It also finds top-level indented code blocks (four columns after a blank line, not list content), which `map_prose` and `map_lines` skip.
+  Fence's directive extraction and highlight's prose pass both use it, which is what keeps the two pre stages in parity.
 - `_html.py` tokenizes rendered HTML with the stdlib `html.parser` and keeps each token's source offsets (`HtmlToken`). Post stages find elements from tokens and apply span edits (`apply_edits`), so everything they do not touch stays byte-identical. A tree parser (lxml, selectolax) would re-serialize the whole page and is deliberately not used. `provider_script_needed` decides script injection from parsed classes and `src` attributes.
 
 - `_markers.py` owns the versioned `<!-- NAME:{JSON} -->` marker comment (`encode_marker`, `find_markers`, `decode_marker`) that carries data from a pre stage to a post stage. It is fail-soft on read and comment-safe on write (`<` and `>` are `\uXXXX`-escaped). Fence, grid, and annotate share it, so the contract lives in one place.

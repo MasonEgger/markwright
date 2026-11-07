@@ -397,6 +397,22 @@ def _directive_in_fence(draw: st.DrawFn) -> str:
     return f"```\n{directive}\n```"
 
 
+_FENCED_DIRECTIVES = [
+    "[button primary /start Get started]",
+    "[lightbox /a.png A diagram]",
+    "[youtube dQw4w9WgXcQ]",
+    "[grid]",
+    "[annotate]",
+]
+
+
+@st.composite
+def _directive_in_tab_fence(draw: st.DrawFn) -> str:
+    """Draw one directive line wrapped in a tab-indented fence inside a list item."""
+    directive = draw(st.sampled_from(_FENCED_DIRECTIVES))
+    return f"- item\n\n\t```\n\t{directive}\n\t```"
+
+
 # One fence per directive form, so the explicit test reads the whole case at a glance.
 FENCED_DIRECTIVE_FIXTURE = """\
 ```
@@ -441,6 +457,25 @@ class TestRoundTripFencedDirective:
         assert _normalize(pipeline) == _normalize(in_process_render(FENCED_DIRECTIVE_FIXTURE, names))
 
 
+# A tab-indented in-list fence holding a directive. An indented code block holding one is not here:
+# the in-process directive preprocessors expand it (see .ai-sessions/implementation-notes.md, Step 2).
+INDENTED_DIRECTIVE_FIXTURE = "- item\n\n\t```\n\t[button primary /start Get started]\n\t```\n"
+
+
+class TestRoundTripIndentedDirective:
+    """A directive inside a tab-indented fence stays literal through both paths."""
+
+    def test_run_pre_leaves_a_tab_fenced_directive_literal(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        expanded = registry.run_pre(INDENTED_DIRECTIVE_FIXTURE, names)
+        assert '<a class="mw-button' not in expanded
+
+    def test_pipeline_equals_in_process_render(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(INDENTED_DIRECTIVE_FIXTURE, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(INDENTED_DIRECTIVE_FIXTURE, names))
+
+
 class TestRoundTripProperty:
     """Any document built from markwright's grammar renders the same through the pipeline and in-process."""
 
@@ -455,6 +490,7 @@ class TestRoundTripProperty:
                 _grid_block(),
                 _annotate_block(),
                 _directive_in_fence(),
+                _directive_in_tab_fence(),
             ),
             min_size=1,
             max_size=6,

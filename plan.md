@@ -24,7 +24,7 @@ The version bump stays Mason's release step.
 ## Current Status
 
 - [ ] Section 1: Annotate chaining (Step 1)
-- [ ] Section 2: Code detection in `_fences` (Steps 2-3)
+- [ ] Section 2: Code detection in `_fences` (Steps 2, 2b, 3)
 - [ ] Section 3: Inline processor priority (Step 4)
 - [ ] Section 4: Test policy and conformity (Steps 5-6)
 
@@ -32,6 +32,7 @@ The version bump stays Mason's release step.
 
 - Section 1 is the one HTML-corrupting bug and stands alone.
 - Section 2 changes what `_fences` counts as code: Step 2 adds tab-aware indentation and indented-code detection to both mappers (and resolves the Step 1 info finding from the #20 cycle, the duplicated fenced-line set); Step 3 adds HTML-tag skipping to `map_prose`. Step 3's round-trip case needs Step 4, so its property-grammar addition lands there.
+- Step 2b, added after Step 2's implement pass, moves the ten in-process directive preprocessors onto `map_lines` so a directive line inside indented code stays literal in both paths, and restores the indented-code round-trip cases Step 2 dropped.
 - Section 3 moves the two InlineProcessors from 175 to 85 and extends the round-trip grammar with the inline-HTML-attribute case that Steps 3 and 4 together make parity-safe.
 - Section 4 is test policy and refactoring with no behavior change, last so every behavior fix is already guarded.
 
@@ -139,6 +140,44 @@ This step also resolves the #20 cycle's open info finding: the fenced-line index
    - CLAUDE.md, Architecture, the _fences.py bullet: add tabs and indented code to what the scanner recognizes.
 
 5. Verify every existing suite passes unchanged (tests/test_fence.py, tests/test_highlight.py, tests/test_mermaid.py, tests/test_icons.py, the ten directive-stage suites, tests/test_roundtrip.py); then run `just check` and `just test-integration` and confirm both green.
+```
+
+### Step 2b: In-Process Directive Preprocessors Skip Code
+
+**NOTE**: Added 2026-11-07 by Mason's decision, after Step 2's implement pass found that the plan's premise was wrong for directive lines.
+At priority 20 `pymdownx.superfences` has already stashed every fence, but nothing has stashed an indented code block, and the ten directive preprocessors (youtube, slideshow, image_compare, codepen, twitter, instagram, button, lightbox, grid, annotate) transform every line.
+Verified in-process: `para\n\n    [button /x Go]` renders `<p><a class="mw-button" href="/x">Go</a></p>`, so the button escapes the code block, and `para\n\n    [grid]` puts the escaped `mw-grid` marker inside `<pre><code>`.
+After Step 2, `mw pre` leaves both literal, so the two paths disagree.
+The fix routes each in-process `Preprocessor.run` through the same `_fences.map_lines` the `expand_source` stages use: `return map_lines("\n".join(lines), transform).split("\n")`, with the same per-line transform the stage already applies.
+The source lines hold no newline, so the join and split are lossless.
+The fence lines superfences stashed are placeholder lines by then, so only the indented-code rule changes anything in-process.
+This changes released behavior for the six embeds: a directive line in an indented code block no longer renders an embed in-process.
+That is a bug fix, since the embed escaped the code block, and it gets a CHANGELOG line.
+Step 2's dropped round-trip cases come back here.
+
+```text
+1. RED: Write the in-process tests first:
+   - In each of tests/test_{youtube,slideshow,image_compare,codepen,twitter,instagram,button,lightbox}.py, using that file's existing in-process render helper (add one in the file's style if it has none): a document "para\n\n    <directive>\n" with a directive the stage recognizes renders the directive literally inside <pre><code> and emits none of the stage's markup.
+   - tests/test_grid.py: render_grid("para\n\n    [grid]\n\n- a\n") has no "mw-grid" anywhere and a plain <ul>; the <pre><code> holds "[grid]".
+   - tests/test_annotate.py: render_annotate("para\n\n    [annotate]\n\nText (1)\n\n1. note\n") has no "mw-annotat" anywhere; the <pre><code> holds "[annotate]".
+   - Guard tests, which must pass before and after: in each of the ten files, a directive line under a list item ("- item\n\n    <directive>") still expands in-process, since that is list content and not code.
+   - tests/test_roundtrip.py: restore the `_directive_in_indented_code` composite Step 2 dropped (f"para\n\n    {directive}" over the same five directives as _directive_in_fence), add it to the st.one_of sampler in TestRoundTripProperty, and restore the four-space "[grid]" block in INDENTED_DIRECTIVE_FIXTURE so TestRoundTripIndentedDirective covers both shapes.
+   - Confirm the ten in-process tests and the restored round-trip cases fail and the ten guard tests pass.
+
+2. GREEN: Route the ten preprocessors through map_lines:
+   - In src/markwright/{youtube,codepen,twitter,instagram}.py, the Preprocessor.run builds its output line by line through `_render_match(line, self.load)` and the stash. Move that per-line body into a closure returning a one-element list and return `map_lines("\n".join(lines), closure).split("\n")`.
+   - In src/markwright/{slideshow,image_compare,button,lightbox}.py, do the same with that file's in-process per-line expression, keeping the stash call where the file has one.
+   - In src/markwright/{grid,annotate}.py, return `map_lines("\n".join(lines), _transform_line).split("\n")`.
+   - map_lines is already imported in each module for expand_source.
+
+3. REFACTOR: where a module's expand_source and its Preprocessor.run now differ only in the per-line transform, leave them as two calls. The two paths emit different HTML (inline versus stashed), so they are not duplicate knowledge.
+
+4. Document:
+   - CHANGELOG.md, under "## [Unreleased]" / "### Fixed", rewrite Step 2's continuation line so it claims parity now that both paths agree: `mw pre` and the in-process render both leave a directive line inside a top-level indented code block literal; before this, in-process rendered the embed or button out of the code block, and grid and annotate wrote their marker into it (#29).
+     One sentence per line, straight quotes, no em-dashes, no banned vocabulary.
+   - CLAUDE.md, the Processor Priority Reference rows for button, lightbox, grid, annotate, and the embeds: add that they skip fenced and indented code through `_fences.map_lines`.
+
+5. Verify every existing suite passes, plus the new and restored tests; run `just check` and `just test-integration` and confirm both green.
 ```
 
 ### Step 3: Skip HTML Tags in `map_prose`
