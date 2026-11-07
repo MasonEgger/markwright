@@ -173,3 +173,15 @@ class TestCodePenStageFunctions:
     def test_directive_inside_fence_is_unchanged(self) -> None:
         source = "```\n[codepen MattCowley vwPzeX]\n```"
         assert expand_source(source) == source
+
+
+class TestCodepenSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render("para\n\n    [codepen MattCowley vwPzeX]\n")
+        assert "<pre><code>[codepen MattCowley vwPzeX]" in result
+        assert 'class="codepen"' not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="codepen"' in render("- item\n\n    [codepen MattCowley vwPzeX]\n")

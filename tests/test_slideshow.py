@@ -179,3 +179,15 @@ class TestSlideshowExpandSource:
     def test_directive_inside_fence_is_unchanged(self) -> None:
         source = "```\n[slideshow https://a.jpg https://b.jpg]\n```"
         assert expand_source(source) == source
+
+
+class TestSlideshowSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render_slideshow("para\n\n    [slideshow https://a.png https://b.png]\n")
+        assert "<pre><code>[slideshow https://a.png https://b.png]" in result
+        assert 'class="slideshow"' not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="slideshow"' in render_slideshow("- item\n\n    [slideshow https://a.png https://b.png]\n")

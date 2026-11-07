@@ -208,3 +208,15 @@ class TestInstagramStageFunctions:
     def test_directive_inside_fence_is_unchanged(self) -> None:
         source = "```\n[instagram https://www.instagram.com/p/CkQuv3_LRgS]\n```"
         assert expand_source(source) == source
+
+
+class TestInstagramSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render("para\n\n    [instagram https://www.instagram.com/p/CkQuv3_LRgS]\n")
+        assert "<pre><code>[instagram https://www.instagram.com/p/CkQuv3_LRgS]" in result
+        assert 'class="instagram"' not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="instagram"' in render("- item\n\n    [instagram https://www.instagram.com/p/CkQuv3_LRgS]\n")

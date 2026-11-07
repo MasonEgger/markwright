@@ -246,3 +246,15 @@ class TestInProcess:
 
     def test_marker_without_a_list_is_consumed(self) -> None:
         assert render_annotate("[annotate]\n\ntext") == "<p>text</p>"
+
+
+class TestInProcessSkipsIndentedCode:
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render_annotate("para\n\n    [annotate]\n\nText (1)\n\n1. note\n")
+        assert "mw-annotat" not in result
+        assert "<code>[annotate]\n</code>" in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        result = render_annotate("- item\n\n    [annotate]\n    Text (1)\n\n    1. note\n")
+        assert 'class="mw-annotations"' in result
+        assert "mw-annotate:" not in result

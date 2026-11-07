@@ -142,3 +142,15 @@ class TestYouTubeExpandSource:
     def test_directive_inside_fence_is_unchanged(self) -> None:
         source = "```\n[youtube dQw4w9WgXcQ]\n```"
         assert expand_source(source) == source
+
+
+class TestYoutubeSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render_youtube("para\n\n    [youtube iom_nhYQIYk]\n")
+        assert "<pre><code>[youtube iom_nhYQIYk]" in result
+        assert "<iframe" not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert "<iframe" in render_youtube("- item\n\n    [youtube iom_nhYQIYk]\n")

@@ -104,3 +104,14 @@ class TestInProcess:
 
     def test_marker_without_a_list_is_consumed(self) -> None:
         assert render_grid("[grid]\n\ntext") == "<p>text</p>"
+
+
+class TestInProcessSkipsIndentedCode:
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render_grid("para\n\n    [grid]\n\n- a\n")
+        assert "mw-grid" not in result
+        assert "<ul>" in result
+        assert "<pre><code>[grid]" in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert '<ul class="mw-grid">' in render_grid("- item\n\n    [grid]\n\n    - a\n")

@@ -86,18 +86,16 @@ class ImageComparePreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with image compare embeds replaced by HTML.
         """
-        output: list[str] = []
-        for line in lines:
+
+        def transform(line: str) -> list[str]:
             # Stash the raw HTML so Markdown does not parse its contents. The
             # oninput handler contains a JS backtick template literal that
             # would otherwise be turned into an inline <code> span, and the
             # block-level <div> would be wrapped in an invalid <p>.
             compare_html = _render_match(line)
-            if compare_html is not None:
-                output.append(self.md.htmlStash.store(compare_html))
-            else:
-                output.append(line)
-        return output
+            return [line] if compare_html is None else [self.md.htmlStash.store(compare_html)]
+
+        return map_lines("\n".join(lines), transform).split("\n")
 
 
 class ImageCompareExtension(Extension):

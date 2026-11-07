@@ -113,14 +113,12 @@ class SlideshowPreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with slideshow embeds replaced by HTML.
         """
-        output: list[str] = []
-        for line in lines:
+
+        def transform(line: str) -> list[str]:
             slideshow_html = _render_match(line)
-            if slideshow_html is not None:
-                output.append(self.md.htmlStash.store(slideshow_html))
-            else:
-                output.append(line)
-        return output
+            return [line] if slideshow_html is None else [self.md.htmlStash.store(slideshow_html)]
+
+        return map_lines("\n".join(lines), transform).split("\n")
 
 
 class SlideshowExtension(Extension):

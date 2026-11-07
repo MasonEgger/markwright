@@ -17,11 +17,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [ ] GREEN: _indent_width, expandtabs(4) matching, _indented_code_lines, _code_line_indexes shared by map_prose and map_lines, docstrings and ABOUTME updated in src/markwright/_fences.py
   - [ ] Document: CHANGELOG.md "### Fixed" entry; CLAUDE.md _fences.py bullet
   - [ ] Verify existing suites unchanged; `just check` and `just test-integration` green
-- [ ] Step 2b: In-process directive preprocessors skip code
-  - [ ] RED: in-process indented-code tests in the ten directive test files (literal in <pre><code>, no stage markup) plus list-content guard tests; restore _directive_in_indented_code, its sampler entry, and the [grid] block of INDENTED_DIRECTIVE_FIXTURE in tests/test_roundtrip.py
-  - [ ] GREEN: the ten Preprocessor.run methods return map_lines("\n".join(lines), transform).split("\n")
-  - [ ] Document: CHANGELOG.md Fixed continuation line claims parity; CLAUDE.md priority rows note the code skipping
-  - [ ] Verify every suite; `just check` and `just test-integration` green
+- [x] Step 2b: In-process directive preprocessors skip code
+  - [x] RED: in-process indented-code tests in the ten directive test files (literal in <pre><code>, no stage markup) plus list-content guard tests; restore _directive_in_indented_code, its sampler entry, and the [grid] block of INDENTED_DIRECTIVE_FIXTURE in tests/test_roundtrip.py
+  - [x] GREEN: the ten Preprocessor.run methods return map_lines("\n".join(lines), transform).split("\n")
+  - [x] Document: CHANGELOG.md Fixed continuation line claims parity; CLAUDE.md priority rows note the code skipping
+  - [x] Verify every suite; `just check` and `just test-integration` green
 - [ ] Step 3: Skip HTML tags in map_prose
   - [ ] RED: tests in tests/test_fences_map_prose.py (attribute, comment single and multi-line, autolink, bare less-than, tag inside code span), tests/test_icons.py (attribute literal, trailing shortcode wrapped), tests/test_highlight.py (attribute, autolink, marker in tag text content)
   - [ ] GREEN: _HTML_TAG_RE and _SKIPPED_SPAN_RE in src/markwright/_fences.py; map_prose iterates the alternation; docstring updated

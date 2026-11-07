@@ -71,3 +71,11 @@ class TestButtonSkipsIndentedCode:
     def test_tab_indented_in_list_fence_is_unchanged(self) -> None:
         source = "- item\n\n\t```\n\t[button /x Go]\n\t```"
         assert expand_source(source) == source
+
+    def test_in_process_indented_code_block_stays_literal(self) -> None:
+        result = render_button("para\n\n    [button /x Go]\n")
+        assert "<pre><code>[button /x Go]" in result
+        assert 'class="mw-button"' not in result
+
+    def test_in_process_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="mw-button"' in render_button("- item\n\n    [button /x Go]\n")

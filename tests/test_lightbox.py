@@ -53,3 +53,15 @@ class TestLightboxInProcess:
     def test_lone_lightbox_is_wrapped_in_a_paragraph(self) -> None:
         result = render_lightbox("[lightbox /a.png A diagram]")
         assert result == '<p><a class="mw-lightbox" href="/a.png"><img src="/a.png" alt="A diagram" /></a></p>'
+
+
+class TestLightboxSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render_lightbox("para\n\n    [lightbox /a.png A diagram]\n")
+        assert "<pre><code>[lightbox /a.png A diagram]" in result
+        assert 'class="mw-lightbox"' not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="mw-lightbox"' in render_lightbox("- item\n\n    [lightbox /a.png A diagram]\n")

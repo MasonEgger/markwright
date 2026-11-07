@@ -128,7 +128,7 @@ class GridPreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines.
         """
-        return [output_line for line in lines for output_line in _transform_line(line)]
+        return map_lines("\n".join(lines), _transform_line).split("\n")
 
 
 class GridPostprocessor(Postprocessor):

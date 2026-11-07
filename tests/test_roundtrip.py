@@ -413,6 +413,13 @@ def _directive_in_tab_fence(draw: st.DrawFn) -> str:
     return f"- item\n\n\t```\n\t{directive}\n\t```"
 
 
+@st.composite
+def _directive_in_indented_code(draw: st.DrawFn) -> str:
+    """Draw one directive line as a top-level indented code block."""
+    directive = draw(st.sampled_from(_FENCED_DIRECTIVES))
+    return f"para\n\n    {directive}"
+
+
 # One fence per directive form, so the explicit test reads the whole case at a glance.
 FENCED_DIRECTIVE_FIXTURE = """\
 ```
@@ -457,18 +464,18 @@ class TestRoundTripFencedDirective:
         assert _normalize(pipeline) == _normalize(in_process_render(FENCED_DIRECTIVE_FIXTURE, names))
 
 
-# A tab-indented in-list fence holding a directive. An indented code block holding one is not here:
-# the in-process directive preprocessors expand it (see .ai-sessions/implementation-notes.md, Step 2).
-INDENTED_DIRECTIVE_FIXTURE = "- item\n\n\t```\n\t[button primary /start Get started]\n\t```\n"
+# A tab-indented in-list fence and a four-space indented code block, each holding a directive.
+INDENTED_DIRECTIVE_FIXTURE = "- item\n\n\t```\n\t[button primary /start Get started]\n\t```\n\npara\n\n    [grid]\n"
 
 
 class TestRoundTripIndentedDirective:
-    """A directive inside a tab-indented fence stays literal through both paths."""
+    """A directive inside a tab-indented fence or an indented code block stays literal through both paths."""
 
-    def test_run_pre_leaves_a_tab_fenced_directive_literal(self) -> None:
+    def test_run_pre_leaves_an_indented_directive_literal(self) -> None:
         names = list(registry.EXTENSION_NAMES)
         expanded = registry.run_pre(INDENTED_DIRECTIVE_FIXTURE, names)
         assert '<a class="mw-button' not in expanded
+        assert "mw-grid" not in expanded
 
     def test_pipeline_equals_in_process_render(self) -> None:
         names = list(registry.EXTENSION_NAMES)
@@ -491,6 +498,7 @@ class TestRoundTripProperty:
                 _annotate_block(),
                 _directive_in_fence(),
                 _directive_in_tab_fence(),
+                _directive_in_indented_code(),
             ),
             min_size=1,
             max_size=6,

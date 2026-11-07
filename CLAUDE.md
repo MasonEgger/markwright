@@ -87,8 +87,8 @@ markwright emits classes and markup only and ships no CSS, JavaScript, or icons;
 | 40 | Preprocessor | fence | Runs *before* `pymdownx.superfences` (~38) |
 | 50 | Preprocessor | icons | Resolves shortcodes before anything else sees them (`mw pre` runs it first) |
 | 45 | Preprocessor | mermaid | Replaces mermaid fences before fence and superfences |
-| 20 | Preprocessor | button, lightbox, grid, annotate | Same slot as the embeds, after superfences |
-| 20 | Preprocessor | all embeds | Runs *after* superfences (embed syntax in fences is already stashed) |
+| 20 | Preprocessor | button, lightbox, grid, annotate | Same slot as the embeds, after superfences; skip fenced and indented code through `_fences.map_lines` |
+| 20 | Preprocessor | all embeds | Runs *after* superfences (embed syntax in fences is already stashed); skip fenced and indented code through `_fences.map_lines` |
 | 175 | InlineProcessor | highlight, icons | Runs before emphasis |
 | 30 | Postprocessor | grid, annotate | Runs ahead of fence, so annotate still sees the fence marker as a comment |
 | 25 | Postprocessor | fence, highlight | Standard post-processing |

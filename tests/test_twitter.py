@@ -190,3 +190,15 @@ class TestTwitterStageFunctions:
     def test_directive_inside_fence_is_unchanged(self) -> None:
         source = "```\n[twitter https://twitter.com/User/status/123]\n```"
         assert expand_source(source) == source
+
+
+class TestTwitterSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render("para\n\n    [twitter https://x.com/User/status/123]\n")
+        assert "<pre><code>[twitter https://x.com/User/status/123]" in result
+        assert 'class="twitter"' not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="twitter"' in render("- item\n\n    [twitter https://x.com/User/status/123]\n")

@@ -61,7 +61,7 @@ class LightboxPreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with lightbox directives replaced by inline HTML.
         """
-        return [_render_match(line) or line for line in lines]
+        return map_lines("\n".join(lines), lambda line: [_render_match(line) or line]).split("\n")
 
 
 class LightboxExtension(Extension):
