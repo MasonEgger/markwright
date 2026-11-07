@@ -4,11 +4,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 1: Annotate Chaining
 
-- [ ] Step 1: Bound the annotation-list search by the marker's region
-  - [ ] RED: chained-marker tests in tests/test_annotate.py (TestSkippedMarkers: skipped and reported, both markers removed; TestInProcess: one mw-annotations list, no corrupted tag)
-  - [ ] GREEN: _locate searches for the list in range(block_close + 1, block_end); docstring updated
-  - [ ] Verify tests/test_annotate.py passes in full
-  - [ ] `just check` green
+- [x] Step 1: Bound the annotation-list search by the marker's region
+  - [x] RED: chained-marker tests in tests/test_annotate.py (TestSkippedMarkers: skipped and reported, both markers removed; TestInProcess: one mw-annotations list, no corrupted tag)
+  - [x] GREEN: _locate searches for the list in range(block_close + 1, block_end); docstring updated
+  - [x] Verify tests/test_annotate.py passes in full
+  - [x] `just check` green
 
 ## Section 2: Code Detection in `_fences`
 

@@ -163,6 +163,16 @@ class TestCode:
 
 
 class TestSkippedMarkers:
+    def test_marker_followed_by_another_marker_before_a_list_is_skipped(self) -> None:
+        skip_reasons: list[str] = []
+        page = MARKER + "\n<p>a (1)</p>\n" + MARKER + "\n<ol>\n<li>b (1)</li>\n</ol>\n<!-- split -->\n" + ONE_NOTE
+        result = apply_html(page, skip_reasons)
+        assert skip_reasons == ["Skipping mw-annotate marker with no annotation list after the block"]
+        assert result.count('<ol class="mw-annotations"') == 1
+        assert 'class="mw-annotated">class=' not in result
+        assert 'href="#mw-annotation-1-1"' in result
+        assert "mw-annotate:" not in result
+
     def test_no_following_block_is_skipped_and_reported(self) -> None:
         skip_reasons: list[str] = []
         result = apply_html(MARKER + "\ntext only", skip_reasons)
@@ -212,6 +222,11 @@ class TestSkippedMarkers:
 
 
 class TestInProcess:
+    def test_chained_markers_do_not_nest_the_list_in_a_block(self) -> None:
+        result = render_annotate("[annotate]\nPara (1).\n\n[annotate]\n1. Item (1)\n\n<!-- split -->\n\n1. Note\n")
+        assert result.count('<ol class="mw-annotations"') == 1
+        assert 'class="mw-annotated">class=' not in result
+
     def test_paragraph_is_annotated(self) -> None:
         result = render_annotate("[annotate]\n\nRun (1) now (2).\n\n1. first\n2. second")
         assert result == PROSE_ANNOTATED.removeprefix("\n")

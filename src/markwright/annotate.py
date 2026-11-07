@@ -83,7 +83,7 @@ def _locate(rendered_html: str, tokens: list[HtmlToken], token_index: int, block
     """Find the annotated block and the annotation list that follows a marker.
 
     The block is the first element after the marker; the list is the first thing after the block
-    that is not a comment or whitespace, and it must be an ``<ol>``.
+    and before the next marker that is not a comment or whitespace, and it must be an ``<ol>``.
 
     :param rendered_html: The HTML the tokens were produced from.
     :param tokens: The tokens of ``rendered_html``.
@@ -103,7 +103,7 @@ def _locate(rendered_html: str, tokens: list[HtmlToken], token_index: int, block
     list_start = next(
         (
             index
-            for index in range(block_close + 1, len(tokens))
+            for index in range(block_close + 1, block_end)
             if tokens[index].kind != "comment"
             and not (
                 tokens[index].kind == "text" and not rendered_html[tokens[index].start : tokens[index].end].strip()
