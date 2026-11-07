@@ -36,13 +36,14 @@ The version bump stays Mason's release step.
 - Section 3 moves the two InlineProcessors from 175 to 85 and extends the round-trip grammar with the inline-HTML-attribute case that Steps 3 and 4 together make parity-safe.
 - Section 4 is test policy and refactoring with no behavior change, last so every behavior fix is already guarded.
 
-## Why 85 for the Inline Processors
+## Why 85 for the Icons Inline Processor
 
 Python-Markdown's built-in inline priorities: backtick 190, escape 180, reference 170, link 160, image_link 150, image_reference 140, short_reference 130, autolink 120, automail 110, linebreak 100, html 90, entity 80, not_strong 70, em_strong 60, em_strong2 50.
-At 175 a shortcode or marker is matched before the link, image, autolink, and inline-HTML processors see the text, so its placeholder ends up inside an attribute value.
-At 85 those processors run first (an autolink's text is an `AtomicString`, an inline tag is stashed whole), and link text and emphasis still recurse into child text, so an icon or marker inside `[text](url)` or `*em*` still renders.
-The `\<^>` escape (180) and inline code (190) are unaffected either way.
-This is a bug fix inside the existing output contract, not a parity divergence: prose output is byte-identical; only text that was already broken (a raw `<svg>` or `<mark>` inside an attribute) changes.
+At 175 a shortcode is matched before the link, image, autolink, and inline-HTML processors see the text, so its placeholder ends up inside an attribute value.
+At 85 those processors run first (an autolink's text is an `AtomicString`, an inline tag is stashed whole), and link text and emphasis still recurse into child text, so an icon inside `[text](url)` or `*em*` still renders.
+Inline code (190) is unaffected either way.
+Highlight stays at 175: a `<^>` holds `<` and `>`, so moving it below inline HTML would change released highlight output.
+This is a bug fix inside the existing output contract, not a parity divergence: prose output is byte-identical; only text that was already broken (a raw `<svg>` inside an attribute) changes.
 
 ---
 
@@ -226,12 +227,13 @@ The round-trip grammar case for this step lands in Step 4, because in-process hi
 - MCPs: none
 - Linters: none
 
-### Step 4: Move the Icons and Highlight InlineProcessors to 85
+### Step 4: Move the Icons InlineProcessor to 85
 
-**NOTE**: Verified in-process today: `![Star :octicons-rocket-16:](a.png)` renders `alt="Star <svg ...` (the attribute breaks at the SVG's first quote); `<span title="<^>s<^>">y</span>` renders `title="<mark>s</mark>"`; `![Star <^>x<^>](a.png)` renders `alt="Star x"` (the markers vanish); `<https://x.test/<^>q<^>>` renders the href without the markers and the link text with a `<mark>`.
-At 85 every one of these keeps the attribute literal, and `[go :octicons-rocket-16:](/a)`, `[go <^>w<^>](/a)`, `*em :octicons-rocket-16:*`, and `*em <^>z<^>*` still render the icon or mark inside the link text or emphasis (the reviewer confirmed icons at 85; the same mechanism applies to highlight).
-See "Why 85 for the Inline Processors" above.
-`icons.py` registers through `IconInlineProcessor` in `extendMarkdown`; `highlight.py` registers `HighlightInlineProcessor` under the name `do_highlight_inline`.
+**NOTE**: Verified in-process today: `![Star :octicons-rocket-16:](a.png)` renders `alt="Star <svg ...` (the attribute breaks at the SVG's first quote).
+At 85 the alt text, a link title, an autolink, and an inline HTML attribute keep the shortcode literal, and `[go :octicons-rocket-16:](/a)` and `*em :octicons-rocket-16:*` still render the icon inside the link text or emphasis (the reviewer confirmed icons at 85).
+Highlight stays at 175 by decision: its output is released and stays as it is in both paths. A `<^>` holds `<` and `>`, so at 85 Python-Markdown's inline HTML pattern would claim spans highlight renders today.
+See "Why 85 for the Icons Inline Processor" above.
+`icons.py` registers through `IconInlineProcessor` in `extendMarkdown`. Do not touch `highlight.py` or tests/test_highlight.py.
 This step also fixes the two stale CLAUDE.md table rows (finding 8): the 175 row, and the 50 row, which calls icons an in-process Preprocessor when 50 is only its `mw pre` registry priority.
 
 ```text
@@ -243,27 +245,19 @@ This step also fixes the two stale CLAUDE.md table rows (finding 8): the 175 row
      - Test an inline HTML attribute keeps it literal: render_icons('<span title=":octicons-rocket-16:">y</span>', packs) contains 'title=":octicons-rocket-16:"'.
      - Test link text still renders the icon: render_icons("[go :octicons-rocket-16:](/a)", packs) has the mw-icon span inside the <a>.
      - Test emphasis still renders the icon: render_icons("*em :octicons-rocket-16:*", packs) has the mw-icon span inside the <em>.
-   - Modify tests/test_highlight.py, class TestInlineHighlight (use _render):
-     - Test _render('<span title="<^>s<^>">y</span>') contains 'title="<^>s<^>"' and no "<mark>".
-     - Test _render("![Star <^>x<^>](a.png)") contains 'alt="Star <^>x<^>"'.
-     - Test _render("<https://x.test/<^>q<^>>") contains 'href="https://x.test/<^>q<^>"' and no "<mark>".
-     - Test _render("[go <^>w<^>](/a)") still contains "<mark>w</mark>" inside the <a>.
-     - Test _render("*em <^>z<^>*") still contains "<mark>z</mark>" inside the <em>.
-   - Modify tests/test_roundtrip.py: extend _prose_block so it can draw an inline tag with a marker in its attribute, f'<span title="<^>{word}<^>">{phrase}</span>', and add that shape to FIXTURE's prose (the pipeline leaves the attribute literal after Step 3, the in-process render after this step).
    - Confirm the attribute tests fail today and the link-text and emphasis tests pass today (they guard the move).
 
-2. GREEN: Re-register both processors:
+2. GREEN: Re-register the icons processor:
    - In src/markwright/icons.py, IconsExtension.extendMarkdown: register at 85; docstring: after links, images, autolinks, and inline HTML (90) so a shortcode inside an attribute stays literal, before entities and emphasis.
-   - In src/markwright/highlight.py, HighlightExtension.extendMarkdown: register do_highlight_inline at 85 with the same docstring note.
 
 3. REFACTOR: none expected.
 
 4. Document:
-   - CLAUDE.md, Processor Priority Reference: change the 175 row to "| 85 | InlineProcessor | highlight, icons | After links, images, autolinks, and inline HTML (90), so a marker or shortcode inside an attribute stays literal; before entities and emphasis |"; change the 50 row to "| 50 | pre stage (`mw pre` only) | icons | The registry's pre priority; in-process icons registers only the InlineProcessor |"; update pattern 6's "(175)" to "(85)".
-   - docs/index.md, items 3 and 5: priority 175 becomes 85, and item 5 says icons has a pre stage (priority 50) for `mw pre` and an InlineProcessor (priority 85) in-process.
-   - CHANGELOG.md, "### Fixed": "The highlight InlineProcessor runs after links, images, and inline HTML, so a `<^>` marker inside an image's alt text, a link title, or an HTML attribute stays literal instead of being dropped or written into the attribute (#29)." Icons is unreleased, so it gets no entry.
+   - CLAUDE.md, Processor Priority Reference: change the 175 row to "| 175 | InlineProcessor | highlight | Runs before emphasis |" and add "| 85 | InlineProcessor | icons | After links, images, autolinks, and inline HTML (90), so a shortcode inside an attribute stays literal; before entities and emphasis |"; change the 50 row to "| 50 | pre stage (`mw pre` only) | icons | The registry's pre priority; in-process icons registers only the InlineProcessor |"; update pattern 6's "(175)" to "(85)".
+   - docs/index.md, item 5 only (item 3, highlight, keeps 175): item 5 says icons has a pre stage (priority 50) for `mw pre` and an InlineProcessor (priority 85) in-process.
+   - CHANGELOG.md: no entry; icons is unreleased.
 
-5. Verify tests/test_icons.py, tests/test_highlight.py, and tests/test_roundtrip.py pass; run `just check` and `just docs-build` and confirm both green.
+5. Verify tests/test_icons.py, tests/test_highlight.py (unchanged), and tests/test_roundtrip.py pass; run `just check` and `just docs-build` and confirm both green.
 ```
 
 ---

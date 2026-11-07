@@ -121,8 +121,9 @@ def _load_icon(packs: Mapping[str, Path], pack: str, name: str) -> str | None:
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
     """Replace ``:pack-name:`` shortcodes in prose with inline SVG.
 
-    The source-stage transform for ``mw pre``. Fenced code blocks and inline code spans are
-    skipped, and a shortcode with no matching icon is left as text.
+    The source-stage transform for ``mw pre``. Fenced code, indented code, inline code spans, HTML
+    tags, HTML comments, and autolinks are skipped (a tag's text content is still prose), and a
+    shortcode with no matching icon is left as text.
 
     :param text: Raw Markdown source.
     :param options: The icons option table, or ``None`` for no packs.
@@ -137,7 +138,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
             return shortcode_match.group(0)
         return f'<span aria-hidden="true" class="{ICON_CLASS}">{svg}</span>'
 
-    return map_prose(text, lambda prose: pattern.sub(replace, prose))
+    return map_prose(text, lambda prose: pattern.sub(replace, prose), skip_html=True)
 
 
 class IconInlineProcessor(InlineProcessor):

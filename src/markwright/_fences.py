@@ -21,6 +21,15 @@ _LIST_ITEM_RE = re.compile(r"^(?P<indent>[ ]*)(?:[-*+]|\d{1,9}[.)])[ ]+\S")
 # An inline code span: a backtick run, content, and a closing run of exactly the same length
 _INLINE_CODE_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`).+?(?<!`)(?P=ticks)(?!`)")
 
+# An HTML tag or comment, in the shape of Python-Markdown's inline HTML_RE. The letter after "<" keeps
+# "a < b" prose. It also covers autolinks and automail ("<https://x>"), which start with a letter too and
+# must not be rewritten for the same reason. Like Python-Markdown's, neither body admits "<" or ">", so a
+# span holding a "<^>" marker is prose, as it is to in-process highlight.
+_HTML_TAG_RE = re.compile(r"<(?:/?[A-Za-z][^<>]*|!--(?:(?!-->)[^<>])*--)>")
+
+# One left-to-right pass over both grammars, so whichever starts first wins
+_SKIPPED_SPAN_RE = re.compile(f"{_INLINE_CODE_RE.pattern}|{_HTML_TAG_RE.pattern}")
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -180,19 +189,26 @@ def _code_line_indexes(lines: list[str]) -> set[int]:
     return fenced_lines | _indented_code_lines(lines, fenced_lines)
 
 
-def map_prose(text: str, transform: Callable[[str], str]) -> str:
+def map_prose(text: str, transform: Callable[[str], str], *, skip_html: bool = False) -> str:
     """Apply a transform to the prose of Markdown source, skipping code.
 
     Fenced code blocks (found by :func:`find_fenced_blocks`), indented code blocks (four columns or
-    a tab after a blank line, outside a list item), and inline code spans pass through unchanged;
+    a tab after a blank line, outside a list item) and inline code spans pass through unchanged;
     ``transform`` sees only the runs of text between them.
+
+    With ``skip_html``, HTML tags, HTML comments, and autolinks pass through unchanged too (a tag's
+    text content is prose), and a backtick inside a tag does not open a code span. The flag exists
+    because a highlight pair may span inline HTML (``<^>a <b>c</b><^>``), so highlight must see the
+    tags as prose, while a single-token shortcode never spans a tag.
 
     :param text: Raw Markdown source.
     :param transform: A function applied to each prose run.
+    :param skip_html: Also skip HTML tags, comments, and autolinks.
     :returns: The source with every prose run transformed.
     """
     lines = text.split("\n")
     code_lines = _code_line_indexes(lines)
+    skipped_span_re = _SKIPPED_SPAN_RE if skip_html else _INLINE_CODE_RE
 
     output_chunks: list[str] = []
     for is_code, line_group in itertools.groupby(enumerate(lines), key=lambda entry: entry[0] in code_lines):
@@ -201,13 +217,13 @@ def map_prose(text: str, transform: Callable[[str], str]) -> str:
             output_chunks.append(chunk)
             continue
 
-        # Within prose, inline code spans are skipped as well
+        # Within prose, inline code spans (and HTML, when asked) are skipped as well
         mapped_parts: list[str] = []
         cursor = 0
-        for code_span in _INLINE_CODE_RE.finditer(chunk):
-            mapped_parts.append(transform(chunk[cursor : code_span.start()]))
-            mapped_parts.append(code_span.group(0))
-            cursor = code_span.end()
+        for skipped_span in skipped_span_re.finditer(chunk):
+            mapped_parts.append(transform(chunk[cursor : skipped_span.start()]))
+            mapped_parts.append(skipped_span.group(0))
+            cursor = skipped_span.end()
         mapped_parts.append(transform(chunk[cursor:]))
         output_chunks.append("".join(mapped_parts))
     return "\n".join(output_chunks)

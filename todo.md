@@ -22,18 +22,18 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [x] GREEN: the ten Preprocessor.run methods return map_lines("\n".join(lines), transform).split("\n")
   - [x] Document: CHANGELOG.md Fixed continuation line claims parity; CLAUDE.md priority rows note the code skipping
   - [x] Verify every suite; `just check` and `just test-integration` green
-- [ ] Step 3: Skip HTML tags in map_prose
-  - [ ] RED: tests in tests/test_fences_map_prose.py (attribute, comment single and multi-line, autolink, bare less-than, tag inside code span), tests/test_icons.py (attribute literal, trailing shortcode wrapped), tests/test_highlight.py (attribute, autolink, marker in tag text content)
-  - [ ] GREEN: _HTML_TAG_RE and _SKIPPED_SPAN_RE in src/markwright/_fences.py; map_prose iterates the alternation; docstring updated
-  - [ ] Document: CHANGELOG.md "### Fixed" entry; CLAUDE.md patterns 3 and 6
-  - [ ] Verify tests/test_fences_map_prose.py, tests/test_highlight.py, tests/test_icons.py pass; `just check` green
+- [x] Step 3: Skip HTML tags in map_prose
+  - [x] RED: tests in tests/test_fences_map_prose.py (attribute, comment single and multi-line, autolink, bare less-than, tag inside code span), tests/test_icons.py (attribute literal, trailing shortcode wrapped), tests/test_highlight.py (guards that highlight output stays as released)
+  - [x] GREEN: _HTML_TAG_RE and _SKIPPED_SPAN_RE in src/markwright/_fences.py; map_prose skips them only with skip_html=True, which icons passes; docstring updated
+  - [x] Document: CLAUDE.md pattern 6 and the _fences notes; no CHANGELOG entry (icons is unreleased)
+  - [x] Verify tests/test_fences_map_prose.py, tests/test_highlight.py, tests/test_icons.py pass; `just check` green
 
 ## Section 3: Inline Processor Priority
 
-- [ ] Step 4: Move the icons and highlight InlineProcessors to 85
-  - [ ] RED: tests in tests/test_icons.py TestIconsInProcess (alt, title, autolink, inline attribute literal; link text and emphasis still render), tests/test_highlight.py TestInlineHighlight (same five shapes), tests/test_roundtrip.py (_prose_block inline-tag variant, FIXTURE prose)
-  - [ ] GREEN: register at 85 in src/markwright/icons.py and src/markwright/highlight.py with docstring notes
-  - [ ] Document: CLAUDE.md priority table (85 row, 50 row) and pattern 6; docs/index.md items 3 and 5; CHANGELOG.md "### Fixed" highlight entry
+- [ ] Step 4: Move the icons InlineProcessor to 85
+  - [ ] RED: tests in tests/test_icons.py TestIconsInProcess (alt, title, autolink, inline attribute literal; link text and emphasis still render)
+  - [ ] GREEN: register at 85 in src/markwright/icons.py with a docstring note
+  - [ ] Document: CLAUDE.md priority table (85 row, 50 row) and pattern 6; docs/index.md item 5; no CHANGELOG entry
   - [ ] Verify tests/test_icons.py, tests/test_highlight.py, tests/test_roundtrip.py pass; `just check` and `just docs-build` green
 
 ## Section 4: Test Policy and Conformity

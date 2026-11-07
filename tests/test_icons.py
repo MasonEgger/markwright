@@ -73,6 +73,12 @@ class TestIconsExpandSource:
         source = "Use `:octicons-rocket-16:` here\n\n```text\n:octicons-rocket-16:\n```"
         assert expand_source(source, {"packs": packs}) == source
 
+    def test_html_attribute_stays_literal_and_trailing_shortcode_is_wrapped(self, packs: dict[str, str]) -> None:
+        source = '<span title=":octicons-rocket-16:">x</span> :octicons-rocket-16:'
+        result = expand_source(source, {"packs": packs})
+        icon = f'<span aria-hidden="true" class="mw-icon">{ROCKET}</span>'
+        assert result == f'<span title=":octicons-rocket-16:">x</span> {icon}'
+
     def test_longest_prefix_wins(self, tmp_path: Path) -> None:
         short_dir = tmp_path / "short"
         short_dir.mkdir()

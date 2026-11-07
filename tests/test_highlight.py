@@ -189,6 +189,29 @@ class TestHighlightExpandSource:
         source = "use `<^>x<^>` here"
         assert expand_source(source) == source
 
+    def test_marker_in_an_html_attribute_is_wrapped_as_released(self) -> None:
+        assert expand_source('<span title="<^>s<^>">y</span>') == '<span title="<mark>s</mark>">y</span>'
+
+    def test_marker_in_an_autolink_is_wrapped_as_released(self) -> None:
+        assert expand_source("<https://x.test/<^>q<^>>") == "<https://x.test/<mark>q</mark>>"
+
+    def test_marker_in_an_inline_comment_is_wrapped_as_released(self) -> None:
+        assert expand_source("x <!-- <^>a<^> --> y") == "x <!-- <mark>a</mark> --> y"
+
+    def test_marker_in_a_tags_text_content_is_wrapped(self) -> None:
+        assert expand_source('<span title="x"><^>y<^></span>') == '<span title="x"><mark>y</mark></span>'
+
+    def test_pair_around_inline_html_is_wrapped_as_released(self) -> None:
+        assert (
+            expand_source('see <^>the <a href="u">link</a><^> now') == 'see <mark>the <a href="u">link</a></mark> now'
+        )
+
+    def test_pair_around_an_inline_comment_is_wrapped_as_released(self) -> None:
+        assert expand_source("<^>a <!-- c --> b<^>") == "<mark>a <!-- c --> b</mark>"
+
+    def test_backtick_in_an_attribute_pairs_the_code_span_as_released(self) -> None:
+        assert expand_source('<a title="`"><^>d<^></a> `<^>e<^>`') == '<a title="`"><^>d<^></a> `<mark>e</mark>`'
+
     def test_marker_in_tab_indented_list_fence_untouched(self) -> None:
         source = "- item\n\n\t```\n\t<^>x<^>\n\t```"
         assert expand_source(source) == source
