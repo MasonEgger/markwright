@@ -1,6 +1,8 @@
 # ABOUTME: Tests for the fence extension handling label, secondary_label, environment, and prefix directives.
 # Verifies directive extraction, HTML injection, environment classes, line prefixes, and edge cases.
 
+from __future__ import annotations
+
 import markdown
 import pytest
 

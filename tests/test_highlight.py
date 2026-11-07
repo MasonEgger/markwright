@@ -1,6 +1,8 @@
 # ABOUTME: Tests for the highlight extension converting <^>text<^> to <mark> tags.
 # Covers inline text, inline code, fenced code blocks, and edge cases.
 
+from __future__ import annotations
+
 import re
 
 import markdown

@@ -1,6 +1,8 @@
 # ABOUTME: Tests for the grid extension turning a [grid] or [grid cards] line into classes on the next list.
 # Covers the source stage, the HTML stage, fail-soft marker skips, and the in-process render.
 
+from __future__ import annotations
+
 import markdown
 
 from markwright.grid import apply_html, expand_source

@@ -43,7 +43,7 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
   - [x] Delete tests/test_html_helpers.py; confirm the three exempt files state the exemption in their ABOUTME
   - [x] CLAUDE.md Testing Approach: the _fences and _markers exemption sentence
   - [x] Verify grep shows only the three exempt private imports; `just check` green with _html.py at 100%
-- [ ] Step 6: Fold _apply_markers and add the future import (task)
-  - [ ] Fold _apply_markers into apply_html in src/markwright/grid.py and src/markwright/annotate.py; postprocessors call apply_html(text)
-  - [ ] Add from __future__ import annotations to tests/test_annotate.py, tests/test_fence.py, tests/test_grid.py, tests/test_highlight.py, tests/test_markers.py
-  - [ ] Verify grep -L prints nothing, grep _apply_markers prints nothing; `just check` green
+- [x] Step 6: Fold _apply_markers and add the future import (task)
+  - [x] Fold _apply_markers into apply_html in src/markwright/grid.py and src/markwright/annotate.py; postprocessors call apply_html(text)
+  - [x] Add from __future__ import annotations to tests/test_annotate.py, tests/test_fence.py, tests/test_grid.py, tests/test_highlight.py, tests/test_markers.py
+  - [x] Verify grep -L prints nothing, grep _apply_markers prints nothing; `just check` green

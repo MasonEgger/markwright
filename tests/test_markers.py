@@ -1,6 +1,8 @@
 # ABOUTME: Tests for the shared marker-comment module: encoding, finding, and fail-soft decoding.
 # Exempt from the public-API-only rule: the _markers contract is tested directly.
 
+from __future__ import annotations
+
 import json
 
 import pytest

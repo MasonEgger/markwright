@@ -138,15 +138,20 @@ def _enclosing_comment_span(tokens: list[HtmlToken], token_index: int) -> tuple[
     return (opening, closing) if is_comment_span else None
 
 
-def _apply_markers(rendered_html: str, skip_reasons: list[str] | None) -> str:
-    """Annotate the block after each mw-annotate marker, then remove the marker.
+def apply_html(
+    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+) -> str:
+    """Link annotation markers from their mw-annotate marker comments.
 
-    A marker is skipped (and optionally reported) when its payload is invalid, no block follows
-    it, or no ``<ol>`` follows the block. A recognized marker comment is always removed.
+    Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
+    pass a ``skip_reasons`` list to collect why.
+    A marker is skipped when its payload is invalid, no block follows it, or no ``<ol>`` follows the block.
+    A recognized marker comment is always removed.
 
     :param rendered_html: Rendered HTML containing mw-annotate marker comments.
     :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
-    :returns: HTML with the annotations linked.
+    :param options: Accepted for the registry's shared signature; annotate has no options.
+    :returns: HTML with the blocks, lists, and markers annotated and the markers removed.
     """
     tokens = tokenize(rendered_html)
     edits: list[tuple[int, int, str]] = []
@@ -207,22 +212,6 @@ def _apply_markers(rendered_html: str, skip_reasons: list[str] | None) -> str:
     return apply_edits(rendered_html, edits)
 
 
-def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
-) -> str:
-    """Link annotation markers from their mw-annotate marker comments.
-
-    Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
-    pass a ``skip_reasons`` list to collect why.
-
-    :param rendered_html: Rendered HTML containing mw-annotate marker comments.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
-    :param options: Accepted for the registry's shared signature; annotate has no options.
-    :returns: HTML with the blocks, lists, and markers annotated and the markers removed.
-    """
-    return _apply_markers(rendered_html, skip_reasons)
-
-
 class AnnotatePreprocessor(Preprocessor):
     """Replace annotate directives with mw-annotate marker comments."""
 
@@ -244,7 +233,7 @@ class AnnotatePostprocessor(Postprocessor):
         :param text: Rendered HTML string.
         :returns: Modified HTML.
         """
-        return _apply_markers(text, None)
+        return apply_html(text)
 
 
 class AnnotateExtension(Extension):

@@ -1,6 +1,8 @@
 # ABOUTME: Tests for the annotate extension linking (N) markers in a block to the items of the list after it.
 # Covers the source stage, prose and code linking, fail-soft marker skips, and the in-process render.
 
+from __future__ import annotations
+
 import markdown
 
 from markwright.annotate import apply_html, expand_source

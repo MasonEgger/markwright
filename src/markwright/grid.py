@@ -69,15 +69,20 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     return map_lines(text, _transform_line)
 
 
-def _apply_markers(rendered_html: str, skip_reasons: list[str] | None) -> str:
-    """Class the list after each mw-grid marker, then remove the marker.
+def apply_html(
+    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+) -> str:
+    """Class lists from their mw-grid marker comments.
 
-    A marker is skipped (and optionally reported) when its payload is invalid or no list
-    follows it before the next marker. A recognized marker comment is always removed.
+    Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
+    pass a ``skip_reasons`` list to collect why.
+    A marker is skipped when its payload is invalid or no list follows it before the next marker.
+    A recognized marker comment is always removed.
 
     :param rendered_html: Rendered HTML containing mw-grid marker comments.
     :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
-    :returns: HTML with the grid classes added.
+    :param options: Accepted for the registry's shared signature; grid has no options.
+    :returns: HTML with ``mw-grid`` classes on the marked lists and the markers removed.
     """
     tokens = tokenize(rendered_html)
     edits: list[tuple[int, int, str]] = []
@@ -103,22 +108,6 @@ def _apply_markers(rendered_html: str, skip_reasons: list[str] | None) -> str:
     return apply_edits(rendered_html, edits)
 
 
-def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
-) -> str:
-    """Class lists from their mw-grid marker comments.
-
-    Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
-    pass a ``skip_reasons`` list to collect why.
-
-    :param rendered_html: Rendered HTML containing mw-grid marker comments.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
-    :param options: Accepted for the registry's shared signature; grid has no options.
-    :returns: HTML with ``mw-grid`` classes on the marked lists and the markers removed.
-    """
-    return _apply_markers(rendered_html, skip_reasons)
-
-
 class GridPreprocessor(Preprocessor):
     """Replace grid directives with mw-grid marker comments."""
 
@@ -140,7 +129,7 @@ class GridPostprocessor(Postprocessor):
         :param text: Rendered HTML string.
         :returns: Modified HTML.
         """
-        return _apply_markers(text, None)
+        return apply_html(text)
 
 
 class GridExtension(Extension):
