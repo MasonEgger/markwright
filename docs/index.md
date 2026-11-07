@@ -106,7 +106,7 @@ Each extension is a standalone Python-Markdown extension loaded by name (e.g., `
 
 4. **Button, Lightbox, and Mermaid** use Preprocessors only. Button and Lightbox (priority 20) match standalone directive lines like the embeds. Mermaid (priority 45) replaces `mermaid` fences with a raw `<pre>` before superfences sees them.
 
-5. **Icons** uses a Preprocessor (priority 50) for the `mw pre` stage and an InlineProcessor (priority 175) in-process, both resolving `:pack-name:` shortcodes against SVG directories you configure.
+5. **Icons** uses a pre stage (priority 50) for `mw pre` and an InlineProcessor (priority 85) in-process, both resolving `:pack-name:` shortcodes against SVG directories you configure.
 
 6. **Grid and Annotate** follow the fence marker-comment pattern: a Preprocessor (priority 20) swaps the directive for a versioned marker comment, and a Postprocessor (priority 30) reads it from the rendered HTML.
 

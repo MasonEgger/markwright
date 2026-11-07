@@ -182,6 +182,17 @@ class TestRoundTripIcons:
         assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
         assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
 
+    def test_attribute_and_autolink_shortcodes_match_in_process(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        source = 'Prose :demo-check: here, <span title=":demo-check:">x</span>, and <https://x.test/:demo-check:>.\n'
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
+
 
 class TestRoundTripIdempotency:
     """Running the post stage twice does not double-apply any transform."""

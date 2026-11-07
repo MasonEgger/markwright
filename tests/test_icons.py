@@ -129,6 +129,32 @@ class TestIconsInProcess:
         result = markdown.Markdown(extensions=[extension]).convert(":octicons-rocket-16:")
         assert "mw-icon" in result
 
+    def test_image_alt_text_keeps_the_shortcode_literal(self, packs: dict[str, str]) -> None:
+        result = render_icons("![Star :octicons-rocket-16:](a.png)", packs)
+        assert 'alt="Star :octicons-rocket-16:"' in result
+        assert "<svg" not in result
+
+    def test_link_title_keeps_the_shortcode_literal(self, packs: dict[str, str]) -> None:
+        result = render_icons('[go](/a ":octicons-rocket-16: tip")', packs)
+        assert 'title=":octicons-rocket-16: tip"' in result
+
+    def test_autolink_keeps_the_shortcode_literal(self, packs: dict[str, str]) -> None:
+        result = render_icons("<https://x.test/:octicons-rocket-16:>", packs)
+        assert 'href="https://x.test/:octicons-rocket-16:"' in result
+        assert "<svg" not in result
+
+    def test_inline_html_attribute_keeps_the_shortcode_literal(self, packs: dict[str, str]) -> None:
+        result = render_icons('<span title=":octicons-rocket-16:">y</span>', packs)
+        assert 'title=":octicons-rocket-16:"' in result
+
+    def test_link_text_still_renders_the_icon(self, packs: dict[str, str]) -> None:
+        result = render_icons("[go :octicons-rocket-16:](/a)", packs)
+        assert f'<a href="/a">go <span aria-hidden="true" class="mw-icon">{ROCKET}</span></a>' in result
+
+    def test_emphasis_still_renders_the_icon(self, packs: dict[str, str]) -> None:
+        result = render_icons("*em :octicons-rocket-16:*", packs)
+        assert f'<em>em <span aria-hidden="true" class="mw-icon">{ROCKET}</span></em>' in result
+
 
 class TestIconsOptions:
     """Tests for option validation."""

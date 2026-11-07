@@ -187,6 +187,9 @@ class IconsExtension(Extension):
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the icon inline processor.
 
+        It runs at 85, after links, images, autolinks, and inline HTML (90), so a shortcode
+        inside an attribute stays literal, and before entities and emphasis.
+
         Options are read here rather than at construction, so a ``setConfig`` call made
         after construction still applies.
 
@@ -195,7 +198,7 @@ class IconsExtension(Extension):
         """
         packs = read_options(self.getConfigs()).packs
         processor = IconInlineProcessor(_shortcode_pattern(packs), md, packs)
-        md.inlinePatterns.register(processor, "mw-icons", 175)
+        md.inlinePatterns.register(processor, "mw-icons", 85)
 
 
 def makeExtension(**kwargs: object) -> IconsExtension:  # noqa: N802 - Python-Markdown's loader name

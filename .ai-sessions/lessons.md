@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- Check the spec `paths:` fence before directing an executor to edit `spec.md`; an orchestrator-instructed `spec.md` edit in Step 4 failed validator iteration 2 as a fence block and had to be reverted, so a spec change belongs to a human-approved spec step, not a fix instruction (2026-11-07)
 - A validator pass grades the diff against the plan it was handed and does not invent inputs; a read-only adversarial review of the whole branch before the PR, told to reproduce every claim, found a tag-corrupting annotate bug and three `mw pre` parity gaps that four clean per-step validator verdicts missed (2026-11-02)
 - An InlineProcessor registered above `html` (90), `image_link` (150), and `link` (160) gets its placeholder written into `alt`, `title`, and `href` values (icons at 175 emitted raw `<svg>` inside `alt`, highlight at 175 emitted `<mark>` inside `title`); register markup-producing inline patterns at 85, after inline HTML and before entities and emphasis, so attributes stay literal while link text and emphasis still recurse (2026-11-02)
 - A marker post stage must bound every search by `find_markers`' `block_end`, not only the block search; annotate searched for its list to the end of the page, so two chained markers edited the same `<ol>` start tag and `apply_edits` garbled it silently (2026-11-02)
@@ -18,6 +19,7 @@
 - Routing every directive-line pre stage through `_fences.map_lines` (not raw line iteration) is what makes `mw pre` leave a `[button]`, `[grid]`, `[annotate]`, or embed directive literal inside a fenced code block, matching the in-process render whose preprocessors run after superfences stashes the fence; the fix is one shared fence-aware mapper, not per-stage regex, and the `tests/test_roundtrip.py` hypothesis grammar needs a fenced-directive case or the parity gap passes silently (2026-10-31)
 
 ## Workflow
+- Check the spec `paths:` fence before directing an executor to edit `spec.md`; an orchestrator-instructed `spec.md` edit in Step 4 failed validator iteration 2 as a fence block and had to be reverted, so a spec change belongs to a human-approved spec step, not a fix instruction (2026-11-07)
 - A validator pass grades the diff against the plan it was handed and does not invent inputs; a read-only adversarial review of the whole branch before the PR, told to reproduce every claim, found a tag-corrupting annotate bug and three `mw pre` parity gaps that four clean per-step validator verdicts missed (2026-11-02)
 - The `mw` console script resolves only inside the uv environment, so the Hugo integration test silently skips under a bare `pytest` or a shell `which mw`; `just check` or `just test-integration` is the way to be sure it ran (2026-10-20)
 - `/bpe:plan --archive` moves `plan.md` into `.ai-sessions/<slug>/` with a plain `mv`, so a slug matching an existing cycle directory (a brainstorm draft's `spec.md` and `plan.md`) silently overwrites the draft; check the directory first and pick a distinct slug such as `<phase>-<version>` (2026-10-25)

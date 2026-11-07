@@ -74,7 +74,7 @@ Regex remains for single-line token grammars (the `[youtube ...]`-style directiv
 
 5. **Mermaid** is a fence-replacing pre stage with no stash. It finds closed `mermaid` fences with `_fences.find_fenced_blocks` and emits a raw `<pre class="mermaid">` inline (never stashed, because the in-process preprocessor runs above Python-Markdown's whitespace normalizer). It runs at 45, ahead of fence and superfences, so a `custom_fences` mermaid entry is inert.
 
-6. **Icons** is a pre stage over `_fences.map_prose` (so fenced code, indented code, inline code spans, and HTML tags are skipped) plus an InlineProcessor (175) in-process. `markwright` ships no icons: `packs` maps a prefix to an SVG directory, read and validated by `icons.read_options` (omitted is silent, empty warns, bad shape or directory raises `OptionError`). It uses a sentinel default like fence, and reads options in `extendMarkdown`.
+6. **Icons** is a pre stage over `_fences.map_prose` (so fenced code, indented code, inline code spans, and HTML tags are skipped) plus an InlineProcessor (85) in-process. `markwright` ships no icons: `packs` maps a prefix to an SVG directory, read and validated by `icons.read_options` (omitted is silent, empty warns, bad shape or directory raises `OptionError`). It uses a sentinel default like fence, and reads options in `extendMarkdown`.
 
 7. **Grid and annotate** follow the fence marker-comment pattern through `_markers.py`: `expand_source` swaps `[grid]`, `[grid cards]`, or `[annotate]` for a versioned marker, and `apply_html` reads it back (strict pydantic payload, fail-soft skip reported under `--warn`), edits the list or the annotated block through `_html` spans, and removes the marker. Their `mw-grid` and `mw-annotate` markers and the `mw-annotation-B-N` ids are public contracts, versioned like `mw-fence`.
 
@@ -85,11 +85,12 @@ markwright emits classes and markup only and ships no CSS, JavaScript, or icons;
 | Priority | Type | Extension | Relationship |
 |----------|------|-----------|-------------|
 | 40 | Preprocessor | fence | Runs *before* `pymdownx.superfences` (~38) |
-| 50 | Preprocessor | icons | Resolves shortcodes before anything else sees them (`mw pre` runs it first) |
+| 50 | pre stage (`mw pre` only) | icons | The registry's pre priority; in-process icons registers only the InlineProcessor |
 | 45 | Preprocessor | mermaid | Replaces mermaid fences before fence and superfences |
 | 20 | Preprocessor | button, lightbox, grid, annotate | Same slot as the embeds, after superfences; skip fenced and indented code through `_fences.map_lines` |
 | 20 | Preprocessor | all embeds | Runs *after* superfences (embed syntax in fences is already stashed); skip fenced and indented code through `_fences.map_lines` |
-| 175 | InlineProcessor | highlight, icons | Runs before emphasis |
+| 175 | InlineProcessor | highlight | Runs before emphasis |
+| 85 | InlineProcessor | icons | After links, images, autolinks, and inline HTML (90), so a shortcode inside an attribute stays literal; before entities and emphasis |
 | 30 | Postprocessor | grid, annotate | Runs ahead of fence, so annotate still sees the fence marker as a comment |
 | 25 | Postprocessor | fence, highlight | Standard post-processing |
 | 15 | Postprocessor | codepen, twitter, instagram | Script injection (runs after other postprocessors) |

@@ -30,11 +30,11 @@ Mirrors plan.md. Each top-level item is a step; sub-items are its numbered sub-s
 
 ## Section 3: Inline Processor Priority
 
-- [ ] Step 4: Move the icons InlineProcessor to 85
-  - [ ] RED: tests in tests/test_icons.py TestIconsInProcess (alt, title, autolink, inline attribute literal; link text and emphasis still render)
-  - [ ] GREEN: register at 85 in src/markwright/icons.py with a docstring note
-  - [ ] Document: CLAUDE.md priority table (85 row, 50 row) and pattern 6; docs/index.md item 5; no CHANGELOG entry
-  - [ ] Verify tests/test_icons.py, tests/test_highlight.py, tests/test_roundtrip.py pass; `just check` and `just docs-build` green
+- [x] Step 4: Move the icons InlineProcessor to 85
+  - [x] RED: tests in tests/test_icons.py TestIconsInProcess (alt, title, autolink, inline attribute literal; link text and emphasis still render)
+  - [x] GREEN: register at 85 in src/markwright/icons.py with a docstring note
+  - [x] Document: CLAUDE.md priority table (85 row, 50 row) and pattern 6; docs/index.md item 5; no CHANGELOG entry
+  - [x] Verify tests/test_icons.py, tests/test_highlight.py, tests/test_roundtrip.py pass; `just check` and `just docs-build` green
 
 ## Section 4: Test Policy and Conformity
 

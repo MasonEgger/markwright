@@ -25,15 +25,15 @@ The version bump stays Mason's release step.
 
 - [ ] Section 1: Annotate chaining (Step 1)
 - [ ] Section 2: Code detection in `_fences` (Steps 2, 2b, 3)
-- [ ] Section 3: Inline processor priority (Step 4)
+- [x] Section 3: Inline processor priority (Step 4)
 - [ ] Section 4: Test policy and conformity (Steps 5-6)
 
 ## Ordering and Dependencies
 
 - Section 1 is the one HTML-corrupting bug and stands alone.
-- Section 2 changes what `_fences` counts as code: Step 2 adds tab-aware indentation and indented-code detection to both mappers (and resolves the Step 1 info finding from the #20 cycle, the duplicated fenced-line set); Step 3 adds HTML-tag skipping to `map_prose`. Step 3's round-trip case needs Step 4, so its property-grammar addition lands there.
+- Section 2 changes what `_fences` counts as code: Step 2 adds tab-aware indentation and indented-code detection to both mappers (and resolves the Step 1 info finding from the #20 cycle, the duplicated fenced-line set); Step 3 adds HTML-tag skipping to `map_prose`. Step 3's icons round-trip case needs Step 4, so it lands there.
 - Step 2b, added after Step 2's implement pass, moves the ten in-process directive preprocessors onto `map_lines` so a directive line inside indented code stays literal in both paths, and restores the indented-code round-trip cases Step 2 dropped.
-- Section 3 moves the two InlineProcessors from 175 to 85 and extends the round-trip grammar with the inline-HTML-attribute case that Steps 3 and 4 together make parity-safe.
+- Section 3 moves only the icons InlineProcessor from 175 to 85 (highlight stays at 175) and adds an icons round-trip case for the inline-HTML-attribute and autolink shortcodes that Steps 3 and 4 together make parity-safe.
 - Section 4 is test policy and refactoring with no behavior change, last so every behavior fix is already guarded.
 
 ## Why 85 for the Icons Inline Processor
@@ -190,7 +190,7 @@ Mirror Python-Markdown's inline HTML_RE shape (a tag `</?[A-Za-z][^<>]*>` or a c
 The tag branch is deliberately a superset of Python-Markdown's (which excludes `@` from the tag name so `<a@b.c>` goes to automail): an autolink and an automail start with a letter too and must be skipped for the same reason.
 Combine the code-span and tag grammars into one alternation so whichever starts first is skipped; a tag's text content between its start and end tags stays prose.
 The text content of a raw HTML block (`<div>\n:name:\n</div>`) is out of scope (Deferred in spec.md): detecting it needs an HTML-block parser, and `mw pre` rewriting it is the more useful behavior until a Decision says otherwise.
-The round-trip grammar case for this step lands in Step 4, because in-process highlight at 175 still mangles the attribute until Step 4 moves it.
+The icons round-trip case for this step lands in Step 4, once the icons InlineProcessor moves to 85; the highlight attribute round-trip case does not land, because highlight stays at 175.
 
 ```text
 1. RED: Write the tag-skipping tests first:
