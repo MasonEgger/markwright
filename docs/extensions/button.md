@@ -2,6 +2,17 @@
 
 Turns a standalone `[button ...]` line into a link styled as a button.
 
+[button primary https://example.com Get Started]
+
+[button https://example.com Read More]
+
+```
+[label Markdown]
+[button primary https://example.com Get Started]
+
+[button https://example.com Read More]
+```
+
 ## Usage
 
 ```python
@@ -38,18 +49,6 @@ The directive must be on its own line, like the embeds.
 
 The classes `mw-button` and `mw-button-primary` are the whole contract.
 markwright adds no inline styles, no attributes beyond `class` and `href`, and no script.
-
-## Examples
-
-```
-[button primary https://example.com Get Started]
-
-[button https://example.com Read More]
-```
-
-[button primary https://example.com Get Started]
-
-[button https://example.com Read More]
 
 ## Host CSS
 

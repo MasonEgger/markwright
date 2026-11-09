@@ -1,6 +1,26 @@
 # Fence
 
-Adds labels, secondary labels, environment classes, and line prefixes to fenced code blocks. All fence features are coordinated through a single extension to avoid ordering issues.
+Adds labels, secondary labels, environment classes, and line prefixes to fenced code blocks.
+All fence features are coordinated through a single extension to avoid ordering issues.
+
+```command
+[environment local]
+[label server.sh]
+[secondary_label Output]
+ssh root@192.168.1.1
+apt update && apt upgrade -y
+```
+
+````
+[label Markdown]
+```command
+[environment local]
+[label server.sh]
+[secondary_label Output]
+ssh root@192.168.1.1
+apt update && apt upgrade -y
+```
+````
 
 ## Usage
 
@@ -202,22 +222,3 @@ SELECT * FROM users;
 SHOW TABLES;
 ```
 
-## Full Combination
-
-All features can be combined:
-
-````
-```command
-[environment local]
-[label server.sh]
-ssh root@192.168.1.1
-apt update && apt upgrade -y
-```
-````
-
-```command
-[environment local]
-[label server.sh]
-ssh root@192.168.1.1
-apt update && apt upgrade -y
-```

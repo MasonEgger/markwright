@@ -2,6 +2,13 @@
 
 Turns a standalone `[lightbox ...]` line into an image wrapped in a link to the full-size file.
 
+[lightbox https://picsum.photos/id/10/480/270 A forest path]
+
+```
+[label Markdown]
+[lightbox https://picsum.photos/id/10/480/270 A forest path]
+```
+
 ## Usage
 
 ```python
@@ -36,14 +43,6 @@ The directive must be on its own line.
 
 Without a script, the link opens the image on its own page.
 With a host script, a click on `a.mw-lightbox` can open the image in an overlay instead.
-
-## Examples
-
-```
-[lightbox https://picsum.photos/id/10/480/270 A forest path]
-```
-
-[lightbox https://picsum.photos/id/10/480/270 A forest path]
 
 ## Host CSS and Script
 

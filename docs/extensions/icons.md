@@ -5,6 +5,21 @@ Replaces `:pack-name:` shortcodes in prose with inline SVG read from directories
 markwright ships no icons.
 You name a pack (a prefix) and point it at a directory of SVG files, and the extension inlines the file whose name matches.
 
+Build passed :lucide-check:
+
+Rated :mw-star: :mw-star: :mw-star: by readers who :mw-heart: it.
+
+Next step :lucide-arrow-right: install, then :mw-bolt: run.
+
+```
+[label Markdown]
+Build passed :lucide-check:
+
+Rated :mw-star: :mw-star: :mw-star: by readers who :mw-heart: it.
+
+Next step :lucide-arrow-right: install, then :mw-bolt: run.
+```
+
 ## Usage
 
 ```python
@@ -59,6 +74,8 @@ A shortcode that names no pack, or a pack with no matching file, is left as text
 Shortcodes inside fenced code blocks and inline code spans are never replaced.
 Anything before the `<svg` tag in the file (an XML declaration or a license comment) is dropped, and the markup is joined onto a single line.
 
+An unknown icon stays text: `:lucide-nope:` and :lucide-nope:.
+
 ## HTML Contract
 
 ```html
@@ -67,24 +84,6 @@ Anything before the `<svg` tag in the file (an XML declaration or a license comm
 
 The wrapper is a `span` with `class="mw-icon"` and `aria-hidden="true"`, in that serialized order, so icons are decorative to screen readers.
 The SVG inside is the file's own markup, unchanged.
-
-## Examples
-
-```
-Build passed :lucide-check:
-
-Rated :mw-star: :mw-star: :mw-star: by readers who :mw-heart: it.
-
-Next step :lucide-arrow-right: install, then :mw-bolt: run.
-```
-
-Build passed :lucide-check:
-
-Rated :mw-star: :mw-star: :mw-star: by readers who :mw-heart: it.
-
-Next step :lucide-arrow-right: install, then :mw-bolt: run.
-
-An unknown icon stays text: `:lucide-nope:` and :lucide-nope:.
 
 ## Host CSS
 

@@ -2,6 +2,13 @@
 
 Creates image slideshows with left/right navigation arrows and scroll-snap behavior.
 
+[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
+
+```
+[label Markdown]
+[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
+```
+
 ## Usage
 
 ```python
@@ -28,14 +35,6 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 Height and width are optional trailing integers. They are distinguished from URLs by being purely numeric.
 
 ## Examples
-
-### Basic Slideshow
-
-```
-[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
-```
-
-[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
 
 ### Custom Dimensions
 

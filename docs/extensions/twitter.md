@@ -1,6 +1,14 @@
 # Twitter
 
-Embeds tweets with configurable theme, alignment, and width. Accepts `twitter.com` and `x.com` references in several forms (full URL, scheme-less, or a bare `user/status/id`), canonicalizing the output to `twitter.com`.
+Embeds tweets with configurable theme, alignment, and width.
+Accepts `twitter.com` and `x.com` references in several forms (full URL, scheme-less, or a bare `user/status/id`), canonicalizing the output to `twitter.com`.
+
+[twitter https://twitter.com/github/status/1234567890]
+
+```
+[label Markdown]
+[twitter https://twitter.com/github/status/1234567890]
+```
 
 ## Usage
 
@@ -46,14 +54,6 @@ All of these resolve to the same tweet:
 | *integer* | Width in pixels (clamped 250-550, default: 550) |
 
 ## Examples
-
-### Basic Tweet
-
-```
-[twitter https://twitter.com/github/status/1234567890]
-```
-
-[twitter https://twitter.com/github/status/1234567890]
 
 ### Dark Theme, Left-Aligned
 

@@ -2,6 +2,13 @@
 
 Creates side-by-side image comparisons with an interactive slider control.
 
+[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
+
+```
+[label Markdown]
+[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
+```
+
 ## Usage
 
 ```python
@@ -27,14 +34,6 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 | `WIDTH` | `480` | Widget width in pixels |
 
 ## Examples
-
-### Basic Comparison
-
-```
-[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
-```
-
-[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
 
 ### Custom Dimensions
 

@@ -3,6 +3,21 @@
 Converts `\<^>text\<^>` to `<mark>text</mark>`.
 Works in regular text, inline code, and fenced code blocks, anywhere that `pymdownx.mark` (`==text==`) cannot reach.
 
+Set `config.<^>timeout<^>` to <^>30 seconds<^> before you deploy:
+
+```python
+config.timeout = <^>30<^>
+```
+
+````
+[label Markdown]
+Set `config.\<^>timeout\<^>` to \<^>30 seconds\<^> before you deploy:
+
+```python
+config.timeout = \<^>30\<^>
+```
+````
+
 ## Usage
 
 ```python

@@ -2,6 +2,13 @@
 
 Embeds Instagram posts with optional caption display, alignment, and width.
 
+[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
+
+```
+[label Markdown]
+[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
+```
+
 ## Usage
 
 ```python
@@ -52,14 +59,6 @@ All of these resolve to the same post, and the embed permalink is canonicalized 
 ```
 
 [instagram https://www.instagram.com/p/CkQuv3_LRgS]
-
-### With Caption
-
-```
-[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
-```
-
-[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
 
 ### Left-Aligned with Custom Width
 

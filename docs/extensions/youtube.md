@@ -2,6 +2,13 @@
 
 Embeds YouTube videos as responsive iframes with automatic aspect ratio calculation.
 
+[youtube dQw4w9WgXcQ]
+
+```
+[label Markdown]
+[youtube dQw4w9WgXcQ]
+```
+
 ## Usage
 
 ```python
@@ -30,14 +37,6 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 The aspect ratio is calculated automatically from the dimensions.
 
 ## Examples
-
-### Default Dimensions (480x270)
-
-```
-[youtube dQw4w9WgXcQ]
-```
-
-[youtube dQw4w9WgXcQ]
 
 ### Custom Dimensions
 

@@ -2,6 +2,77 @@
 
 Adds grid classes to the list that follows a `[grid]` or `[grid cards]` line.
 
+[grid cards]
+
+-   :lucide-check: **Mark text**
+
+    ---
+
+    Highlight a word in prose, in inline code, or inside a code block.
+
+    [:lucide-arrow-right: Highlight](highlight.md)
+
+-   :mw-bolt: **Label code**
+
+    ---
+
+    Add labels, environments, and `$` or `#` prompts to fenced code.
+
+    [:lucide-arrow-right: Fence](fence.md)
+
+-   :lucide-info: **Explain code**
+
+    ---
+
+    Link `(1)` markers in a block to notes that open as tooltips.
+
+    [:lucide-arrow-right: Annotate](annotate.md)
+
+-   :mw-star: **Lay out content**
+
+    ---
+
+    Turn any list into a responsive grid of plain items or cards.
+
+    [:lucide-arrow-right: Syntax](#syntax)
+
+````
+[label Markdown]
+[grid cards]
+
+-   :lucide-check: **Mark text**
+
+    ---
+
+    Highlight a word in prose, in inline code, or inside a code block.
+
+    [:lucide-arrow-right: Highlight](highlight.md)
+
+-   :mw-bolt: **Label code**
+
+    ---
+
+    Add labels, environments, and `$` or `#` prompts to fenced code.
+
+    [:lucide-arrow-right: Fence](fence.md)
+
+-   :lucide-info: **Explain code**
+
+    ---
+
+    Link `(1)` markers in a block to notes that open as tooltips.
+
+    [:lucide-arrow-right: Annotate](annotate.md)
+
+-   :mw-star: **Lay out content**
+
+    ---
+
+    Turn any list into a responsive grid of plain items or cards.
+
+    [:lucide-arrow-right: Syntax](#syntax)
+````
+
 ## Usage
 
 ```python
@@ -57,24 +128,24 @@ A plain `[grid]` carries an empty payload besides `version`; only `cards` is rec
 </ul>
 ```
 
-## Examples
+## Card Content
 
-```
-[grid cards]
+A card is a list item, so it holds any Markdown a list item can.
+The cards at the top of this page follow mkdocs-material's card pattern:
 
-- **Highlight**: marks text with `<mark>`.
-- **Fence**: labels and prefixes for code.
-- **Button**: a link styled as a button.
-```
+- an icon from the [icons](icons.md) extension, then a bold title;
+- a `---` rule;
+- a sentence or two;
+- a link.
 
-[grid cards]
-
-- **Highlight**: marks text with `<mark>`.
-- **Fence**: labels and prefixes for code.
-- **Button**: a link styled as a button.
+Indent everything after the first line by four spaces so it stays inside the item.
 
 ## Host CSS
 
 markwright ships no CSS, JavaScript, or icons.
 The classes are inert until the host styles them.
-This site's `ul.mw-grid` and `ul.mw-grid.mw-cards` rules in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css) lay the items out in a CSS grid and draw the card borders.
+This site's grid rules in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css) follow mkdocs-material's:
+
+- `ul.mw-grid` is a CSS grid with `repeat(auto-fit, minmax(min(100%, 16rem), 1fr))` columns, so items fill as many columns as fit and drop to one on a narrow screen.
+- `ul.mw-grid.mw-cards > li` gets a hairline border that turns into a shadow on hover or focus.
+- A card's opening icon is drawn at twice the text size, centered on the title.

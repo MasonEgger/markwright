@@ -2,6 +2,13 @@
 
 Embeds CodePen pens with configurable theme, default tab, height, and behavior flags.
 
+[codepen MattCowley vwPzeX dark css]
+
+```
+[label Markdown]
+[codepen MattCowley vwPzeX dark css]
+```
+
 ## Usage
 
 ```python
@@ -51,14 +58,6 @@ Tab priority when multiple are specified: html > css > js.
 ```
 
 [codepen MattCowley vwPzeX]
-
-### Dark Theme with CSS Tab
-
-```
-[codepen MattCowley vwPzeX dark css]
-```
-
-[codepen MattCowley vwPzeX dark css]
 
 ### Custom Height, Lazy, Editable
 

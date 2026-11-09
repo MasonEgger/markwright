@@ -338,22 +338,56 @@ a.mw-button.mw-button-primary:hover {
     border-color: var(--md-accent-fg-color);
 }
 
-ul.mw-grid {
+/* Grids, after mkdocs-material's: items flow into as many columns as fit, at least 16rem wide, and drop to one
+   column on a narrow screen. Cards get a hairline border that lifts into a shadow on hover. */
+.md-typeset ul.mw-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: 0.4rem;
+    margin: 1em 0;
     padding: 0;
     list-style: none;
 }
 
-ul.mw-grid > li {
+.md-typeset ul.mw-grid > li {
     margin: 0;
 }
 
-ul.mw-grid.mw-cards > li {
-    padding: 1rem;
-    border: 1px solid var(--md-default-fg-color--lightest);
-    border-radius: 0.2rem;
+.md-typeset ul.mw-grid.mw-cards > li {
+    display: block;
+    padding: 0.8rem;
+    border: 0.05rem solid var(--md-default-fg-color--lightest);
+    border-radius: 0.1rem;
+    transition:
+        border 250ms,
+        box-shadow 250ms;
+}
+
+.md-typeset ul.mw-grid.mw-cards > li:is(:hover, :focus-within) {
+    border-color: transparent;
+    box-shadow: var(--md-shadow-z2);
+}
+
+.md-typeset ul.mw-grid.mw-cards > li > hr {
+    margin-block: 1em;
+}
+
+.md-typeset ul.mw-grid.mw-cards > li > :first-child {
+    margin-top: 0;
+}
+
+.md-typeset ul.mw-grid.mw-cards > li > :last-child {
+    margin-bottom: 0;
+}
+
+/* An icon that opens a card is its headline icon: larger, and centered on the title beside it. */
+.md-typeset ul.mw-grid.mw-cards > li > p:first-child > .mw-icon:first-child {
+    vertical-align: middle;
+}
+
+.md-typeset ul.mw-grid.mw-cards > li > p:first-child > .mw-icon:first-child svg {
+    width: 2em;
+    height: 2em;
 }
 
 a.mw-lightbox img {
@@ -397,10 +431,83 @@ dialog.mw-lightbox-dialog img {
     stroke: none;
 }
 
-a.mw-annotation {
-    font-size: 0.75em;
-    vertical-align: super;
-    text-decoration: none;
+/* Annotations, after mkdocs-material's: a pulsing circled plus that turns to a cross while its card is open.
+   The marker's number stays in the link text for screen readers and print, clipped out of sight on screen. */
+@keyframes mw-annotation-pulse {
+    0% {
+        transform: scale(0.95);
+    }
+
+    75% {
+        transform: scale(1);
+    }
+
+    100% {
+        transform: scale(0.95);
+    }
+}
+
+@media screen {
+    a.mw-annotation {
+        position: relative;
+        display: inline-block;
+        width: 1.1em;
+        height: 1.1em;
+        margin: 0 0.3ch;
+        overflow: hidden;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1;
+        color: transparent;
+        text-decoration: none;
+        text-indent: 2em;
+        white-space: nowrap;
+        vertical-align: -0.15em;
+        cursor: pointer;
+        background-color: var(--md-default-fg-color--lighter);
+        border-radius: 50%;
+        transition: background-color 250ms;
+        animation: mw-annotation-pulse 2000ms infinite;
+    }
+
+    a.mw-annotation::before {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background:
+            linear-gradient(var(--md-default-bg-color), var(--md-default-bg-color)) center / 56% 13% no-repeat,
+            linear-gradient(var(--md-default-bg-color), var(--md-default-bg-color)) center / 13% 56% no-repeat;
+        transition: transform 250ms;
+    }
+
+    .md-typeset a.mw-annotation:is(:hover, :focus-visible),
+    .md-typeset a.mw-annotation.mw-annotation--active {
+        color: transparent;
+        background-color: var(--md-accent-fg-color);
+    }
+
+    a.mw-annotation.mw-annotation--active {
+        animation-play-state: paused;
+    }
+
+    a.mw-annotation.mw-annotation--active::before {
+        transform: rotate(45deg);
+    }
+}
+
+@media print {
+    a.mw-annotation {
+        padding: 0 0.6ch;
+        font-weight: 700;
+        color: var(--md-default-bg-color);
+        text-decoration: none;
+        background: var(--md-default-fg-color--lighter);
+        border-radius: 2ch;
+    }
+
+    .mw-annotation-tooltip {
+        display: none;
+    }
 }
 
 ol.mw-annotations {
@@ -409,12 +516,58 @@ ol.mw-annotations {
 
 .mw-annotation-tooltip {
     position: absolute;
-    z-index: 10;
-    max-width: 20rem;
-    padding: 0.4rem 0.7rem;
-    border-radius: 0.2rem;
-    background: var(--md-default-fg-color);
-    color: var(--md-default-bg-color);
-    font-size: 0.8rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    top: 0;
+    left: 0;
+    width: min(20rem, calc(100vw - 1.6rem));
+    color: var(--md-default-fg-color);
+    pointer-events: none;
+    visibility: hidden;
+    background-color: var(--md-default-bg-color);
+    border-radius: 0.1rem;
+    box-shadow: var(--md-shadow-z2);
+    opacity: 0;
+    transform: translateY(-0.4rem);
+    transition:
+        transform 0ms 250ms,
+        opacity 250ms,
+        visibility 0ms 250ms;
+}
+
+.mw-annotation-tooltip--active {
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+        transform 250ms cubic-bezier(0.1, 0.7, 0.1, 1),
+        opacity 250ms,
+        visibility 0ms;
+}
+
+[data-md-color-scheme="slate"] .mw-annotation-tooltip {
+    outline: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.mw-annotation-tooltip__inner {
+    padding: 0.8rem;
+    font-size: 0.64rem;
+}
+
+.mw-annotation-tooltip__inner.md-typeset > :first-child {
+    margin-top: 0;
+}
+
+.mw-annotation-tooltip__inner.md-typeset > :last-child,
+.mw-annotation-tooltip__inner.md-typeset > :has(+ ol.mw-annotations[hidden]:last-child) {
+    margin-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    a.mw-annotation,
+    a.mw-annotation::before,
+    .mw-annotation-tooltip,
+    .mw-annotation-tooltip--active {
+        transition: none;
+        animation: none;
+    }
 }

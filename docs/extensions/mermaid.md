@@ -2,6 +2,25 @@
 
 Turns a fenced code block tagged `mermaid` into a `<pre class="mermaid">` element that a host script draws as a diagram.
 
+```mermaid
+graph LR
+  Source[Markdown source] --> Pre[mw pre]
+  Pre --> Renderer
+  Renderer --> Post[mw post]
+  Post --> HTML
+```
+
+````
+[label Markdown]
+```mermaid
+graph LR
+  Source[Markdown source] --> Pre[mw pre]
+  Pre --> Renderer
+  Renderer --> Post[mw post]
+  Post --> HTML
+```
+````
+
 ## Usage
 
 ```python
@@ -38,16 +57,6 @@ Other fences, and a mermaid fence shown inside a longer outer fence like the one
 The diagram text is HTML-escaped and placed straight inside `<pre>`, with no `<code>` wrapper.
 The extension runs ahead of `pymdownx.superfences` and `markwright.fence` (preprocessor priority 45), so neither sees the block.
 If your `mkdocs.yml` also has a `custom_fences` entry named `mermaid`, remove it: this extension replaces the fence first, and the entry never runs.
-
-## Example
-
-```mermaid
-graph LR
-  Source[Markdown source] --> Pre[mw pre]
-  Pre --> Renderer
-  Renderer --> Post[mw post]
-  Post --> HTML
-```
 
 ## Host Script
 
