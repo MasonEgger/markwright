@@ -27,9 +27,24 @@ from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict, Field
 
-from markwright._containers import scan_containers
+from markwright._containers import (
+    CARD_END_MARKER_NAME,
+    CARD_MARKER_NAME,
+    GRID_BLOCK_MARKER_NAME,
+    GRID_END_MARKER_NAME,
+    scan_containers,
+)
 from markwright._html import add_classes, apply_edits, tokenize
-from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
+from markwright._markers import (
+    InvalidMarkerError,
+    decode_marker,
+    encode_marker,
+    find_markers,
+    inline_problem_marker,
+    marker_block,
+    match_marker_pairs,
+    report_problem_markers,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -39,10 +54,10 @@ if TYPE_CHECKING:
     from markwright._html import HtmlToken
 
 MARKER_NAME = "mw-grid"
-BLOCK_MARKER_NAME = "mw-grid-block"
-BLOCK_END_NAME = "mw-grid-end"
-CARD_MARKER_NAME = "mw-card"
-CARD_END_NAME = "mw-card-end"
+# The paired marker names live in _containers, the one home grid, tabs, and the scanner share.
+BLOCK_MARKER_NAME = GRID_BLOCK_MARKER_NAME
+BLOCK_END_NAME = GRID_END_MARKER_NAME
+CARD_END_NAME = CARD_END_MARKER_NAME
 PROBLEM_MARKER_NAME = "mw-grid-problem"
 GRID_CLASS = "mw-grid"
 CARDS_CLASS = "mw-grid-cards"
@@ -191,35 +206,17 @@ def _grid_classes(marker: GridMarker | GridBlockMarker) -> str:
     return classes
 
 
-def _marker_block(indent: str, name: str, payload: Mapping[str, object]) -> list[str]:
-    """Render a paired marker comment as its own block, a blank line on either side.
-
-    The blank lines keep the comment a standalone block, so the content between an opener and its
-    closer renders as normal Markdown in Python-Markdown and in Goldmark.
-
-    :param indent: The opener's leading whitespace, shared by the closer.
-    :param name: The marker name.
-    :param payload: The marker payload; ``version`` is added by the encoder.
-    :returns: A blank line, the indented marker comment, and a blank line.
-    """
-    return ["", f"{indent}{encode_marker(name, payload)}", ""]
-
-
 def _problem_marker(line: str, source_line: int, directive: _ProblemDirective, reason: _ProblemReason) -> list[str]:
-    """Attach a problem marker inline to a literal directive line.
-
-    The comment rides on the same line, directly after the directive, so the literal text keeps
-    the paragraph structure it had: a comment on its own line would split a paragraph the directive
-    belonged to.
+    """Attach a mw-grid-problem marker inline to a literal directive line.
 
     :param line: The original source line, kept verbatim.
     :param source_line: The 1-based line number of the directive.
     :param directive: The literal directive text.
     :param reason: The problem code.
-    :returns: The line with the mw-grid-problem comment appended.
+    :returns: The line with the mw-grid-problem comment appended, as a one-line block.
     """
     payload = {"line": source_line, "directive": directive, "reason": reason}
-    return [f"{line}{encode_marker(PROBLEM_MARKER_NAME, payload)}"]
+    return [inline_problem_marker(line, PROBLEM_MARKER_NAME, payload)]
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
@@ -242,26 +239,38 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     lines = text.split("\n")
     replacements: dict[int, list[str]] = {}
     for pair in scan.pairs:
+        if pair.from_marker:
+            # A pair whose lines are already grid's own markers (mw pre run twice, or hand-written):
+            # leave the markers in place rather than re-emitting and dropping their payload.
+            continue
         if pair.kind == "grid":
             payload = _parse_grid_tokens(" ".join(pair.tokens))
             if payload is None:
                 continue
-            replacements[pair.open_line] = _marker_block(pair.indent, BLOCK_MARKER_NAME, payload)
-            replacements[pair.close_line] = _marker_block(pair.indent, BLOCK_END_NAME, {})
+            replacements[pair.open_line] = marker_block(pair.indent, BLOCK_MARKER_NAME, payload)
+            replacements[pair.close_line] = marker_block(pair.indent, BLOCK_END_NAME, {})
         elif pair.kind == "card" and pair.enclosed_by_grid:
-            replacements[pair.open_line] = _marker_block(pair.indent, CARD_MARKER_NAME, {})
-            replacements[pair.close_line] = _marker_block(pair.indent, CARD_END_NAME, {})
+            replacements[pair.open_line] = marker_block(pair.indent, CARD_MARKER_NAME, {})
+            replacements[pair.close_line] = marker_block(pair.indent, CARD_END_NAME, {})
         elif pair.kind == "card":
             # A matched card not directly inside a block grid stays literal; report on its opener.
             replacements[pair.open_line] = _problem_marker(
                 lines[pair.open_line], pair.open_line + 1, "[card]", "card-outside-grid"
             )
     for unclosed in scan.unclosed_grids:
+        if unclosed.from_marker:
+            # A lone mw-grid-block marker is a half-pair, not a shortcut opener; leave it for the
+            # post stage to drop fail-soft rather than converting it into an mw-grid shortcut.
+            continue
         payload = _parse_grid_tokens(" ".join(unclosed.tokens))
         if payload is None:
             continue
         replacements[unclosed.line] = [f"{unclosed.indent}{encode_marker(MARKER_NAME, payload)}", ""]
     for problem in scan.problems:
+        if problem.from_marker:
+            # The problem line is one of grid's own markers; the post stage reports the lone marker
+            # fail-soft, so a second inline problem marker here would double the --warn report.
+            continue
         owned = _GRID_OWNED_PROBLEMS.get(problem.reason)
         if owned is None:
             continue
@@ -331,42 +340,30 @@ def _wrap_paired(
     :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
     :returns: The span edits that wrap each matched pair and remove every marker comment.
     """
-    opens = find_markers(open_name, rendered_html, tokens)
-    closes = find_markers(close_name, rendered_html, tokens)
-    ordered = sorted(
-        [(marker.token_index, True, marker.raw_payload) for marker in opens]
-        + [(marker.token_index, False, "") for marker in closes],
-        key=lambda event: event[0],
-    )
-
+    match = match_marker_pairs(open_name, close_name, rendered_html, tokens)
     edits: list[tuple[int, int, str]] = []
-    open_stack: list[tuple[int, str]] = []
-    for token_index, is_open, raw_payload in ordered:
-        comment = tokens[token_index]
-        if is_open:
-            open_stack.append((token_index, raw_payload))
-            continue
-        if not open_stack:
-            edits.append((comment.start, comment.end, ""))
-            if skip_reasons is not None:
-                skip_reasons.append(f"Skipping {close_name} marker with no matching {open_name}")
-            continue
-        open_index, open_payload = open_stack.pop()
-        open_comment = tokens[open_index]
+    for open_marker, close_marker in match.pairs:
+        open_comment = tokens[open_marker.token_index]
+        close_comment = tokens[close_marker.token_index]
         try:
-            div_class = div_class_for(open_payload)
+            div_class = div_class_for(open_marker.raw_payload)
         except InvalidMarkerError as skipped:
             edits.append((open_comment.start, open_comment.end, ""))
-            edits.append((comment.start, comment.end, ""))
+            edits.append((close_comment.start, close_comment.end, ""))
             if skip_reasons is not None:
                 skip_reasons.append(str(skipped))
             continue
         edits.append((open_comment.start, open_comment.end, f'<div class="{div_class}">'))
-        edits.append((comment.start, comment.end, "</div>"))
+        edits.append((close_comment.start, close_comment.end, "</div>"))
 
-    for open_index, _ in open_stack:
-        open_comment = tokens[open_index]
-        edits.append((open_comment.start, open_comment.end, ""))
+    for close_marker in match.unmatched_closes:
+        comment = tokens[close_marker.token_index]
+        edits.append((comment.start, comment.end, ""))
+        if skip_reasons is not None:
+            skip_reasons.append(f"Skipping {close_name} marker with no matching {open_name}")
+    for open_marker in match.unmatched_opens:
+        comment = tokens[open_marker.token_index]
+        edits.append((comment.start, comment.end, ""))
         if skip_reasons is not None:
             skip_reasons.append(f"Skipping {open_name} marker with no matching {close_name}")
     return edits
@@ -391,18 +388,9 @@ def apply_html(
     :returns: HTML with the grids and cards wrapped or classed and the markers removed.
     """
     tokens = tokenize(rendered_html)
-    edits: list[tuple[int, int, str]] = []
-    for marker_comment in find_markers(PROBLEM_MARKER_NAME, rendered_html, tokens):
-        comment = tokens[marker_comment.token_index]
-        edits.append((comment.start, comment.end, ""))
-        try:
-            problem = decode_marker(PROBLEM_MARKER_NAME, marker_comment.raw_payload, GridProblemMarker)
-        except InvalidMarkerError as skipped:
-            if skip_reasons is not None:
-                skip_reasons.append(str(skipped))
-            continue
-        if skip_reasons is not None:
-            skip_reasons.append(_problem_message(problem))
+    edits = report_problem_markers(
+        PROBLEM_MARKER_NAME, rendered_html, tokens, GridProblemMarker, _problem_message, skip_reasons
+    )
 
     for marker_comment in find_markers(MARKER_NAME, rendered_html, tokens):
         comment = tokens[marker_comment.token_index]

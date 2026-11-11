@@ -211,6 +211,106 @@ class TestEnclosedByGrid:
         assert card.enclosed_by_grid is False
 
 
+class TestMarkerRecognition:
+    """A line that is solely an emitted paired marker counts as the opener or closer it stands for,
+    so grid and tabs pair and compute enclosure from the same structure whichever ran first."""
+
+    def test_an_emitted_grid_block_marker_pairs_like_a_grid_opener(self) -> None:
+        source = '<!-- mw-grid-block:{"version": 1} -->\n\ntext\n\n<!-- mw-grid-end:{"version": 1} -->'
+        scan = scan_containers(source)
+        assert [pair.kind for pair in scan.pairs] == ["grid"]
+        assert scan.problems == ()
+
+    def test_an_emitted_card_marker_pairs_like_a_card_opener(self) -> None:
+        source = '<!-- mw-card:{"version": 1} -->\n\ntext\n\n<!-- mw-card-end:{"version": 1} -->'
+        assert [pair.kind for pair in scan_containers(source).pairs] == ["card"]
+
+    def test_an_emitted_tab_marker_pairs_like_a_tab_opener(self) -> None:
+        source = '<!-- mw-tab:{"version": 1, "name": "A", "first": true} -->\n\nx\n\n<!-- mw-tab-end:{"version": 1} -->'
+        scan = scan_containers(source)
+        assert [pair.kind for pair in scan.pairs] == ["tab"]
+        assert scan.pairs[0].tokens == ()
+
+    def test_the_grid_shortcut_marker_is_not_a_container(self) -> None:
+        # The mw-grid list shortcut is an unclosed opener, not a paired container.
+        scan = scan_containers('<!-- mw-grid:{"version": 1} -->\n\n- one')
+        assert scan.pairs == ()
+        assert scan.problems == ()
+        assert scan.unclosed_grids == ()
+
+    def test_a_card_between_emitted_grid_markers_is_enclosed(self) -> None:
+        source = '<!-- mw-grid-block:{"version": 1} -->\n[card]\n\ntext\n\n[/card]\n<!-- mw-grid-end:{"version": 1} -->'
+        card = next(pair for pair in scan_containers(source).pairs if pair.kind == "card")
+        assert card.enclosed_by_grid is True
+
+    def test_a_card_inside_an_emitted_tab_marker_is_not_enclosed_by_grid(self) -> None:
+        source = (
+            '[grid]\n<!-- mw-tab:{"version": 1, "name": "A", "first": true} -->\n'
+            '[card]\n\ntext\n\n[/card]\n<!-- mw-tab-end:{"version": 1} -->\n[/grid]'
+        )
+        card = next(pair for pair in scan_containers(source).pairs if pair.kind == "card")
+        assert card.enclosed_by_grid is False
+
+    def test_an_inline_problem_marker_line_is_not_a_container(self) -> None:
+        # A problem marker rides on the directive line, so the line is not solely a comment.
+        scan = scan_containers('[/card]<!-- mw-grid-problem:{"version": 1} -->')
+        assert scan.pairs == ()
+
+
+class TestFromMarker:
+    """Every scan result records whether its lines came from a directive or an emitted marker,
+    so the owning pre stage skips a pair, problem, or shortcut it would otherwise re-emit."""
+
+    def test_a_directive_pair_is_not_from_marker(self) -> None:
+        scan = scan_containers("[grid]\n\ntext\n\n[/grid]")
+        assert scan.pairs[0].from_marker is False
+
+    def test_an_emitted_grid_block_pair_is_from_marker(self) -> None:
+        source = '<!-- mw-grid-block:{"version": 1} -->\n\ntext\n\n<!-- mw-grid-end:{"version": 1} -->'
+        assert scan_containers(source).pairs[0].from_marker is True
+
+    def test_an_emitted_card_pair_is_from_marker(self) -> None:
+        source = '<!-- mw-card:{"version": 1} -->\n\ntext\n\n<!-- mw-card-end:{"version": 1} -->'
+        assert scan_containers(source).pairs[0].from_marker is True
+
+    def test_an_emitted_tab_pair_is_from_marker(self) -> None:
+        source = '<!-- mw-tab:{"version": 1, "name": "A", "first": true} -->\n\nx\n\n<!-- mw-tab-end:{"version": 1} -->'
+        assert scan_containers(source).pairs[0].from_marker is True
+
+    def test_a_directive_open_marker_close_pair_is_from_marker(self) -> None:
+        source = '[grid]\n\ntext\n\n<!-- mw-grid-end:{"version": 1} -->'
+        assert scan_containers(source).pairs[0].from_marker is True
+
+    def test_a_marker_open_directive_close_pair_is_from_marker(self) -> None:
+        source = '<!-- mw-grid-block:{"version": 1} -->\n\ntext\n\n[/grid]'
+        assert scan_containers(source).pairs[0].from_marker is True
+
+    def test_a_directive_card_inside_a_marker_grid_is_not_from_marker(self) -> None:
+        source = '<!-- mw-grid-block:{"version": 1} -->\n[card]\n\ntext\n\n[/card]\n<!-- mw-grid-end:{"version": 1} -->'
+        card = next(pair for pair in scan_containers(source).pairs if pair.kind == "card")
+        assert card.from_marker is False
+        assert card.enclosed_by_grid is True
+
+    def test_a_stray_marker_closer_problem_is_from_marker(self) -> None:
+        problem = scan_containers('<!-- mw-grid-end:{"version": 1} -->').problems[0]
+        assert problem.from_marker is True
+
+    def test_an_unclosed_marker_opener_problem_is_from_marker(self) -> None:
+        problem = scan_containers('<!-- mw-card:{"version": 1} -->\n\ntext').problems[0]
+        assert "unclosed" in problem.reason
+        assert problem.from_marker is True
+
+    def test_an_unclosed_marker_grid_is_from_marker(self) -> None:
+        shortcut = scan_containers('<!-- mw-grid-block:{"version": 1} -->\n\ntext').unclosed_grids[0]
+        assert shortcut.from_marker is True
+
+    def test_a_directive_problem_is_not_from_marker(self) -> None:
+        assert scan_containers("[/card]").problems[0].from_marker is False
+
+    def test_a_directive_shortcut_is_not_from_marker(self) -> None:
+        assert scan_containers("[grid cards]\n\n- one").unclosed_grids[0].from_marker is False
+
+
 class TestEdgeCases:
     def test_a_tab_name_containing_a_bracket_does_not_match_the_opener(self) -> None:
         scan = scan_containers("[tab a]b]\n\n[/tab]")

@@ -205,6 +205,31 @@ class TestRoundTripIdempotency:
         assert once.count(CODEPEN_SCRIPT) == 1
         assert twice.count(CODEPEN_SCRIPT) == 1
 
+    # A grid shortcut, a paired block grid holding a card whose body is a two-tab set: every
+    # construct grid and tabs turn into their own paired markers, so a second pre pass meets them
+    # all as markers. The degrade-to-literal problem directives are excluded: a top-level [card]
+    # leaves its [/card] a bare directive that re-reports as a stray on a second pass, a literal
+    # degradation unrelated to the marker contract.
+    _CONTAINER_FIXTURE = (
+        "[grid cards 2]\n\n- a\n- b\n\n"
+        "[grid]\n\n[card]\n\n[tab One]\n\nx\n\n[/tab]\n\n[tab Two]\n\ny\n\n[/tab]\n\n[/card]\n\n[/grid]\n"
+    )
+
+    def test_running_pre_twice_is_stable(self) -> None:
+        # Pre stages carry their own marker comments; a second pre pass meets them as markers and
+        # must leave them untouched, not re-emit, re-report, or crash on a marker-sourced pair.
+        names = list(registry.EXTENSION_NAMES)
+        once = registry.run_pre(FIXTURE, names)
+        assert registry.run_pre(once, names) == once
+
+    def test_running_pre_twice_is_stable_over_nested_containers(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        once = registry.run_pre(self._CONTAINER_FIXTURE, names)
+        assert registry.run_pre(once, names) == once
+        # The second pass pairs from the markers but emits nothing new and renders the same.
+        twice_post = registry.run_post(stub_render(registry.run_pre(once, names)), names)
+        assert twice_post == registry.run_post(stub_render(once), names)
+
 
 class TestStageOptions:
     """Per-extension config options thread through run_pre the way mw render applies them."""
@@ -389,6 +414,40 @@ _CONTAINER_PROBLEMS = st.sampled_from(
     ]
 )
 
+# Tab containers tabs leaves literal and reports through an mw-tab-problem marker.
+_TAB_PROBLEMS = st.sampled_from(
+    [
+        "[tab Orphan]\n\ninside",
+        "[/tab]",
+    ]
+)
+
+
+@st.composite
+def _tab_set(draw: st.DrawFn) -> str:
+    """Draw two or three consecutive tabs that form one set, with prose or code bodies."""
+    count = draw(st.integers(min_value=2, max_value=3))
+    tabs = []
+    for _tab_index in range(count):
+        name = draw(_PHRASES)
+        body = f"```python\n{draw(_WORDS)} = 1\n```" if draw(st.booleans()) else draw(_PHRASES)
+        tabs.append(f"[tab {name}]\n\n{body}\n\n[/tab]")
+    return "\n\n".join(tabs)
+
+
+@st.composite
+def _grid_with_tabs(draw: st.DrawFn) -> str:
+    """Draw a block grid holding a card whose body is a two-tab set, so containers nest."""
+    tab_a = draw(_PHRASES)
+    tab_b = draw(_PHRASES)
+    body_a = draw(_PHRASES)
+    body_b = draw(_PHRASES)
+    return (
+        "[grid]\n\n[card]\n\n"
+        f"[tab {tab_a}]\n\n{body_a}\n\n[/tab]\n\n[tab {tab_b}]\n\n{body_b}\n\n[/tab]\n\n"
+        "[/card]\n\n[/grid]"
+    )
+
 
 @st.composite
 def _annotate_block(draw: st.DrawFn) -> str:
@@ -530,6 +589,9 @@ class TestRoundTripProperty:
                 _grid_block(),
                 _block_grid(),
                 _CONTAINER_PROBLEMS,
+                _tab_set(),
+                _grid_with_tabs(),
+                _TAB_PROBLEMS,
                 _annotate_block(),
                 _directive_in_fence(),
                 _directive_in_tab_fence(),

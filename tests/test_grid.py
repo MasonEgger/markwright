@@ -487,3 +487,52 @@ class TestContainerProblems:
 
     def test_malformed_problem_marker_without_a_skip_reasons_list(self) -> None:
         assert "mw-grid-problem" not in apply_html("<p>x</p>\n<!-- mw-grid-problem:{nope -->")
+
+
+class TestMarkerSourcedContainers:
+    """Marker lines are a public contract. A pre stage that meets its own markers again (mw pre run
+    twice, or hand-written markers) leaves them untouched rather than re-emitting or re-reporting."""
+
+    def test_double_expand_preserves_the_block_payload(self) -> None:
+        # A second pre pass must not strip cards and columns back to a bare {"version": 1}.
+        once = expand_source("[grid cards 2]\n\n- a\n- b\n\n[/grid]")
+        assert BLOCK_END_MARKER in once
+        assert '<!-- mw-grid-block:{"version": 1, "cards": true, "columns": 2} -->' in once
+        assert expand_source(once) == once
+
+    def test_a_hand_written_block_marker_pair_passes_through(self) -> None:
+        source = f"{BLOCK_CARDS_MARKER}\n\n- a\n- b\n\n{BLOCK_END_MARKER}"
+        assert expand_source(source) == source
+
+    def test_a_hand_written_card_marker_pair_passes_through(self) -> None:
+        source = f"{CARD_MARKER}\n\ntext\n\n{CARD_END_MARKER}"
+        assert expand_source(source) == source
+
+    def test_a_marker_sourced_card_outside_a_grid_gets_no_problem_marker(self) -> None:
+        source = f"{CARD_MARKER}\n\ntext\n\n{CARD_END_MARKER}"
+        assert "mw-grid-problem" not in expand_source(source)
+
+    def test_a_lone_marker_grid_end_gets_no_problem_marker(self) -> None:
+        source = f"text\n\n{BLOCK_END_MARKER}"
+        assert expand_source(source) == source
+        assert "mw-grid-problem" not in expand_source(source)
+
+    def test_a_lone_marker_grid_block_is_not_turned_into_a_shortcut(self) -> None:
+        source = f"text\n\n{BLOCK_MARKER}"
+        assert expand_source(source) == source
+        assert GRID_MARKER not in expand_source(source)
+
+    def test_a_directive_card_inside_a_marker_grid_is_wrapped(self) -> None:
+        source = f"{BLOCK_MARKER}\n\n[card]\n\ntext\n\n[/card]\n\n{BLOCK_END_MARKER}"
+        expanded = expand_source(source)
+        assert CARD_MARKER in expanded
+        assert "[card]" not in expanded
+        result = apply_html(render_plain(expanded))
+        assert '<div class="mw-grid">' in result
+        assert '<div class="mw-card">' in result
+
+    def test_a_marker_sourced_pair_reports_once_and_renders_once(self) -> None:
+        # A hand-written block grid run through pre twice stays a single wrapped grid.
+        twice = expand_source(expand_source(f"{BLOCK_CARDS_MARKER}\n\n- a\n- b\n\n{BLOCK_END_MARKER}"))
+        result = apply_html(render_plain(twice))
+        assert result.count('<div class="mw-grid mw-grid-cards">') == 1

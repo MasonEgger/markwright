@@ -6,7 +6,14 @@
 # pairing each closer with the nearest unpaired opener of its kind at the same indentation
 # (bracket matching), so nested and mixed containers pair with no special cases. Lines inside
 # fenced or indented code are skipped through _fences, so an opener or closer in code stays
-# literal. The scanner reports structure only; the extensions decide what markup each pair earns.
+# literal. A line that is solely one of the paired container marker comments (mw-grid-block,
+# mw-grid-end, mw-card, mw-card-end, mw-tab, mw-tab-end) counts as the opener or closer it
+# stands for, so when grid and tabs both scan a document the second to run pairs from the same
+# structure the first saw even though the first replaced its own lines with markers. Each pair,
+# problem, and shortcut carries a from_marker flag recording whether its lines came from a marker
+# comment or a directive, so a stage that meets its own markers again (mw pre run twice, or
+# hand-written markers) skips them instead of re-emitting. The scanner reports structure only; the
+# extensions decide what markup each pair earns.
 
 from __future__ import annotations
 
@@ -27,6 +34,30 @@ _ContainerKind = Literal["grid", "card", "tab"]
 
 _CLOSERS: dict[str, _ContainerKind] = {"[/grid]": "grid", "[/card]": "card", "[/tab]": "tab"}
 
+# Marker-comment names the paired container pre stages emit. grid and tabs import these as the
+# one home for the names; the scanner recognizes a line that is solely one of these marker
+# comments as the corresponding opener or closer, so grid and tabs pair and compute enclosure
+# from the original structure whichever of the two ran first and already rewrote its own lines.
+# The mw-grid list shortcut is deliberately absent: it is an unclosed opener, not a container.
+GRID_BLOCK_MARKER_NAME = "mw-grid-block"
+GRID_END_MARKER_NAME = "mw-grid-end"
+CARD_MARKER_NAME = "mw-card"
+CARD_END_MARKER_NAME = "mw-card-end"
+TAB_MARKER_NAME = "mw-tab"
+TAB_END_MARKER_NAME = "mw-tab-end"
+
+_MARKER_OPENERS: dict[str, _ContainerKind] = {
+    GRID_BLOCK_MARKER_NAME: "grid",
+    CARD_MARKER_NAME: "card",
+    TAB_MARKER_NAME: "tab",
+}
+_MARKER_CLOSERS: dict[str, _ContainerKind] = {
+    GRID_END_MARKER_NAME: "grid",
+    CARD_END_MARKER_NAME: "card",
+    TAB_END_MARKER_NAME: "tab",
+}
+_MARKER_RE = re.compile(r"<!-- (?P<name>mw-[\w-]+):.* -->")
+
 
 class ContainerPair(BaseModel):
     """A matched opener and closer.
@@ -38,6 +69,9 @@ class ContainerPair(BaseModel):
     :ivar tokens: The opener's argument tokens: for a grid the whitespace-split words after
         ``grid``, for a tab a single element holding the trimmed name, for a card empty.
     :ivar enclosed_by_grid: Whether the nearest enclosing open container at the opener was a grid.
+    :ivar from_marker: Whether the opener or the closer was an emitted marker comment rather than a
+        directive. True when a pre stage meets its own markers again (mw pre run twice, or
+        hand-written markers), so the owning stage skips the pair instead of re-emitting it.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -48,6 +82,7 @@ class ContainerPair(BaseModel):
     indent: str
     tokens: tuple[str, ...]
     enclosed_by_grid: bool
+    from_marker: bool
 
 
 class ContainerProblem(BaseModel):
@@ -56,6 +91,8 @@ class ContainerProblem(BaseModel):
     :ivar line: Zero-based line index of the offending line.
     :ivar text: The offending line, stripped.
     :ivar reason: Why it could not pair.
+    :ivar from_marker: Whether the offending line was an emitted marker comment rather than a
+        directive, so the owning stage skips it instead of attaching a problem marker.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -63,6 +100,7 @@ class ContainerProblem(BaseModel):
     line: int
     text: str
     reason: str
+    from_marker: bool
 
 
 class UnclosedGrid(BaseModel):
@@ -71,6 +109,8 @@ class UnclosedGrid(BaseModel):
     :ivar line: Zero-based line index of the opener.
     :ivar indent: The opener's leading whitespace.
     :ivar tokens: The whitespace-split words after ``grid``.
+    :ivar from_marker: Whether the opener was an emitted marker comment rather than a directive, so
+        grid leaves it untouched instead of re-emitting the shortcut marker.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -78,6 +118,7 @@ class UnclosedGrid(BaseModel):
     line: int
     indent: str
     tokens: tuple[str, ...]
+    from_marker: bool
 
 
 class ContainersScan(BaseModel):
@@ -103,6 +144,7 @@ class _Frame(BaseModel):
     :ivar indent: The opener's leading whitespace.
     :ivar tokens: The opener's argument tokens.
     :ivar enclosed_by_grid: Whether the nearest enclosing open container at push was a grid.
+    :ivar from_marker: Whether the opener was an emitted marker comment rather than a directive.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -112,6 +154,7 @@ class _Frame(BaseModel):
     indent: str
     tokens: tuple[str, ...]
     enclosed_by_grid: bool
+    from_marker: bool
 
 
 def _parse_opener(stripped: str) -> tuple[_ContainerKind, tuple[str, ...]] | None:
@@ -130,6 +173,45 @@ def _parse_opener(stripped: str) -> tuple[_ContainerKind, tuple[str, ...]] | Non
         name = tab_match["name"].strip()
         if name:
             return "tab", (name,)
+    return None
+
+
+def _classify_opener(stripped: str) -> tuple[_ContainerKind, tuple[str, ...], bool] | None:
+    """Classify a stripped line as a container opener, literal directive or emitted marker.
+
+    :param stripped: The line with leading and trailing whitespace removed.
+    :returns: The kind, argument tokens, and a from-marker flag, or ``None`` when the line is not an
+        opener. A line that is solely an emitted open-marker comment opens its kind with no tokens
+        and the flag True; the owning stage reads the tokens back from the marker payload, not from
+        the scan. A directive opener carries its tokens and the flag False.
+    """
+    parsed = _parse_opener(stripped)
+    if parsed is not None:
+        kind, tokens = parsed
+        return kind, tokens, False
+    marker_match = _MARKER_RE.fullmatch(stripped)
+    if marker_match is not None:
+        marker_kind = _MARKER_OPENERS.get(marker_match["name"])
+        if marker_kind is not None:
+            return marker_kind, (), True
+    return None
+
+
+def _classify_closer(stripped: str) -> tuple[_ContainerKind, bool] | None:
+    """Classify a stripped line as a container closer, literal directive or emitted marker.
+
+    :param stripped: The line with leading and trailing whitespace removed.
+    :returns: The closer's kind and a from-marker flag (True for an emitted close-marker comment,
+        False for a directive), or ``None`` when the line is not a closer.
+    """
+    close_kind = _CLOSERS.get(stripped)
+    if close_kind is not None:
+        return close_kind, False
+    marker_match = _MARKER_RE.fullmatch(stripped)
+    if marker_match is not None:
+        marker_kind = _MARKER_CLOSERS.get(marker_match["name"])
+        if marker_kind is not None:
+            return marker_kind, True
     return None
 
 
@@ -187,12 +269,18 @@ def scan_containers(text: str) -> ContainersScan:
         stripped = line.strip()
         indent = line[: len(line) - len(line.lstrip())]
 
-        close_kind = _CLOSERS.get(stripped)
-        if close_kind is not None:
+        closer = _classify_closer(stripped)
+        if closer is not None:
+            close_kind, close_from_marker = closer
             match_index = _find_match(stack, close_kind, indent)
             if match_index is None:
                 problems.append(
-                    ContainerProblem(line=line_index, text=stripped, reason=f"no matching [{close_kind}] opener")
+                    ContainerProblem(
+                        line=line_index,
+                        text=stripped,
+                        reason=f"no matching [{close_kind}] opener",
+                        from_marker=close_from_marker,
+                    )
                 )
                 if close_kind == "grid":
                     stray_index = _nearest_of_kind(stack, "grid")
@@ -203,6 +291,7 @@ def scan_containers(text: str) -> ContainersScan:
                                 line=stray_frame.open_line,
                                 text=lines[stray_frame.open_line].strip(),
                                 reason="unclosed [grid] opener",
+                                from_marker=stray_frame.from_marker,
                             )
                         )
                 continue
@@ -216,14 +305,15 @@ def scan_containers(text: str) -> ContainersScan:
                     indent=opener.indent,
                     tokens=opener.tokens,
                     enclosed_by_grid=opener.enclosed_by_grid,
+                    from_marker=opener.from_marker or close_from_marker,
                 )
             )
             del stack[match_index:]
             continue
 
-        opened = _parse_opener(stripped)
+        opened = _classify_opener(stripped)
         if opened is not None:
-            kind, tokens = opened
+            kind, tokens, open_from_marker = opened
             stack.append(
                 _Frame(
                     kind=kind,
@@ -231,24 +321,32 @@ def scan_containers(text: str) -> ContainersScan:
                     indent=indent,
                     tokens=tokens,
                     enclosed_by_grid=bool(stack) and stack[-1].kind == "grid",
+                    from_marker=open_from_marker,
                 )
             )
             continue
 
         if _EMPTY_TAB_RE.match(stripped) is not None:
-            problems.append(ContainerProblem(line=line_index, text=stripped, reason="empty tab name"))
+            problems.append(
+                ContainerProblem(line=line_index, text=stripped, reason="empty tab name", from_marker=False)
+            )
 
     unpaired.extend(stack)
     unclosed_grids: list[UnclosedGrid] = []
     for frame in unpaired:
         if frame.kind == "grid":
-            unclosed_grids.append(UnclosedGrid(line=frame.open_line, indent=frame.indent, tokens=frame.tokens))
+            unclosed_grids.append(
+                UnclosedGrid(
+                    line=frame.open_line, indent=frame.indent, tokens=frame.tokens, from_marker=frame.from_marker
+                )
+            )
         else:
             problems.append(
                 ContainerProblem(
                     line=frame.open_line,
                     text=lines[frame.open_line].strip(),
                     reason=f"unclosed [{frame.kind}] opener",
+                    from_marker=frame.from_marker,
                 )
             )
 

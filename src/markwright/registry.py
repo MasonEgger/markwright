@@ -23,6 +23,7 @@ from markwright import (
     lightbox,
     mermaid,
     slideshow,
+    tabs,
     twitter,
     youtube,
 )
@@ -127,6 +128,13 @@ REGISTRY: dict[str, StageSpec] = {
         pre_priority=20,
         post_priority=30,
         extension=annotate.AnnotateExtension,
+    ),
+    "tabs": StageSpec(
+        pre=tabs.expand_source,
+        post=tabs.apply_html,
+        pre_priority=20,
+        post_priority=30,
+        extension=tabs.TabsExtension,
     ),
 }
 

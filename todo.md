@@ -41,14 +41,14 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 ## Section 4: Tabs extension
 
 ### Step 4: The `tabs` extension (`tabs.py`) and its registry entry
-- [ ] 1. RED: tests/test_tabs.py for single set, grouping (one vs two sets), name escaping, empty name literal, fail-soft, in-process cases
-- [ ] 2. Document: tabs.py docstring (payload, id scheme, markup) and ABOUTME header
-- [ ] 3. GREEN: src/markwright/tabs.py (TabMarker, expand_source with first-flag, apply_html building tabbed markup with mw-tab-S-T ids, extension classes)
-- [ ] 4. RED: registry tests (tabs in EXTENSION_NAMES, priorities, default selection)
-- [ ] 5. GREEN: registry.py entry for tabs after annotate
-- [ ] 6. REFACTOR: promote the shared stack-match helper to a shared home if tabs needs it; keep grid green
-- [ ] 7. Update roundtrip grammar with `_tab_set` composite and include tabs in parity names
-- [ ] 8. Verify set-boundary/first-flag/escaping/fail-soft coverage and run `just check`
+- [x] 1. RED: tests/test_tabs.py for single set, grouping (one vs two sets), name escaping, empty name literal, fail-soft, in-process cases
+- [x] 2. Document: tabs.py docstring (payload, id scheme, markup) and ABOUTME header
+- [x] 3. GREEN: src/markwright/tabs.py (TabMarker, expand_source with first-flag, apply_html building tabbed markup with mw-tab-S-T ids, extension classes)
+- [x] 4. RED: registry tests (tabs in EXTENSION_NAMES, priorities, default selection)
+- [x] 5. GREEN: registry.py entry for tabs after annotate
+- [x] 6. REFACTOR: promote the shared stack-match helper to a shared home if tabs needs it; keep grid green
+- [x] 7. Update roundtrip grammar with `_tab_set` composite and include tabs in parity names
+- [x] 8. Verify set-boundary/first-flag/escaping/fail-soft coverage and run `just check`
 
 ## Section 5: Integration, docs, and project records
 
