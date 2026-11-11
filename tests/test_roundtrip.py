@@ -362,10 +362,32 @@ _EMBED_BLOCKS = st.sampled_from(
 
 @st.composite
 def _grid_block(draw: st.DrawFn) -> str:
-    """Draw a grid directive followed by a short bullet list."""
-    directive = draw(st.sampled_from(["[grid]", "[grid cards]"]))
+    """Draw a grid shortcut directive followed by a short bullet list."""
+    directive = draw(st.sampled_from(["[grid]", "[grid cards]", "[grid 2]", "[grid cards 2]", "[grid 2 cards]"]))
     items = draw(st.lists(_PHRASES, min_size=1, max_size=3))
     return directive + "\n\n" + "\n".join(f"- {item}" for item in items)
+
+
+@st.composite
+def _block_grid(draw: st.DrawFn) -> str:
+    """Draw a paired block grid wrapping a prose block and a card with a heading and paragraph."""
+    opener = draw(st.sampled_from(["[grid]", "[grid 2]", "[grid cards]", "[grid cards 2]", "[grid 2 cards]"]))
+    heading = draw(_WORDS)
+    para = draw(_PHRASES)
+    card_heading = draw(_WORDS)
+    card_para = draw(_PHRASES)
+    return f"{opener}\n\n## {heading}\n\n{para}\n\n[card]\n\n### {card_heading}\n\n{card_para}\n\n[/card]\n\n[/grid]"
+
+
+# Container problems grid leaves literal and reports through an mw-grid-problem marker; the pipeline
+# and the in-process render must still agree once the marker is attached and removed.
+_CONTAINER_PROBLEMS = st.sampled_from(
+    [
+        "[card]\n\ninside\n\n[/card]",
+        "[/card]",
+        "[/grid]",
+    ]
+)
 
 
 @st.composite
@@ -506,6 +528,8 @@ class TestRoundTripProperty:
                 _EMBED_BLOCKS,
                 _DIRECTIVE_BLOCKS,
                 _grid_block(),
+                _block_grid(),
+                _CONTAINER_PROBLEMS,
                 _annotate_block(),
                 _directive_in_fence(),
                 _directive_in_tab_fence(),

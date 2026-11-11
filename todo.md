@@ -29,14 +29,14 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 ## Section 3: Block grids and cards
 
 ### Step 3: Block grid and card pairs, emitted in pre and stack-wrapped in post
-- [ ] 1. RED: tests/test_grid.py for block grids, cards, nesting (stack match), shortcut-still-works, fail-soft/literal card, in-process cases
-- [ ] 2. Document: module docstring and GridBlockMarker / CardMarker docstrings
-- [ ] 3. GREEN: expand_source emits paired markers via scan_containers + keeps shortcut; apply_html stack-wrap for paired markers; new marker models; skip_reasons threaded
-- [ ] 4. RED: mixed-document and apply_html-idempotence tests
-- [ ] 5. GREEN: wire until green
-- [ ] 6. REFACTOR: extract `_wrap_paired` shared by grid blocks and cards
-- [ ] 7. Update roundtrip grammar with `_block_grid` composite and confirm parity
-- [ ] 8. Verify pairing/wrap/fail-soft coverage and run `just check`
+- [x] 1. RED: tests/test_grid.py for block grids, cards, nesting (stack match), shortcut-still-works, fail-soft/literal card, in-process cases
+- [x] 2. Document: module docstring and GridBlockMarker / CardMarker docstrings
+- [x] 3. GREEN: expand_source emits paired markers via scan_containers + keeps shortcut; apply_html stack-wrap for paired markers; new marker models; skip_reasons threaded
+- [x] 4. RED: mixed-document and apply_html-idempotence tests
+- [x] 5. GREEN: wire until green
+- [x] 6. REFACTOR: extract `_wrap_paired` shared by grid blocks and cards
+- [x] 7. Update roundtrip grammar with `_block_grid` composite and confirm parity
+- [x] 8. Verify pairing/wrap/fail-soft coverage and run `just check`
 
 ## Section 4: Tabs extension
 
