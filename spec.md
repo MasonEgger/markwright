@@ -10,10 +10,16 @@ Future work is issue-driven, not a planned phase.
 ## Project overview
 
 markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions ported from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (JavaScript/markdown-it, Apache 2.0), plus an `mw` command-line tool that runs the same extensions as pre and post filter stages so the author-facing syntax works in any toolchain (Hugo, a plain Unix pipe), not only an in-process Python-Markdown render.
-The author-facing syntax and HTML output are derived from `do-markdownit`, so rendered pages match what DigitalOcean produces; markwright adds its own pieces on top, most notably the CLI, a config surface with a public API host tools build on, and click-to-load embeds.
+The author-facing syntax and HTML output are derived from `do-markdownit`, so rendered pages match what DigitalOcean produces; markwright adds its own pieces on top, most notably the CLI, a config surface with a public API host tools build on, click-to-load embeds, and the 0.4.0 and later extensions modeled on the mkdocs-material reference.
 The bundled MkDocs Material site in `docs/` is both documentation and a live demo.
+It moves to Bartleby (Mason's static site generator and markwright's first host) once Bartleby reaches parity and releases, well ahead of Material for MkDocs' end of life on May 5, 2027.
 
-The project is maintained rather than in active feature development: it stays at parity with `do-markdownit`, keeps its cross-tool contracts stable, and grows through issues. Likely future directions are tracked under Roadmap Deferred.
+markwright is pre-1.0 and has one user, so its cross-tool contracts are versioned and read fail-soft but carry no compatibility obligation until 1.0: a contract change bumps its version and ships with no shim.
+It grows through issues.
+Its scope rule: markwright owns syntax that no maintained Python-Markdown or pymdown-extensions extension provides, plus block-level features the `mw` pipeline needs because Hugo has no equivalent (tabs is the one such feature so far).
+Material for MkDocs is in maintenance until its end of life, so its reference pages are a frozen snapshot to compare against, not a target to track; Python-Markdown and pymdown-extensions are the maintained line.
+markwright emits markup only; hosts (Bartleby's themes, or anyone's) own the JavaScript and CSS, and markwright's docs carry small working samples of both.
+Likely future directions are tracked under Roadmap Deferred.
 
 ## Invariants
 
@@ -24,8 +30,12 @@ The project is maintained rather than in active feature development: it stays at
 - deps: frozen
 - paths: src/markwright/**, tests/**, docs/**, mkdocs.yml, README.md, CHANGELOG.md, CLAUDE.md, plan.md, todo.md, .ai-sessions/**
 - Coverage is reported (line and branch) but not gated; read it and either test or delete what it shows uncovered
-- Output stays at `do-markdownit` parity (the eight ported extensions) unless a Decision documents a divergence; the cross-tool contracts are versioned and read fail-soft: the `mw-fence`, `mw-grid`, and `mw-annotate` marker-comment payloads, the `mw-embed` preview, and the `mw-annotation` list's `data-mw-version`
+- Output stays at `do-markdownit` parity (the eight ported extensions) unless a Decision documents a divergence; the cross-tool contracts are versioned and read fail-soft: the `mw-fence`, `mw-grid`, `mw-grid-block`, `mw-grid-end`, `mw-card`, `mw-card-end`, `mw-tab`, `mw-tab-end`, and `mw-annotate` marker-comment payloads, the `mw-embed` preview, the `mw-annotation` list's `data-mw-version`, the grid and card classes, and the tab markup with its `mw-tab-S-T` ids; before 1.0 a contract change bumps its version with no compatibility shim
 - The package ships no JavaScript, no CSS, and no bundled assets, icons included: markwright owns markup and inlines host-supplied SVGs; hosts own behavior, styling, and the icon files
+- Progressive enhancement: every extension's markup is readable with no host CSS and no host JavaScript, and host code only enhances it (annotations fall back to a numbered list, click-to-load embeds to a direct link, tabs switch with CSS alone)
+- New author-facing syntax is a standalone `[name ...]` line, either a directive or a container's opener or closer; markwright adds no inline delimiters (`$`, `~`, `^`, `==`, `++`, and the like belong to pymdown-extensions)
+- markwright emits classes, data attributes, and ids, never inline `style` attributes
+- Container pairing scans lines through `_fences`, so an opener or closer inside fenced or indented code stays literal; no Markdown parser is added
 - Config law (see `docs/config.md`, Config Rules): omitting a key means its default, a list names exactly what it holds (empty allowlist allows nothing, empty denylist removes nothing), a setting that makes a feature a no-op is legal but emits a `ConfigWarning`, and every option is validated at the boundary with a `ConfigError`, never a traceback
 - Library code raises; only the `mw` CLI boundary turns exceptions into exit codes
 - `__init__.py` re-exports only the public API with `__all__`
@@ -56,15 +66,21 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - review-fixes-29: the eight 0.4.0 adversarial-review fixes (annotate chaining, tab and indented-code detection, HTML-tag skipping, icons at priority 85, and the test-policy cleanup) (#29), converged (.ai-sessions/review-fixes-29/)
 
 **Upcoming:**
-- material-parity (0.4.0): issue #16, the six Material-reference extensions (button, lightbox, grid, mermaid, icons, annotate) so a host theme can render every feature on the mkdocs-material reference from markwright markup alone. Decided: directive and fence syntax in the existing family, `mw-` hooks, a fully-live docs demo (a pinned mermaid.js CDN, a new `docs/javascripts/`, and a small committed demo icon set), and `fence` refactored onto a shared marker-comment module with no change to its output. Decisions D1 through D7 and the byte-level contracts are in .ai-sessions/material-parity/spec.md, with a draft step plan beside it
+- containers (#30 plus tabs): block grids, cards, column counts, and tabs on one shared open/close pairing, specified under Goals, Containers
+- public fence API: a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; a separate issue
+- Material mapping docs page: maps each mkdocs-material reference feature to the Python-Markdown or pymdown-extensions extension that provides it in-process and the Goldmark setting that provides it in Hugo, with the gaps; docs-only, done directly
 
 **Deferred:**
 - New embeds (Bluesky, Mastodon, Vimeo): possible later; each should support the `load` option when it lands
 - User-level config layer (`~/.config/markwright/`): project-level config only for now
 - `youtube-nocookie` option: reduces tracking even for `eager`; worth a separate issue
-- `mw-` rename of the existing embed CSS classes: align them with the `mw-embed` preview hooks; still deferred, not folded into 0.4.0, since it is a breaking change to shipped embed hooks and a separate concern from the additive extensions
-- Richer Material-parity features past the 0.4.0 contracts: lightbox galleries, captions, and `srcset`; grid column controls and nested grids; annotation forms beyond a block plus its following list; each 0.4.0 extension stays minimal, revisit per issue
+- `mw-` rename of the existing embed CSS classes: align them with the `mw-embed` preview hooks; nothing blocks it before 1.0, but it is a separate concern from the containers phase
+- Richer Material-parity features past the 0.4.0 contracts: lightbox galleries, captions, and `srcset`; annotation forms beyond a block plus its following list; each 0.4.0 extension stays minimal, revisit per issue
 - `mw pre` parity inside Markdown constructs it cannot see without a parser: a highlight marker or icon shortcode inside an image's alt text, a link title, or the text content of a raw HTML block is rewritten by `mw pre` and left literal in-process; `map_prose` skips HTML tags, comments, and autolinks (the single-line grammar) and indented code (the line scanner), the rest needs a block-level scanner or a Decision that the CLI's behavior is the reference, revisit per issue
+- Grid extras: card column spans (`[card 2]`), per-breakpoint column counts (`[grid 1 2 3]`), and config defaults for columns, gap, or minimum width; revisit per issue
+- Tab extras: a marker that selects a tab other than the first, and one that forces a new set right after another; revisit when a page needs either
+- Move the docs site to Bartleby: once Bartleby reaches parity and releases, before May 5, 2027; the docs keep loading markwright's own CSS and JavaScript samples through Bartleby's `extra_css` and `extra_js`, so the samples stay exercised
+- pymdown-extensions 13.0: check markwright and Bartleby against it before the next markwright release, since the `>=11.0.1` floor resolves to it on a fresh install
 
 ## Goals
 
@@ -82,12 +98,63 @@ Six additive extensions so a host theme can render every feature on the mkdocs-m
 
 - `button`: `[button URL TEXT]` (and `[button primary URL TEXT]`) on its own line becomes `<a class="mw-button">` (plus `mw-button-primary`). Pre-stage only; inline raw HTML, so a renderer wraps it in `<p>` and inline Markdown in the text still renders.
 - `lightbox`: `[lightbox URL ALT]` becomes `<a class="mw-lightbox" href="URL"><img src="URL" alt="ALT" /></a>`. Pre-stage only. Without a host script the link opens the image.
-- `grid`: `[grid]` or `[grid cards]` before a list classes the following `<ul>` or `<ol>` with `mw-grid` (plus `mw-cards`), carried pre-to-post as a `<!-- mw-grid -->` marker comment.
+- `grid`: `[grid]` or `[grid cards]` before a list classes the following `<ul>` or `<ol>` with `mw-grid` (plus `mw-grid-cards`, renamed from `mw-cards` in the containers phase), carried pre-to-post as a `<!-- mw-grid -->` marker comment. Block grids, cards, and column counts are under Containers below.
 - `mermaid`: a `mermaid` fence becomes `<pre class="mermaid">` with the source HTML-escaped and otherwise intact and no `<code>` wrapper, matching mermaid.js's default selector. Pre-stage only; its own extension, not a fence feature, so it can be disabled on its own and fence parity is untouched.
 - `icons`: `:pack-name:` resolves against the `packs` option, a prefix-to-directory map the host supplies, and inlines the SVG as `<span aria-hidden="true" class="mw-icon"><svg>...</svg></span>`. markwright ships no icons; an unconfigured or unmatched shortcode stays literal text, an empty `packs` warns, a missing directory is a boundary error. Resolves in prose only, never inside code.
 - `annotate`: `[annotate]` before a block links each `(1)` marker in the block to the M-th item of the ordered list after it (`<a class="mw-annotation" href="#mw-annotation-N-M">`), classes the block `mw-annotated` and the list `mw-annotations` with `data-mw-version`, and for a `# (1)!` form in code strips the comment token around the marker (Pygments in-process, Chroma through Hugo; other highlighters degrade to the plain form). Carried as a `<!-- mw-annotate -->` marker comment; its post stage runs before fence's so the fence marker is still a comment when the block is located.
 - The marker-comment handling (comment-safe encode, locate with block bounds, fail-soft decode) is extracted to a shared module, and `fence` moves onto it with no change to the `mw-fence` payload or output.
 - The docs site renders all six live: a pinned mermaid.js from a CDN plus a small `docs/javascripts/` wire the mermaid init, the lightbox `<dialog>`, and the annotation tooltips, and a small, credited, liberally-licensed icon set is committed under `docs/icons/` and configured as a demo pack. Each extension gets a docs page with its contract and a demo, and the `mw pre | hugo | mw post` pipeline carries all six.
+
+### Containers: Block Grids, Cards, and Tabs (Issue #30)
+
+A container is an opener line and a closer line with arbitrary Markdown between them.
+It is the first markwright syntax that is neither a single line nor a marker for the single block after it.
+Block grids, cards, and tabs share one pairing scanner, so the rules are written once.
+
+Pairing:
+
+- Openers are `[grid ...]`, `[card]`, and `[tab NAME]`; closers are `[/grid]`, `[/card]`, and `[/tab]`, each alone on its line.
+- A closer pairs with the nearest unpaired opener of the same kind at the same indentation, matched like brackets; an opener a closer skips over is unclosed.
+- An opener and its closer sit at the same indentation, at the top level or inside a list item; in any other context (a blockquote, say) the lines stay literal.
+- Containers nest freely: a grid in a card, a grid in a grid, tabs in a card, a grid in a tab.
+- An opener or closer line inside fenced or indented code stays literal.
+- An unclosed `[card]` or `[tab]`, a stray closer, or a paired `[card]` whose nearest enclosing container is not a block grid stays literal text and is reported under `--warn`.
+- An unclosed `[grid ...]` is the list shortcut from 0.4.0: it classes the following list, or is skipped and reported under `--warn` when no list follows.
+  A shortcut grid inside a block grid therefore needs its own `[/grid]`, since the outer closer would otherwise pair with it.
+
+Grids and cards:
+
+- The grid opener is `[grid]` with optional tokens in any order, each at most once: `cards`, and a column count from 1 to 6.
+  `[grid 3]`, `[grid cards 3]`, and `[grid 3 cards]` are all valid; any other token or count leaves the line literal.
+- A paired grid wraps everything between its lines in `<div class="mw-grid">`, plus `mw-grid-cards` with `cards` and `mw-grid-cols-N` with a count; each child block is a grid cell.
+- The list shortcut takes the same tokens and puts the same classes on the `<ul>` or `<ol>`.
+- `mw-cards` is renamed `mw-grid-cards` everywhere.
+- `[card]` ... `[/card]` wraps its content in `<div class="mw-card">`, so one card can hold several blocks (a heading, a paragraph, a list, a link).
+- A list inside a block grid with `cards` keeps its markup; host CSS makes each item a cell (the sample uses `display: contents` on the list, as Material did).
+- Markers: the list shortcut keeps `mw-grid` (version 1, gaining an optional `columns`); a block grid is `mw-grid-block` (version 1, with `cards` and `columns`) and `mw-grid-end`; a card is `mw-card` and `mw-card-end` (version 1).
+
+Tabs:
+
+- `[tab NAME]` ... `[/tab]` is one tab; NAME is the rest of the opener line, trimmed, non-empty, without `]`, and may hold spaces (`[tab Node.js 20]`).
+- Tabs separated only by blank lines group into one set, any other content between them starts a new set, and the first tab in a set is selected.
+- The name renders as escaped plain text; inline Markdown in it is not rendered.
+- A set renders as pymdown-extensions' `tabbed` `alternate_style` markup, so a host's existing tab CSS styles it: `<div class="tabbed-set tabbed-alternate mw-tabs" data-tabs="S:N">`, one radio `<input>` per tab (`id="mw-tab-S-T"`, `name="mw-tab-S"`, the first `checked`), a `<div class="tabbed-labels">` of `<label for="mw-tab-S-T">`, then a `<div class="tabbed-content">` holding one `<div class="tabbed-block">` per tab.
+- S counts sets and T counts tabs within a set, both from 1, per document; the `mw-tab-` prefix keeps the ids from colliding with pymdown-extensions' `__tabbed_` ids when a host loads both.
+- Markers: `mw-tab` (version 1, with `name`, and `first`, true for a tab that starts a set) and `mw-tab-end`.
+- `tabs` is a new extension name with no options, on by default like the rest.
+
+Both paths:
+
+- The pre stages emit each marker as an HTML comment on its own line with a blank line on either side, at the opener's indentation, so the content between renders as normal Markdown in Python-Markdown and in Goldmark.
+- The post stages wrap the content through `_html` span edits and remove the markers; the in-process postprocessors run at 30 with grid and annotate, ahead of fence.
+- `tests/test_roundtrip.py` and its hypothesis grammar cover containers, and the Hugo integration test carries a block grid with cards and a tab set.
+
+Docs:
+
+- `docs/extensions/grid.md` leads with a block-grid demo, and a new `docs/extensions/tabs.md` leads with a tab-set demo.
+- `docs/stylesheets/extra.css` gains the column, card, and narrow-screen rules and a CSS-only tab sample.
+- Every extension page has a "Host CSS and Script" section that lists the classes, data attributes, and ids a host styles and links the sample; a page whose extension needs neither says so.
+- The README and the CHANGELOG list the containers and the `mw-grid-cards` rename.
 
 ## Non-goals
 
@@ -96,7 +163,12 @@ Permanent; markwright does not do these:
 - Ship JavaScript or CSS in the package. markwright emits stable class and data hooks; the host supplies behavior and styling.
 - Change the all-on default (every extension loaded unless config says otherwise).
 - Change extension output or break `do-markdownit` parity without a documented Decision.
-- Reimplement features stock pymdownx or Material already provide: admonitions, content tabs, code copy and select, sortable tables, and math. Issue #16's analysis confirms markwright adds nothing for these; they are existing pymdownx extensions or host CSS and JavaScript.
+- Reimplement syntax Python-Markdown or pymdown-extensions already provide: admonitions, math, critic markup, keys, mark, caret, tilde, abbreviations, and task and definition lists.
+  Tabs is the one exception, kept because Hugo has no tabs; markwright's tabs emit `tabbed`'s markup rather than competing with it.
+- Ship the theme behavior Material for MkDocs carried in its own JavaScript and CSS: linked tabs, tab anchor selection, styled tooltips, sortable tables, math loading, and code copy.
+  That is host work, and Bartleby's themes port what Bartleby needs.
+- A `:::name` container delimiter, or an alias for one; containers use the `[name]` and `[/name]` family.
+- A generic container that adds arbitrary classes (`[div .class]`); that is Python-Markdown's `md_in_html` and `attr_list`.
 - Bundle or depend on an icon set, or ship SVG or other assets in the package. The icons extension resolves against directories the host supplies.
 
 ## Component boundaries
@@ -105,7 +177,9 @@ Permanent; markwright does not do these:
 - **`config.py`** owns discovery, parsing, validation, the resolved `Config` (a frozen pydantic model), and the public host API. It depends on `registry` (`EXTENSION_NAMES`, `OPTION_NAMES`, `REGISTRY`) and nothing else; never on `cli`.
 - **`registry.py`** maps each extension name to a pydantic `StageSpec` (stage functions, priorities, the extension class, its option checker) and provides `run_pre`, `run_post`, and `describe`. Selection lives in `config.selected_extensions`; there is no `registry.select_extensions`.
 - **`_fences.py`** (CommonMark fenced-code scanning) and **`_html.py`** (offset-preserving tokenizing over the stdlib `html.parser`) own structured-text parsing. No stage hand-rolls Markdown-structure or HTML regex; single-line token grammars (embed directives, the marker comment) may stay regex.
-- **`_markers.py`** owns the marker-comment contract the post stages share: comment-safe encoding (every `<` and `>` escaped so a payload can never close the comment early), locating markers among `_html` tokens with each marker's block bounds, and fail-soft decode into a strict pydantic payload model. `fence`, `grid`, and `annotate` depend on it; it depends only on `_html`.
+- **`_markers.py`** owns the marker-comment contract the post stages share: comment-safe encoding (every `<` and `>` escaped so a payload can never close the comment early), locating markers among `_html` tokens with each marker's block bounds, and fail-soft decode into a strict pydantic payload model. `fence`, `grid`, `tabs`, and `annotate` depend on it; it depends only on `_html`.
+- **`_containers.py`** owns container pairing: from the source lines and the opener and closer grammars it returns each pair (kind, opener line, closer line, indentation, parsed opener tokens) and each unpaired or misplaced line with its reason, skipping fenced and indented code through `_fences`. `grid` (block grids and cards) and `tabs` call it, the second caller that justifies the module; it depends only on `_fences`. Its pairing rules are a self-contained algorithm with a contract of its own, so `tests/test_containers.py` tests it directly, as the `_fences` and `_markers` tests do.
+- **`tabs.py`** is a marker-comment pre-plus-post pair like `grid`; its post stage builds each set's inputs and labels from that set's `mw-tab` payloads.
 - **The six 0.4.0 extensions follow the existing patterns**, so no new machinery: `button` and `lightbox` are directive-expand pre stages like the embeds; `mermaid` and `icons` are pre-only (a fence rewrite and an inline-processor resolver); `grid` and `annotate` are marker-comment pre-plus-post pairs like `fence`. Their shared helpers are second-caller extractions: `_fences.map_prose` (prose outside fences and inline code, shared by `highlight` and `icons`), and `_html.add_classes` and `_html.matching_end` (shared by `fence`, `grid`, and `annotate`).
 - **`cli.py`** wires config into each subcommand and is the single place exceptions become exit codes (`ConfigError`, or a `ConfigWarning` escalated with `-W error`, prints `mw: error:` and exits 2).
 
@@ -114,5 +188,7 @@ Permanent; markwright does not do these:
 - `just check` is green: ruff clean, ruff format clean, mypy strict clean, pytest passing, coverage reported.
 - `just test-integration` is green: the `mw pre | hugo | mw post` pipeline through a real Hugo build, and a clean-venv wheel install.
 - `just docs-build` (strict) is clean and every page in the MkDocs nav exists.
-- Rendered output matches the `do-markdownit` reference format for the eight ported extensions; the `mw-fence`, `mw-grid`, and `mw-annotate` markers and the `mw-embed` preview stay versioned and read fail-soft.
+- Rendered output matches the `do-markdownit` reference format for the eight ported extensions; the `mw-fence`, `mw-grid`, container, and `mw-annotate` markers and the `mw-embed` preview stay versioned and read fail-soft.
+- Containers render on the docs demo (block grids with column counts and cards, and a tab set that switches with the CSS sample alone), and the `mw pre | hugo | mw post` integration test carries a block grid with cards and a tab set.
+- Every extension page has its Host CSS and Script section, and every extension's markup reads correctly with the docs site's CSS and JavaScript turned off.
 - The six 0.4.0 extensions render live on the docs demo (mermaid, lightbox, and annotations wired through the committed `docs/javascripts/` and icon set) and the `mw pre | hugo | mw post` integration test carries all six.
