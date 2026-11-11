@@ -47,7 +47,7 @@ Both are lists of extension names, and they are mutually exclusive: setting both
 - `disable = ["codepen"]` runs every extension except that one.
 - Neither key runs every extension (the default).
 
-The valid names are `fence`, `highlight`, `youtube`, `codepen`, `twitter`, `instagram`, `slideshow`, `image_compare`, `button`, `lightbox`, `mermaid`, `icons`, `grid`, and `annotate`.
+The valid names are `fence`, `highlight`, `youtube`, `codepen`, `twitter`, `instagram`, `slideshow`, `image_compare`, `button`, `lightbox`, `mermaid`, `icons`, `grid`, `annotate`, and `tabs`.
 An unknown name is an error.
 
 ### `warn`

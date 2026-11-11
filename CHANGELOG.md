@@ -5,14 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Six new extensions that cover the Material for MkDocs authoring features (#16), plus the docs-site pieces that demonstrate them.
+Six new extensions that cover the Material for MkDocs authoring features (#16), a `tabs` extension plus block grids and cards on the `grid` extension (#30), and the docs-site pieces that demonstrate them.
 With default settings, output is unchanged for documents that already rendered: none of the new directives or shortcodes appear in them, and the new extensions only act on their own syntax.
 
 ### Upgrading from 0.3.0
 
 - No action is needed.
-  The new extensions are on by default in `mw`, so `mw list` and `mw config` show 14 extensions instead of 8.
-  A document that happens to contain a standalone `[button ...]`, `[lightbox ...]`, `[grid]`, or `[annotate]` line, or a `mermaid` fence, now renders differently; use `disable` or `--exclude` to turn one off.
+  The new extensions are on by default in `mw`, so `mw list` and `mw config` show 15 extensions instead of 8.
+  A document that happens to contain a standalone `[button ...]`, `[lightbox ...]`, `[grid]`, `[grid cards]`, `[card]`, `[tab NAME]`, `[/grid]`, `[/card]`, `[/tab]`, or `[annotate]` line, or a `mermaid` fence, now renders differently; use `disable` or `--exclude` to turn one off.
 - `icons` does nothing until you configure `packs`, so `:name:` text is untouched by default.
 - If your `mkdocs.yml` has a `pymdownx.superfences` `custom_fences` entry named `mermaid` and you load `markwright.mermaid`, remove the entry: markwright replaces the fence first.
 
@@ -23,17 +23,21 @@ With default settings, output is unchanged for documents that already rendered: 
 - `markwright.mermaid`: a `mermaid` fence becomes `<pre class="mermaid">` for a host script to draw.
 - `markwright.icons`: `:pack-name:` shortcodes become inline SVG wrapped in `<span class="mw-icon">`, read from directories named by the new `packs` option.
   markwright ships no icons.
-- `markwright.grid`: `[grid]` and `[grid cards]` add `mw-grid` classes to the next list, through a versioned `mw-grid` marker comment.
+- `markwright.grid`: `[grid]` and `[grid cards]` add `mw-grid` classes to the next list; a paired `[grid]` ... `[/grid]` wraps any Markdown blocks as grid cells, `[card]` ... `[/card]` wraps one card inside a block grid, and `[grid N]` sets a 1-to-6 column count as `mw-grid-cols-N`.
+  Carried through versioned `mw-grid`, `mw-grid-block`, and `mw-card` marker comments (#30).
 - `markwright.annotate`: `[annotate]` links `(N)` markers in a block to the items of the ordered list after it, through a versioned `mw-annotate` marker comment.
-- A shared marker module for the fence, grid, and annotate marker comments.
-- Docs pages for all six extensions, each with the `mw-` HTML contract and a live demo.
-- Demo-site host assets that show how a host styles the output: CSS in `extra.css`, scripts for mermaid, the lightbox, and annotation tooltips, and two small icon packs under `docs/icons/` with credits in `CREDITS.txt`.
+- `markwright.tabs`: consecutive `[tab NAME]` ... `[/tab]` blocks become one `tabbed` set with the `mw-tabs` class, `mw-tab-S-T` ids, and `mw-tab-S` radio names, through versioned `mw-tab` marker comments (#30).
+- A shared marker module for the fence, grid, annotate, and tabs marker comments, and a container-pairing scanner shared by grid and tabs (#30).
+- Docs pages for the six material extensions and `tabs`, each with the `mw-` HTML contract and a live demo, and a Host CSS and Script section on every extension page (#30).
+- Demo-site host assets that show how a host styles the output: CSS in `extra.css` (including grid columns, cards, and CSS-only tabs), scripts for mermaid, the lightbox, and annotation tooltips, and two small icon packs under `docs/icons/` with credits in `CREDITS.txt`.
   These are not part of the package.
-- The docs `mw list` and `mw config` samples, `config.md`, and the MkDocs integration guide now cover the six extensions and the `icons` `packs` option.
+- The docs `mw list` and `mw config` samples, `config.md`, and the MkDocs integration guide now cover the six extensions, `tabs`, and the `icons` `packs` option.
 
 ### Changed
 
 - The docs site no longer carries a `custom_fences` mermaid entry; `markwright.mermaid` replaces it.
+- The grid cards class is now `mw-grid-cards` (was `mw-cards`), and the `mw-grid` marker payload carries a `columns` field for the new column count.
+  Pre-1.0 with one user, so there is no migration shim (#30).
 
 ### Fixed
 

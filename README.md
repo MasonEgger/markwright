@@ -24,10 +24,11 @@ Each extension is standalone and can be loaded on its own or alongside the other
 - **Lightbox** turns `[lightbox URL ALT]` into an image link a host script can open in an overlay.
 - **Mermaid** turns a `mermaid` code fence into a `<pre class="mermaid">` block a host script draws.
 - **Icons** replaces `:pack-name:` shortcodes with inline SVG from directories you configure.
-- **Grid** classes the list after `[grid]` or `[grid cards]` for a grid or card layout.
+- **Grid** classes the list after `[grid]` or `[grid cards]`, wraps the blocks between `[grid]` and `[/grid]` as grid cells with `[card]` ... `[/card]` cards inside, and sets a 1-to-6 column count with `[grid N]`.
 - **Annotate** links `(N)` markers in a code block to the items of the numbered list after it.
+- **Tabs** groups consecutive `[tab NAME]` ... `[/tab]` blocks into one tabbed set.
 
-The six material-style extensions (Button, Lightbox, Mermaid, Icons, Grid, Annotate) emit plain `mw-` classes and markup.
+The seven material-style extensions (Button, Lightbox, Mermaid, Icons, Grid, Annotate, Tabs) emit plain `mw-` classes and markup.
 markwright ships no CSS, JavaScript, or icons; the host site supplies them, and the docs site is a worked example.
 
 The embeds that contact a third party (YouTube, CodePen, Twitter, Instagram) take a `load` option.

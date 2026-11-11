@@ -20,8 +20,9 @@ See [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) for attr
 - **[Lightbox](extensions/lightbox.md)** turns `[lightbox URL ALT]` into an image link a host script can open in an overlay.
 - **[Mermaid](extensions/mermaid.md)** turns a `mermaid` code fence into a `<pre class="mermaid">` block a host script draws.
 - **[Icons](extensions/icons.md)** replaces `:pack-name:` shortcodes with inline SVG from directories you configure.
-- **[Grid](extensions/grid.md)** classes the list after `[grid]` or `[grid cards]` for a grid or card layout.
+- **[Grid](extensions/grid.md)** classes the list after `[grid]` or `[grid cards]`, wraps the blocks between `[grid]` and `[/grid]` as grid cells with `[card]` ... `[/card]` cards inside, and sets a 1-to-6 column count with `[grid N]`.
 - **[Annotate](extensions/annotate.md)** links `(N)` markers in a code block to the items of the numbered list after it.
+- **[Tabs](extensions/tabs.md)** groups consecutive `[tab NAME]` ... `[/tab]` blocks into one tabbed set.
 
 ## Installation
 
@@ -62,6 +63,7 @@ md = markdown.Markdown(
         "markwright.mermaid",
         "markwright.grid",
         "markwright.annotate",
+        "markwright.tabs",
     ]
 )
 

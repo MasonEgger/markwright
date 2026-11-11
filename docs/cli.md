@@ -69,6 +69,7 @@ extensions:
   icons: on (default)
   grid: on (default)
   annotate: on (default)
+  tabs: on (default)
 warn: false (default)
 load:
   youtube: eager (default)
@@ -98,6 +99,7 @@ mermaid: pre
 icons: pre
 grid: pre, post
 annotate: pre, post
+tabs: pre, post
 ```
 
 An extension labeled `pre` has only a source-stage transform.

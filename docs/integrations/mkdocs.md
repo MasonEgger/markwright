@@ -30,6 +30,7 @@ markdown_extensions:
   - markwright.mermaid
   - markwright.grid
   - markwright.annotate
+  - markwright.tabs
   - markwright.icons:
       packs:
         lucide: docs/icons/lucide
@@ -38,7 +39,7 @@ markdown_extensions:
 
 `markwright.icons` needs a `packs` table that maps each shortcode prefix to a directory of SVG files; relative paths resolve against the directory you run `mkdocs` from.
 `markwright.mermaid` replaces `mermaid` fences itself, so drop any `custom_fences` entry named `mermaid` from `pymdownx.superfences`.
-The six material-style extensions emit classes and markup only.
+The seven material-style extensions emit classes and markup only.
 Add your own CSS under `extra_css` and scripts under `extra_javascript`; the [Lightbox](../extensions/lightbox.md), [Mermaid](../extensions/mermaid.md), and [Annotate](../extensions/annotate.md) pages link the ones this site uses.
 
 The fence extension expects `pymdownx.superfences` and `pymdownx.highlight` to be loaded too.

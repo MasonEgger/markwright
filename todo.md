@@ -74,8 +74,8 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 - [x] 5. Document: the pages are the documentation
 
 ### Step 8: CHANGELOG, README, and CLAUDE.md (task)
-- [ ] 1. Scope: CHANGELOG.md, README.md, CLAUDE.md end state
-- [ ] 2. Tooling: content-design:review-content, python:python
-- [ ] 3. Do: CHANGELOG Added/Changed; README extension list; CLAUDE.md architecture + priority table + test exemption + scope rule
-- [ ] 4. Verify: `just check` green; `just docs-build --strict` clean if docs touched
-- [ ] 5. Document: these files are the records
+- [x] 1. Scope: CHANGELOG.md, README.md, CLAUDE.md end state
+- [x] 2. Tooling: content-design:review-content, python:python
+- [x] 3. Do: CHANGELOG Added/Changed; README extension list; CLAUDE.md architecture + priority table + test exemption + scope rule
+- [x] 4. Verify: `just check` green; `just docs-build --strict` clean if docs touched
+- [x] 5. Document: these files are the records
