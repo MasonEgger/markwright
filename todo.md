@@ -53,11 +53,11 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 ## Section 5: Integration, docs, and project records
 
 ### Step 5: Hugo integration cases for a block grid with cards and a tab set (task)
-- [ ] 1. Scope: tests/integration/test_hugo_pipeline.py end state
-- [ ] 2. Tooling: python:python, hugo, mw via `just test-integration`
-- [ ] 3. Do: CONTAINERS_SOURCE + test_container_constructs_survive_hugo asserting wrapper/card divs, cols class, tabbed-set, no leftover comments
-- [ ] 4. Verify: `just test-integration` exits 0 or skips cleanly; `just check` green
-- [ ] 5. Document: none
+- [x] 1. Scope: tests/integration/test_hugo_pipeline.py end state
+- [x] 2. Tooling: python:python, hugo, mw via `just test-integration`
+- [x] 3. Do: CONTAINERS_SOURCE + test_container_constructs_survive_hugo asserting wrapper/card divs, cols class, tabbed-set, no leftover comments
+- [x] 4. Verify: `just test-integration` exits 0 or skips cleanly; `just check` green
+- [x] 5. Document: none
 
 ### Step 6: Container docs: grid.md, tabs.md, extra.css, and the nav (task)
 - [ ] 1. Scope: grid.md, tabs.md (new), extra.css, mkdocs.yml end state
