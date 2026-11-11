@@ -60,11 +60,11 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 - [x] 5. Document: none
 
 ### Step 6: Container docs: grid.md, tabs.md, extra.css, and the nav (task)
-- [ ] 1. Scope: grid.md, tabs.md (new), extra.css, mkdocs.yml end state
-- [ ] 2. Tooling: content-design:review-content, `just docs-build`
-- [ ] 3. Do: grid.md block-grid demo + sections; new tabs.md; extra.css column/card/narrow + CSS-only tabs; nav adds Tabs
-- [ ] 4. Verify: `just docs-build --strict` exits 0; demos render and tabs switch
-- [ ] 5. Document: the two pages are the documentation
+- [x] 1. Scope: grid.md, tabs.md (new), extra.css, mkdocs.yml end state
+- [x] 2. Tooling: content-design:review-content, `just docs-build`
+- [x] 3. Do: grid.md block-grid demo + sections; new tabs.md; extra.css column/card/narrow + CSS-only tabs; nav adds Tabs
+- [x] 4. Verify: `just docs-build --strict` exits 0; demos render and tabs switch
+- [x] 5. Document: the two pages are the documentation
 
 ### Step 7: "Host CSS and Script" section on every extension page (task)
 - [ ] 1. Scope: docs/extensions/*.md (all 14) end state

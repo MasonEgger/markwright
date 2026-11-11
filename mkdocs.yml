@@ -53,6 +53,7 @@ markdown_extensions:
   - markwright.lightbox
   - markwright.mermaid
   - markwright.grid
+  - markwright.tabs
   - markwright.annotate
   - markwright.icons:
       packs:
@@ -90,6 +91,7 @@ nav:
       - Mermaid: extensions/mermaid.md
       - Icons: extensions/icons.md
       - Grid: extensions/grid.md
+      - Tabs: extensions/tabs.md
       - Annotate: extensions/annotate.md
   - Integrations:
       - MkDocs: integrations/mkdocs.md

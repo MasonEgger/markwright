@@ -338,9 +338,19 @@ a.mw-button.mw-button-primary:hover {
     border-color: var(--md-accent-fg-color);
 }
 
-/* Grids, after mkdocs-material's: items flow into as many columns as fit, at least 16rem wide, and drop to one
-   column on a narrow screen. Cards get a hairline border that lifts into a shadow on hover. */
-.md-typeset ul.mw-grid {
+/* Grids, after mkdocs-material's: a [grid ...] list shortcut classes the <ul> or <ol>, a paired
+   [grid]/[/grid] wraps blocks in a <div>. Each layout rule carries an element-qualified companion
+   (ul.mw-grid, ol.mw-grid) next to its class form. mkdocs-material's own list rules outrank a bare
+   class on a list: .md-typeset ul:not([hidden]) sets display: flow-root and [dir=ltr] .md-typeset ul
+   sets the list margin and padding, both at a higher weight than .md-typeset .mw-grid, and
+   .md-typeset ul li outranks .md-typeset .mw-grid > li. The companions tie that weight and win on
+   source order, so a list shortcut lays out as a grid; the class form still reaches the <div> block
+   grid, which has no element-qualified rival. Items flow into as many columns as fit, at least 16rem
+   wide, and drop to one column on a narrow screen; mw-grid-cols-N pins an exact count. Cards get a
+   hairline border that lifts into a shadow on hover. */
+.md-typeset .mw-grid,
+.md-typeset ul.mw-grid,
+.md-typeset ol.mw-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
     gap: 0.4rem;
@@ -349,11 +359,60 @@ a.mw-button.mw-button-primary:hover {
     list-style: none;
 }
 
-.md-typeset ul.mw-grid > li {
+.md-typeset .mw-grid-cols-1,
+.md-typeset ul.mw-grid-cols-1,
+.md-typeset ol.mw-grid-cols-1 {
+    grid-template-columns: repeat(1, 1fr);
+}
+
+.md-typeset .mw-grid-cols-2,
+.md-typeset ul.mw-grid-cols-2,
+.md-typeset ol.mw-grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.md-typeset .mw-grid-cols-3,
+.md-typeset ul.mw-grid-cols-3,
+.md-typeset ol.mw-grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.md-typeset .mw-grid-cols-4,
+.md-typeset ul.mw-grid-cols-4,
+.md-typeset ol.mw-grid-cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.md-typeset .mw-grid-cols-5,
+.md-typeset ul.mw-grid-cols-5,
+.md-typeset ol.mw-grid-cols-5 {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.md-typeset .mw-grid-cols-6,
+.md-typeset ul.mw-grid-cols-6,
+.md-typeset ol.mw-grid-cols-6 {
+    grid-template-columns: repeat(6, 1fr);
+}
+
+/* Narrow screens collapse every grid to one column; this rule follows the count rules so it wins. */
+@media screen and (max-width: 44.9375em) {
+    .md-typeset .mw-grid,
+    .md-typeset ul.mw-grid,
+    .md-typeset ol.mw-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.md-typeset .mw-grid > li,
+.md-typeset ul.mw-grid > li,
+.md-typeset ol.mw-grid > li {
     margin: 0;
 }
 
-.md-typeset ul.mw-grid.mw-cards > li {
+.md-typeset .mw-card,
+.md-typeset ul.mw-grid-cards > li,
+.md-typeset ol.mw-grid-cards > li {
     display: block;
     padding: 0.8rem;
     border: 0.05rem solid var(--md-default-fg-color--lightest);
@@ -363,31 +422,105 @@ a.mw-button.mw-button-primary:hover {
         box-shadow 250ms;
 }
 
-.md-typeset ul.mw-grid.mw-cards > li:is(:hover, :focus-within) {
+.md-typeset .mw-card:is(:hover, :focus-within),
+.md-typeset ul.mw-grid-cards > li:is(:hover, :focus-within),
+.md-typeset ol.mw-grid-cards > li:is(:hover, :focus-within) {
     border-color: transparent;
     box-shadow: var(--md-shadow-z2);
 }
 
-.md-typeset ul.mw-grid.mw-cards > li > hr {
+.md-typeset .mw-card > hr,
+.md-typeset ul.mw-grid-cards > li > hr,
+.md-typeset ol.mw-grid-cards > li > hr {
     margin-block: 1em;
 }
 
-.md-typeset ul.mw-grid.mw-cards > li > :first-child {
+.md-typeset .mw-card > :first-child,
+.md-typeset ul.mw-grid-cards > li > :first-child,
+.md-typeset ol.mw-grid-cards > li > :first-child {
     margin-top: 0;
 }
 
-.md-typeset ul.mw-grid.mw-cards > li > :last-child {
+.md-typeset .mw-card > :last-child,
+.md-typeset ul.mw-grid-cards > li > :last-child,
+.md-typeset ol.mw-grid-cards > li > :last-child {
     margin-bottom: 0;
 }
 
 /* An icon that opens a card is its headline icon: larger, and centered on the title beside it. */
-.md-typeset ul.mw-grid.mw-cards > li > p:first-child > .mw-icon:first-child {
+.md-typeset .mw-card > p:first-child > .mw-icon:first-child,
+.md-typeset ul.mw-grid-cards > li > p:first-child > .mw-icon:first-child,
+.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child {
     vertical-align: middle;
 }
 
-.md-typeset ul.mw-grid.mw-cards > li > p:first-child > .mw-icon:first-child svg {
+.md-typeset .mw-card > p:first-child > .mw-icon:first-child svg,
+.md-typeset ul.mw-grid-cards > li > p:first-child > .mw-icon:first-child svg,
+.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child svg {
     width: 2em;
     height: 2em;
+}
+
+/* CSS-only tab sample: markwright emits pymdown-extensions' tabbed alternate_style markup, so a host
+   that already styles .tabbed-set needs nothing. These rules let the demo tabs switch with no
+   JavaScript by tying each radio's :checked state to the label and block at its position. The inputs
+   are the set's first children, so :nth-child(T) names the T-th tab's input. The chains stop at
+   six tabs: a set's seventh tab and beyond would not switch under this sample, so a host that needs
+   more extends the :nth-child lists below. A host with JavaScript, or one that already styles
+   .tabbed-set, has no such ceiling. */
+.md-typeset .mw-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+.md-typeset .mw-tabs > input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+}
+
+.md-typeset .mw-tabs > .tabbed-labels {
+    display: flex;
+    width: 100%;
+    gap: 0.8rem;
+    border-bottom: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .mw-tabs > .tabbed-labels > label {
+    padding: 0.4rem 0;
+    color: var(--md-default-fg-color--light);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.md-typeset .mw-tabs > .tabbed-content {
+    width: 100%;
+}
+
+.md-typeset .mw-tabs > .tabbed-content > .tabbed-block {
+    display: none;
+    padding-top: 0.8rem;
+}
+
+.md-typeset .mw-tabs > input:nth-child(1):checked ~ .tabbed-content > .tabbed-block:nth-child(1),
+.md-typeset .mw-tabs > input:nth-child(2):checked ~ .tabbed-content > .tabbed-block:nth-child(2),
+.md-typeset .mw-tabs > input:nth-child(3):checked ~ .tabbed-content > .tabbed-block:nth-child(3),
+.md-typeset .mw-tabs > input:nth-child(4):checked ~ .tabbed-content > .tabbed-block:nth-child(4),
+.md-typeset .mw-tabs > input:nth-child(5):checked ~ .tabbed-content > .tabbed-block:nth-child(5),
+.md-typeset .mw-tabs > input:nth-child(6):checked ~ .tabbed-content > .tabbed-block:nth-child(6) {
+    display: block;
+}
+
+.md-typeset .mw-tabs > input:nth-child(1):checked ~ .tabbed-labels > label:nth-child(1),
+.md-typeset .mw-tabs > input:nth-child(2):checked ~ .tabbed-labels > label:nth-child(2),
+.md-typeset .mw-tabs > input:nth-child(3):checked ~ .tabbed-labels > label:nth-child(3),
+.md-typeset .mw-tabs > input:nth-child(4):checked ~ .tabbed-labels > label:nth-child(4),
+.md-typeset .mw-tabs > input:nth-child(5):checked ~ .tabbed-labels > label:nth-child(5),
+.md-typeset .mw-tabs > input:nth-child(6):checked ~ .tabbed-labels > label:nth-child(6) {
+    color: var(--md-default-fg-color);
+    border-bottom: 0.1rem solid var(--md-accent-fg-color);
 }
 
 a.mw-lightbox img {
