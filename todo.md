@@ -5,14 +5,14 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 ## Section 1: Container pairing scanner (`_containers.py`)
 
 ### Step 1: The `_containers.py` pairing scanner
-- [ ] 1. RED: contract tests in tests/test_containers.py (pairs, problems, unclosed_grids, enclosed_by_grid, nesting, indentation, code-skipping, empty/invalid openers)
-- [ ] 2. Module docstring and ABOUTME header describing the pairing rules and result fields
-- [ ] 3. GREEN: src/markwright/_containers.py scanner (opener/closer regexes, code-skip via _fences, stack pairing, token parse, frozen pydantic result)
-- [ ] 4. RED: edge-case tests (tab name with `]`, list-item indentation nesting)
-- [ ] 5. GREEN: edge cases pass with no Step-1 regression
-- [ ] 6. REFACTOR: collapse opener/closer dispatch if it reduces duplication cleanly
-- [ ] 7. Document: docstring matches final field names and semantics
-- [ ] 8. Verify branch coverage and run `just check`
+- [x] 1. RED: contract tests in tests/test_containers.py (pairs, problems, unclosed_grids, enclosed_by_grid, nesting, indentation, code-skipping, empty/invalid openers)
+- [x] 2. Module docstring and ABOUTME header describing the pairing rules and result fields
+- [x] 3. GREEN: src/markwright/_containers.py scanner (opener/closer regexes, code-skip via _fences, stack pairing, token parse, frozen pydantic result)
+- [x] 4. RED: edge-case tests (tab name with `]`, list-item indentation nesting)
+- [x] 5. GREEN: edge cases pass with no Step-1 regression
+- [x] 6. REFACTOR: collapse opener/closer dispatch if it reduces duplication cleanly
+- [x] 7. Document: docstring matches final field names and semantics
+- [x] 8. Verify branch coverage and run `just check`
 
 ## Section 2: Grid column counts and the `mw-grid-cards` rename
 
