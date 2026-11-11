@@ -50,9 +50,10 @@ The directive must be on its own line, like the embeds.
 The classes `mw-button` and `mw-button-primary` are the whole contract.
 markwright adds no inline styles, no attributes beyond `class` and `href`, and no script.
 
-## Host CSS
+## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.
+The hooks are the `mw-button` class and, on a primary button, the added `mw-button-primary` class; the link is a plain `<a>` and needs no host script.
 The page that renders the HTML supplies the look.
 This site styles the buttons in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css), under the `a.mw-button` rules, using Material's theme colors.
 Copy those rules as a starting point, or write your own selectors against the two classes.

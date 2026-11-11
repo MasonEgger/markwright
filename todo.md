@@ -67,11 +67,11 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 - [x] 5. Document: the two pages are the documentation
 
 ### Step 7: "Host CSS and Script" section on every extension page (task)
-- [ ] 1. Scope: docs/extensions/*.md (all 14) end state
-- [ ] 2. Tooling: content-design:review-content, `just docs-build`
-- [ ] 3. Do: add/normalize a Host CSS and Script section per page listing hooks and linking samples
-- [ ] 4. Verify: `just docs-build --strict` exits 0; spot-check three pages
-- [ ] 5. Document: the pages are the documentation
+- [x] 1. Scope: docs/extensions/*.md (all 14) end state
+- [x] 2. Tooling: content-design:review-content, `just docs-build`
+- [x] 3. Do: add/normalize a Host CSS and Script section per page listing hooks and linking samples
+- [x] 4. Verify: `just docs-build --strict` exits 0; spot-check three pages
+- [x] 5. Document: the pages are the documentation
 
 ### Step 8: CHANGELOG, README, and CLAUDE.md (task)
 - [ ] 1. Scope: CHANGELOG.md, README.md, CLAUDE.md end state

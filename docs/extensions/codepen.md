@@ -98,3 +98,12 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 - The embed must be on its own line
 - The CodePen embed script is injected once, even with multiple embeds on a page, and only when at least one embed is `eager`
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+In `eager` mode the embed is a `<p class="codepen">` carrying CodePen's `data-*` attributes (do-markdownit's own CodePen shape), and markwright injects CodePen's `<script>` once per page, so the host needs no code: CodePen's script renders the pen.
+This site ships no CodePen rule in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css); the pen draws itself.
+
+In `click` mode the embed is the `mw-embed` preview instead, whose hooks (`.mw-embed`, `template.mw-embed-content`, `button.mw-embed-load`, and the rest) a host script swaps for the live pen.
+[Click-to-Load](../click-to-load.md) is the contract for that markup and carries a worked host script.

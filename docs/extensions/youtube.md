@@ -76,3 +76,12 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 - The embed must be on its own line (not inline with other text)
 - The video ID is URL-encoded for safety
 - A fallback link is included inside the iframe for accessibility
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+In `eager` and `lazy` modes the embed is an `<iframe class="youtube">` that loads YouTube's own player, so the host needs no code; `lazy` only adds `loading="lazy"`.
+This site sizes the frame with the `iframe.youtube` rule in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css): capped at the content width, centered, no border.
+
+In `click` mode the embed is the `mw-embed` preview instead, whose hooks a host script swaps for the live iframe.
+[Click-to-Load](../click-to-load.md) is the contract for that markup and carries a worked host script.

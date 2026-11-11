@@ -278,10 +278,10 @@ The pre stage attaches an inline `mw-grid-problem` marker to each literal direct
 An invalid `[grid ...]` opener and an opener or closer inside fenced or indented code also stay literal, with no report.
 A shortcut marker is skipped, and `--warn` reports why, when its payload is invalid or no list follows it.
 
-## Host CSS
+## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.
-The classes are inert until the host styles them.
+The hooks are the `mw-grid` wrapper, the `mw-grid-cards` class on a cards grid, the `mw-grid-cols-N` column count, and the `mw-card` class on each card; they are inert until the host styles them, and no host script is involved.
 This site's grid rules in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css) follow mkdocs-material's:
 
 - `.mw-grid` is a CSS grid that flows items into as many columns as fit and drops to one on a narrow screen; `mw-grid-cols-N` pins an exact count.

@@ -51,3 +51,9 @@ Height and width are optional trailing integers. They are distinguished from URL
 - Navigation arrows appear on left and right sides
 - Uses CSS scroll-snap for smooth slide transitions
 - No script injection required
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+The hooks are the `slideshow` wrapper (do-markdownit's own shape), its `slides` track of `<img>` slides, and the `action left` and `action right` arrows whose inline `onclick` scrolls the track, so paging works with no host script.
+This site lays out the track with CSS scroll-snap and styles the arrows in the `.slideshow` rules of [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css); without that CSS the slides stack rather than scroll.

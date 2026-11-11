@@ -222,3 +222,20 @@ SELECT * FROM users;
 SHOW TABLES;
 ```
 
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+The fence extension emits these hooks:
+
+| Hook | Where | Role |
+|------|-------|------|
+| `div.code-label` | Before the block | The label chip, with a `title`. The class is the `label_class` option's default. |
+| `div.secondary-code-label` | Inside the `<code>` | The secondary label. The class is the `secondary_label_class` option's default. |
+| `pre.environment-NAME` | On the `<pre>` | The environment tint, where `NAME` is the sanitized `[environment NAME]` value. |
+| `pre.prefixed <type>` | On the `<pre>` | A line-prefixed block, where `<type>` is `line_numbers`, `command`, `super_user`, or `custom_prefix`. |
+| `<ol><li data-prefix="...">` | Inside the `<code>` | One list item per line, each carrying its prefix string. |
+
+No host script is involved; the block works as plain highlighted code, and the hooks only change how it looks.
+This site draws the label chips, tints the five demo environments, and renders each line's `data-prefix` through a CSS `::before` in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css), under the `.code-label`, `pre.environment-*`, and `pre.prefixed` rules.
+A host that renames the label classes through the options styles its own names instead.

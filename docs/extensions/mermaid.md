@@ -58,9 +58,10 @@ The diagram text is HTML-escaped and placed straight inside `<pre>`, with no `<c
 The extension runs ahead of `pymdownx.superfences` and `markwright.fence` (preprocessor priority 45), so neither sees the block.
 If your `mkdocs.yml` also has a `custom_fences` entry named `mermaid`, remove it: this extension replaces the fence first, and the entry never runs.
 
-## Host Script
+## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.
+The only hook is the `pre.mermaid` block, whose class is Mermaid's own, so Mermaid's client finds it.
 Mermaid itself is a separate library, so the host loads and starts it.
 This site does it in [`docs/javascripts/mermaid.js`](https://github.com/MasonEgger/markwright/blob/main/docs/javascripts/mermaid.js), which imports a pinned Mermaid build from a CDN and calls `mermaid.initialize({ startOnLoad: true })`.
 Register it under `extra_javascript` with `type: module`.

@@ -85,9 +85,10 @@ An unknown icon stays text: `:lucide-nope:` and :lucide-nope:.
 The wrapper is a `span` with `class="mw-icon"` and `aria-hidden="true"`, in that serialized order, so icons are decorative to screen readers.
 The SVG inside is the file's own markup, unchanged.
 
-## Host CSS
+## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.
+The only hook is the `span.mw-icon` wrapper, which carries `aria-hidden="true"` and holds the pack's own SVG; no host script is involved.
 The demo packs on this site are committed under `docs/icons/`.
 `lucide` holds `check`, `arrow-right`, and `info` (ISC license), and `mw` holds `star`, `heart`, and `bolt`, drawn for this repository.
 Credits and license text are in [`docs/icons/CREDITS.txt`](https://github.com/MasonEgger/markwright/blob/main/docs/icons/CREDITS.txt).

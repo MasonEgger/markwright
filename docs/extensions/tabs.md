@@ -132,9 +132,10 @@ The pre stage attaches an inline `mw-tab-problem` marker to each literal directi
 An empty `[tab ]` with no name is not an opener and stays literal with no report.
 An opener or closer inside fenced or indented code also stays literal.
 
-## Host CSS
+## Host CSS and Script
 
-markwright ships no CSS.
-The `tabbed-set`, `tabbed-alternate`, `mw-tabs`, `tabbed-labels`, `tabbed-content`, and `tabbed-block` classes are the public contract, inert until the host styles them.
+markwright ships no CSS, JavaScript, or icons.
+The `tabbed-set`, `tabbed-alternate`, `tabbed-labels`, `tabbed-content`, and `tabbed-block` classes are pymdown-extensions' own, reused so a host's existing tab CSS applies; the `mw-tabs` class, the `mw-tab-S-T` ids, and the `mw-tab-S` radio names are markwright's.
+Together they are the public contract, inert until the host styles them.
 This site's sample in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css) ties each radio's `:checked` state to the block at its position, so the demo above switches tabs with no JavaScript.
 The sample's `:nth-child` chains stop at six tabs, so a set's seventh tab and beyond would not switch under it; a host that needs more extends those chains, and a host with JavaScript or an existing `.tabbed-set` style has no such ceiling.

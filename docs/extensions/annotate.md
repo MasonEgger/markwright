@@ -232,6 +232,7 @@ Each annotated block numbers its own ids, so the outer item is `mw-annotation-1-
 ## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.
+The hooks are the `a.mw-annotation` markers that link to `#mw-annotation-B-N`, the `ol.mw-annotations` list (tagged `data-mw-version="1"`), the `mw-annotated` class added to the annotated block itself (the `<p>` or whatever block follows the directive), and the `mw-annotation-B-N` ids on the list items.
 With no script, each marker is a plain link that jumps to its list item.
 This site styles annotations after mkdocs-material's:
 

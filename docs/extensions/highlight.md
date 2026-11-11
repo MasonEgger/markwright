@@ -78,3 +78,10 @@ Result: Both <^>first<^> and <^>second<^> are highlighted.
 Prefix a marker with a backslash (`\<^>`) to show it literally instead of applying a highlight.
 This works consistently in regular text, inline code, and fenced code blocks, and produces the same literal marker whether you render in-process or through the `mw pre | post` pipeline.
 This is how the code samples above print the raw `<^>` syntax.
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+The only hook is the `<mark>` element, which browsers already draw with a default highlight, so highlights show with no host code.
+This site restyles `<mark>` to match mkdocs-material, both in prose and inside a syntax-highlighted block, under the `.md-typeset mark` and `.md-typeset .highlight mark` rules in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css).
+A host that wants a different highlight color overrides those rules; no script is needed.
