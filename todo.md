@@ -17,14 +17,14 @@ Mirrors `plan.md`. Check each sub-item as `/bpe:execute-plan` or `/bpe:goal` com
 ## Section 2: Grid column counts and the `mw-grid-cards` rename
 
 ### Step 2: Column counts on the grid shortcut and `mw-cards` → `mw-grid-cards`
-- [ ] 1. RED: tests/test_grid.py for column counts, the rename, order-free tokens, bounds, invalid counts left literal, fail-soft bad columns
-- [ ] 2. Document: GridMarker docstring for `columns`
-- [ ] 3. GREEN: grid.py rename CARDS_CLASS, add cols prefix, new GRID_RE + `_parse_grid_tokens`, GridMarker.columns, class assembly
-- [ ] 4. RED: grid + annotate same-document tests
-- [ ] 5. GREEN: confirm ordering holds
-- [ ] 6. REFACTOR: leave `_parse_grid_tokens` for Step 3 reuse
-- [ ] 7. Update parity assertions naming the old class (roundtrip and integration strings)
-- [ ] 8. Verify token-parse branch coverage and run `just check`
+- [x] 1. RED: tests/test_grid.py for column counts, the rename, order-free tokens, bounds, invalid counts left literal, fail-soft bad columns
+- [x] 2. Document: GridMarker docstring for `columns`
+- [x] 3. GREEN: grid.py rename CARDS_CLASS, add cols prefix, new GRID_RE + `_parse_grid_tokens`, GridMarker.columns, class assembly
+- [x] 4. RED: grid + annotate same-document tests
+- [x] 5. GREEN: confirm ordering holds
+- [x] 6. REFACTOR: leave `_parse_grid_tokens` for Step 3 reuse
+- [x] 7. Update parity assertions naming the old class (roundtrip and integration strings)
+- [x] 8. Verify token-parse branch coverage and run `just check`
 
 ## Section 3: Block grids and cards
 

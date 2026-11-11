@@ -220,7 +220,7 @@ def test_material_parity_directives_survive_hugo(tmp_path: Path) -> None:
     assert '<a class="mw-button mw-button-primary" href="/start">Get started</a>' in final
     assert '<a class="mw-lightbox" href="/a.png"><img src="/a.png" alt="A diagram" /></a>' in final
     assert '<pre class="mermaid">graph LR\n    A --&gt; B\n</pre>' in final
-    assert '<ul class="mw-grid mw-cards">' in final
+    assert '<ul class="mw-grid mw-grid-cards">' in final
     assert "<!-- mw-" not in final
     assert '<a class="mw-annotation" href="#mw-annotation-1-1">1</a>' in final
     assert "(1)!" not in final

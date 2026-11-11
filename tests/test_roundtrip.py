@@ -162,7 +162,7 @@ class TestRoundTripEquivalence:
         assert '<a class="mw-button mw-button-primary" href="/start">Get started</a>' in pipeline
         assert '<a class="mw-lightbox" href="/a.png"><img src="/a.png" alt="A diagram" /></a>' in pipeline
         assert '<pre class="mermaid">graph LR\n    A --&gt; B\n</pre>' in pipeline
-        assert '<ul class="mw-grid mw-cards">' in pipeline
+        assert '<ul class="mw-grid mw-grid-cards">' in pipeline
         assert '<a class="mw-annotation" href="#mw-annotation-1-1">1</a>' in pipeline
         assert "(1)!" not in pipeline
         assert '<li id="mw-annotation-2-1">A prose note.</li>' in pipeline
