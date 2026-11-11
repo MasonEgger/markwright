@@ -67,7 +67,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 
 **Upcoming:**
 - containers (#30 plus tabs): block grids, cards, column counts, and tabs on one shared open/close pairing, specified under Goals, Containers
-- public fence API: a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; a separate issue
+- public fence API: a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; a separate issue (#32)
 - Material mapping docs page: maps each mkdocs-material reference feature to the Python-Markdown or pymdown-extensions extension that provides it in-process and the Goldmark setting that provides it in Hugo, with the gaps; docs-only, done directly
 
 **Deferred:**
