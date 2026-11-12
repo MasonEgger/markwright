@@ -64,9 +64,9 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - material-parity-0.4.0: the six Material-reference extensions (#16) and the shared `_markers` module, converged and staged for the 0.4.0 release (.ai-sessions/material-parity-0.4.0/)
 - fenced-directives-20: `mw pre` leaves a directive line inside fenced code literal across all ten directive stages through `_fences.map_lines` (#20), converged (.ai-sessions/fenced-directives-20/)
 - review-fixes-29: the eight 0.4.0 adversarial-review fixes (annotate chaining, tab and indented-code detection, HTML-tag skipping, icons at priority 85, and the test-policy cleanup) (#29), converged (.ai-sessions/review-fixes-29/)
+- containers-30: block grids, cards, column counts, and the `tabs` extension on one shared open/close pairing scanner (#30), converged (.ai-sessions/containers-30/)
 
 **Upcoming:**
-- containers (#30 plus tabs): block grids, cards, column counts, and tabs on one shared open/close pairing, specified under Goals, Containers
 - public fence API: a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; a separate issue (#32)
 - Material mapping docs page: maps each mkdocs-material reference feature to the Python-Markdown or pymdown-extensions extension that provides it in-process and the Goldmark setting that provides it in Hugo, with the gaps; docs-only, done directly
 
