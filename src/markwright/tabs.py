@@ -56,7 +56,8 @@ _ProblemDirective = Literal["[tab]", "[/tab]"]
 _ProblemReason = Literal["unclosed", "stray-closer"]
 
 # scan_containers reports problems as free text; map the tab-owned ones to a closed vocabulary.
-# An empty [tab ] is absent on purpose: spec line 121 leaves it literal with no report.
+# An empty [tab ] is absent on purpose: spec.md (Containers, Tabs) says it is not an opener, so
+# it stays literal with no report.
 _TAB_OWNED_PROBLEMS: dict[str, tuple[_ProblemDirective, _ProblemReason]] = {
     "unclosed [tab] opener": ("[tab]", "unclosed"),
     "no matching [tab] opener": ("[/tab]", "stray-closer"),

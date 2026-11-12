@@ -69,8 +69,8 @@ _ProblemReason = Literal["unclosed", "stray-closer", "card-outside-grid"]
 
 # scan_containers reports problems as free text; map the grid-owned ones to a closed vocabulary.
 # Tab problems and a [grid] opener demoted by a stray [/grid] are absent on purpose: tabs belong
-# to the tabs extension, and spec line 128 asks only that an invalid or demoted grid opener stay
-# literal, with no report.
+# to the tabs extension, and spec.md (Containers, Pairing) asks only that a demoted grid opener
+# stay literal, with the report on its stray closer.
 _GRID_OWNED_PROBLEMS: dict[str, tuple[_ProblemDirective, _ProblemReason]] = {
     "unclosed [card] opener": ("[card]", "unclosed"),
     "no matching [card] opener": ("[/card]", "stray-closer"),
