@@ -1,5 +1,5 @@
 site_name: markwright
-site_description: Python-Markdown extensions ported from DigitalOcean's do-markdownit
+site_description: Python-Markdown extensions and a pipeline CLI for author-friendly Markdown, inspired by DigitalOcean's do-markdownit
 repo_url: https://github.com/MasonEgger/markwright
 repo_name: MasonEgger/markwright
 

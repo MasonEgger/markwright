@@ -3,18 +3,20 @@ Copyright 2026 Mason Egger
 
 markwright as a whole is distributed under the MIT License (see LICENSE).
 
-This project is a Python port of do-markdownit, originally developed by
-DigitalOcean and licensed under the Apache License, Version 2.0.
+Part of this project is a Python port of do-markdownit, originally
+developed by DigitalOcean and licensed under the Apache License,
+Version 2.0.
 
 Original project: https://github.com/digitalocean/do-markdownit
 Copyright 2023 DigitalOcean
 
 Portions of this project are derived from do-markdownit and remain subject
 to the Apache License, Version 2.0, a copy of which is included in this
-repository as LICENSE-Apache-2.0. The extensions reproduce do-markdownit's
-markup syntax and HTML output, and specific portions were ported from the
-original source: the compare control SVG, the slideshow navigation script,
-and the Twitter and Instagram embed URL grammars.
+repository as LICENSE-Apache-2.0. The highlight, fence, youtube, codepen,
+twitter, instagram, slideshow, and image_compare extensions reproduce
+do-markdownit's markup syntax and HTML output, and specific portions were
+ported from the original source: the compare control SVG, the slideshow
+navigation script, and the Twitter and Instagram embed URL grammars.
 
 Significant changes from the original (Apache License, Version 2.0,
 Section 4(b)):
@@ -25,3 +27,6 @@ Section 4(b)):
   post filter stages for use outside an in-process Python-Markdown render.
 - Adapted extension behavior and output where the Python-Markdown
   toolchain differs from markdown-it.
+- Added extensions that are not ported from do-markdownit (button,
+  lightbox, mermaid, icons, grid, annotate, tabs), click-to-load embed
+  previews, and a configuration system.

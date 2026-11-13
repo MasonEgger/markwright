@@ -9,8 +9,9 @@ Future work is issue-driven, not a planned phase.
 
 ## Project overview
 
-markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions ported from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (JavaScript/markdown-it, Apache 2.0), plus an `mw` command-line tool that runs the same extensions as pre and post filter stages so the author-facing syntax works in any toolchain (Hugo, a plain Unix pipe), not only an in-process Python-Markdown render.
-The author-facing syntax and HTML output are derived from `do-markdownit`, so rendered pages match what DigitalOcean produces; markwright adds its own pieces on top, most notably the CLI, a config surface with a public API host tools build on, click-to-load embeds, and the 0.4.0 and later extensions modeled on the mkdocs-material reference.
+markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions plus an `mw` command-line tool that runs the same extensions as pre and post filter stages so the author-facing syntax works in any toolchain (Hugo, a plain Unix pipe), not only an in-process Python-Markdown render.
+Part of it is a port: the eight original extensions reproduce the syntax and HTML output of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (JavaScript/markdown-it, Apache 2.0), so those render the way DigitalOcean's do.
+Everything else is markwright's own, most notably the CLI, a config surface with a public API host tools build on, click-to-load embeds, and the 0.4.0 and later extensions modeled on the mkdocs-material reference.
 The bundled MkDocs Material site in `docs/` is both documentation and a live demo.
 It moves to Bartleby (Mason's static site generator and markwright's first host) once Bartleby reaches parity and releases, well ahead of Material for MkDocs' end of life on May 5, 2027.
 

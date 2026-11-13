@@ -3,8 +3,8 @@
 markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions plus a companion CLI, `mw`, for author-friendly markdown: highlighted text, labeled code fences, and media embeds.
 Use the extensions in any tool built on Python-Markdown (including [MkDocs](https://www.mkdocs.org/)), or the `mw` pipeline in toolchains that are not, like Hugo.
 
-The author-facing syntax and HTML output are derived from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (licensed under the [Apache License 2.0](https://github.com/digitalocean/do-markdownit/blob/master/LICENSE)); markwright ports those to Python-Markdown and adds the `mw` CLI on top.
-See [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) for attribution.
+Part of markwright is a port: the highlight, fence, and media embed extensions reproduce the syntax and HTML output of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit).
+Everything else is markwright's own: buttons, lightboxes, Mermaid diagrams, icons, grids and cards, annotations, tabs, click-to-load embeds, a config system, and the `mw` CLI, which runs the same extensions as pre and post filters around any renderer.
 
 ## Features
 
@@ -116,4 +116,8 @@ markwright ships no CSS, JavaScript, or icons. The extensions emit classes and m
 
 ## License
 
-This project is a port of [do-markdownit](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0. See the [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) file for attribution details.
+markwright is released under the [MIT License](https://github.com/MasonEgger/markwright/blob/main/LICENSE).
+
+Part of it is a port of [`do-markdownit`](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0.
+Those portions remain subject to that license, a copy of which is in the repository as [LICENSE-Apache-2.0](https://github.com/MasonEgger/markwright/blob/main/LICENSE-Apache-2.0).
+See the [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) file for attribution details.

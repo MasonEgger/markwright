@@ -1,7 +1,7 @@
 [project]
 name = "markwright"
 version = "0.3.0"
-description = "Python-Markdown extensions ported from DigitalOcean's do-markdownit"
+description = "Python-Markdown extensions and a pipeline CLI for author-friendly Markdown, inspired by DigitalOcean's do-markdownit"
 readme = "README.md"
 authors = [
     { name = "Mason Egger", email = "mason@masonegger.com" }
