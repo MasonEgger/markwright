@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- Open a draft PR on a feature branch's first push: `containers-30` carried 45 commits with no PR, so CI never ran on it, and a `pip-audit` failure on the locked `certifi` sat unseen on `main` and would have blocked the PyPI publish. (2026-11-17)
 - Give a review subagent a file list, a tool-call budget, and a stop condition before it starts: the 0.4.0 plan review ran 1,871 calls and 219.8M cached input tokens with none of the three, built five venvs and a browser probe, and died on the quota before it reported. (2026-11-17)
 - Measure a parity rule over a generated corpus on every path (in-process, stub pipeline, Hugo pipeline) before writing it into spec.md as Planned: the paragraph-end rule for #34 read well and gave 294 path differences over 1,133 documents, and the same-line rule gave none. (2026-11-17)
 - A Python-Markdown postprocessor that reads stashed HTML sits below `raw_html` (30) and never ties with it: `md_in_html` registers `raw_html` again, so at 30 the result depends on where the host lists `md_in_html`, and listed after markwright it left the grid and tabs markers in the page. (2026-11-17)
@@ -11,7 +12,6 @@
 - When a background dev server is stuck on a stale error, restart it and load a page before reporting; stopping it only removes the symptom, and `curl --retry 15 --retry-connrefused` waits for the first build without a sleep. (2026-11-12)
 - Put an open decision to Mason through AskUserQuestion with a recommended option, never as a prose list at the end of a reply. (2026-11-12)
 - After a `/bpe:goal` run, reconcile spec.md before calling the run done: run each spec rule, and its malformed inputs, through `mw pre | python -m markdown | mw post --warn`, then amend the spec or flag the code one deviation at a time. Validators grade the diff against the plan, so all eight steps passed while an invalid `[grid 7]` ... `[/grid]` still paired and wrapped its cards. (2026-11-12)
-- A code comment that leans on the spec cites the section (`spec.md (Containers, Pairing)`), never a line number: two comments cited "spec line 128" and "spec line 121" for rules those lines did not state, and any spec edit moves the lines anyway. (2026-11-12)
 
 ## Documentation
 - markwright is not a port of `do-markdownit`: eight of the fifteen extensions are, and the rest, the config system, and the `mw` CLI are markwright's own. Write "part of it is a port" or "inspired by", never "a port of", and when the claim changes in one file, grep README.md, NOTICE, `pyproject.toml`, `mkdocs.yml`, CLAUDE.md, and spec.md for it rather than copying another file's wording. (2026-11-13)
@@ -93,6 +93,7 @@
 - `mkdocs build --strict` exits 0 on a clean build but Material for MkDocs prints a red MkDocs-2.0 promotional banner to stderr that is not a strict warning; verify via exit code plus `grep -iE "^WARNING|^ERROR"`, not by scanning colored output (2026-06-28)
 
 ## Git
+- Open a draft PR on a feature branch's first push: `containers-30` carried 45 commits with no PR, so CI never ran on it, and a `pip-audit` failure on the locked `certifi` sat unseen on `main` and would have blocked the PyPI publish. (2026-11-17)
 - The global pre-commit hook (`~/.config/git/hooks/pre-commit`) fails any commit with no new `.ai-sessions/` file staged, and that includes a `git commit --amend` that only fixes a message; `git reset --soft HEAD~1` and recommit so the staged session summary passes the hook, never `--no-verify` (2026-11-11)
 - A breaking CLI change (removing the `--use` flag) is a minor bump under 0.x SemVer (0.1.0 -> 0.2.0), never a patch; a patch (0.1.1) is for backward-compatible fixes only, so any existing invocation the change breaks rules it out (2026-09-23)
 - When renaming a project, check whether the old name is a substring of a name you must keep (`do-markdown` is inside the upstream `do-markdownit`); use a negative-lookahead replace `do-markdown(?!it)` so the attribution is not corrupted (2026-06-27)
