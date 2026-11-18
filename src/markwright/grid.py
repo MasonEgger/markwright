@@ -8,8 +8,9 @@
 # [/card] directly inside a block grid is emitted as mw-card and mw-card-end and wrapped in a
 # <div class="mw-card">, so one card can hold several blocks. The pre stage pairs containers with
 # _containers.scan_containers, so an opener or closer inside fenced or indented code stays literal,
-# and a card not directly inside a grid, or an invalid grid opener, is left literal. A grid-owned
-# problem left literal (an unclosed [card], a stray [/card] or [/grid], or a card outside a grid)
+# and a card not directly inside a grid is left literal. An invalid grid opener is not an opener at
+# all, so it never pairs and its closer is a stray. A grid-owned problem left literal (an unclosed
+# [card], a stray [/card] or [/grid], or a card outside a grid)
 # gains an inline mw-grid-problem marker carrying a closed-vocabulary reason, so the post stage
 # reports it under --warn and removes the comment; the directive text renders unchanged. The post
 # stage orders every open and close marker of a kind by position and stack-matches them like
@@ -32,6 +33,7 @@ from markwright._containers import (
     CARD_MARKER_NAME,
     GRID_BLOCK_MARKER_NAME,
     GRID_END_MARKER_NAME,
+    parse_grid_tokens,
     scan_containers,
 )
 from markwright._html import add_classes, apply_edits, tokenize
@@ -162,34 +164,13 @@ class GridProblemMarker(BaseModel):
     reason: _ProblemReason
 
 
-def _parse_grid_tokens(token_run: str) -> dict[str, object] | None:
-    """Parse the whitespace-separated tokens after ``grid`` into a marker payload.
+def _grid_payload(tokens: tuple[str, ...]) -> dict[str, object]:
+    """Build the marker payload for a grid opener the scanner accepted.
 
-    Tokens are order-free: ``cards`` sets the cards flag and a 1-to-6 digit run sets the
-    column count. A repeated flag, a second count, an out-of-range count, or an unknown
-    token makes the opener invalid.
-
-    :param token_run: The captured text after ``grid`` and before ``]``.
-    :returns: The payload with the present keys, or ``None`` when a token is invalid.
+    :param tokens: The opener's tokens; the scanner only reports a grid whose tokens are valid.
+    :returns: The payload with the present keys.
     """
-    payload: dict[str, object] = {}
-    for token in token_run.split():
-        if token == "cards":
-            if "cards" in payload:
-                return None
-            payload["cards"] = True
-        elif token.isascii() and token.isdigit():
-            # ASCII digits only: str.isdigit() also accepts non-decimal Unicode
-            # digits (superscripts int() rejects, Arabic-Indic digits it misreads).
-            if "columns" in payload:
-                return None
-            count = int(token)
-            if not 1 <= count <= 6:
-                return None
-            payload["columns"] = count
-        else:
-            return None
-    return payload
+    return parse_grid_tokens(" ".join(tokens)) or {}
 
 
 def _grid_classes(marker: GridMarker | GridBlockMarker) -> str:
@@ -228,8 +209,9 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     grid becomes mw-card and mw-card-end; an unclosed ``[grid ...]`` becomes the mw-grid shortcut
     marker. A grid-owned problem (an unclosed ``[card]``, a stray ``[/card]`` or ``[/grid]``, or a
     ``[card]`` not directly inside a block grid) stays literal and gains an inline mw-grid-problem
-    marker so the post stage can report it. An invalid grid opener stays literal with no report,
-    and tab problems are left untouched for the tabs extension.
+    marker so the post stage can report it. An invalid grid opener is not an opener: it stays
+    literal with no report of its own, and its closer and any card it leaves outside a grid are
+    reported. Tab problems are left untouched for the tabs extension.
 
     :param text: The source text.
     :param options: Accepted for the registry's shared signature; grid has no options.
@@ -244,9 +226,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
             # leave the markers in place rather than re-emitting and dropping their payload.
             continue
         if pair.kind == "grid":
-            payload = _parse_grid_tokens(" ".join(pair.tokens))
-            if payload is None:
-                continue
+            payload = _grid_payload(pair.tokens)
             replacements[pair.open_line] = marker_block(pair.indent, BLOCK_MARKER_NAME, payload)
             replacements[pair.close_line] = marker_block(pair.indent, BLOCK_END_NAME, {})
         elif pair.kind == "card" and pair.enclosed_by_grid:
@@ -262,9 +242,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
             # A lone mw-grid-block marker is a half-pair, not a shortcut opener; leave it for the
             # post stage to drop fail-soft rather than converting it into an mw-grid shortcut.
             continue
-        payload = _parse_grid_tokens(" ".join(unclosed.tokens))
-        if payload is None:
-            continue
+        payload = _grid_payload(unclosed.tokens)
         replacements[unclosed.line] = [f"{unclosed.indent}{encode_marker(MARKER_NAME, payload)}", ""]
     for problem in scan.problems:
         if problem.from_marker:

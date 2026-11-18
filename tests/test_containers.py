@@ -192,6 +192,42 @@ class TestUnclosedGrids:
         assert stray_problems[0].line == 0
 
 
+class TestInvalidGridOpener:
+    def test_a_grid_with_an_out_of_range_count_is_not_an_opener(self) -> None:
+        scan = scan_containers("[grid 7]\n[card]\nx\n[/card]\n[/grid]")
+
+        assert [pair.kind for pair in scan.pairs] == ["card"]
+        assert scan.pairs[0].enclosed_by_grid is False
+        assert scan.unclosed_grids == ()
+        stray = [problem for problem in scan.problems if problem.reason == "no matching [grid] opener"]
+        assert [problem.line for problem in stray] == [4]
+        assert all(problem.line != 0 for problem in scan.problems)
+
+    def test_an_unknown_token_is_not_an_opener_or_a_shortcut(self) -> None:
+        scan = scan_containers("[grid foo]\n\n- one\n- two")
+
+        assert scan.pairs == ()
+        assert scan.unclosed_grids == ()
+        assert scan.problems == ()
+
+    def test_a_repeated_token_is_not_an_opener(self) -> None:
+        scan = scan_containers("[grid cards cards]\n\nx\n\n[/grid]")
+
+        assert scan.pairs == ()
+        assert [problem.reason for problem in scan.problems] == ["no matching [grid] opener"]
+
+    def test_an_invalid_grid_does_not_pair_with_an_outer_valid_grid_closer(self) -> None:
+        scan = scan_containers("[grid]\n[grid 9]\nx\n[/grid]")
+
+        assert [(pair.open_line, pair.close_line) for pair in scan.pairs] == [(0, 3)]
+
+    def test_a_valid_grid_with_a_count_still_pairs(self) -> None:
+        scan = scan_containers("[grid 3]\n\nx\n\n[/grid]")
+
+        assert [pair.tokens for pair in scan.pairs] == [("3",)]
+        assert scan.problems == ()
+
+
 class TestEnclosedByGrid:
     def test_a_card_directly_inside_a_block_grid_is_enclosed(self) -> None:
         scan = scan_containers("[grid]\n[card]\n\ntext\n\n[/card]\n[/grid]")

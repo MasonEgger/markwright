@@ -262,8 +262,10 @@ class TestExpandSourceContainers:
         assert "[card]" in result
 
     def test_invalid_block_grid_opener_stays_literal(self) -> None:
-        source = "[grid 7]\n\nx\n\n[/grid]"
-        assert expand_source(source) == source
+        result = expand_source("[grid 7]\n\nx\n\n[/grid]")
+        assert result.startswith("[grid 7]\n")
+        assert BLOCK_MARKER not in result
+        assert BLOCK_END_MARKER not in result
 
     def test_container_opener_inside_a_fence_stays_literal(self) -> None:
         source = "```\n[grid]\n\n[/grid]\n```"
@@ -400,6 +402,40 @@ class TestContainersIntegration:
         assert '<a class="mw-annotation" href="#mw-annotation-1-1">1</a>' in result
 
 
+class TestInvalidGridOpener:
+    SOURCE = "[grid 7]\n\n[card]\n\ntext\n\n[/card]\n\n[/grid]"
+    CARD_REPORT = "Leaving [card] on line 3 literal: a card must be directly inside a block grid"
+    CLOSER_REPORT = "Leaving [/grid] on line 9 literal: no matching opener"
+
+    def test_expand_source_leaves_the_card_literal_with_a_problem_marker(self) -> None:
+        result = expand_source(self.SOURCE)
+
+        assert "[grid 7]" in result
+        assert CARD_MARKER not in result
+        assert BLOCK_END_MARKER not in result
+        assert result.count("mw-grid-problem") == 2
+
+    def test_apply_html_reports_the_card_and_the_stray_closer(self) -> None:
+        skip_reasons: list[str] = []
+        result = apply_html(render_plain(expand_source(self.SOURCE)), skip_reasons)
+
+        assert "mw-grid" not in result
+        assert "[grid 7]" in result
+        assert skip_reasons == [self.CARD_REPORT, self.CLOSER_REPORT]
+
+    def test_the_in_process_render_matches(self) -> None:
+        result = render_grid(self.SOURCE)
+
+        assert "mw-card" not in result
+        assert "[grid 7]" in result
+        assert "[card]" in result
+
+    def test_an_invalid_grid_before_a_list_is_not_the_shortcut(self) -> None:
+        source = "[grid foo]\n\n- one\n- two"
+
+        assert expand_source(source) == source
+
+
 class TestContainerProblems:
     def test_card_outside_grid_is_reported_by_apply_html(self) -> None:
         skip_reasons: list[str] = []
@@ -463,11 +499,11 @@ class TestContainerProblems:
         source = "```\n[/card]\n```"
         assert expand_source(source) == source
 
-    def test_an_invalid_grid_opener_gets_no_problem_marker(self) -> None:
-        source = "[grid 7]\n\nx\n\n[/grid]"
-        expanded = expand_source(source)
-        assert "mw-grid-problem" not in expanded
-        assert expanded == source
+    def test_an_invalid_grid_opener_gets_no_problem_marker_but_its_closer_does(self) -> None:
+        expanded = expand_source("[grid 7]\n\nx\n\n[/grid]")
+        assert expanded.startswith("[grid 7]\n")
+        assert expanded.count("mw-grid-problem") == 1
+        assert '"directive": "[/grid]"' in expanded
 
     def test_in_process_problem_document_has_literal_text_and_no_comment(self) -> None:
         result = render_grid("before\n[/card]\n\n[card]\n\ntext\n\n[/card]")

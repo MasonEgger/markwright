@@ -157,14 +157,50 @@ class _Frame(BaseModel):
     from_marker: bool
 
 
+def parse_grid_tokens(token_run: str) -> dict[str, object] | None:
+    """Parse the whitespace-separated tokens after ``grid`` into a marker payload.
+
+    Tokens are order-free: ``cards`` sets the cards flag and a 1-to-6 digit run sets the
+    column count. A repeated flag, a second count, an out-of-range count, or an unknown
+    token makes the opener invalid. This is the one home of the rule: the scanner uses it to
+    decide whether a ``[grid ...]`` line is an opener at all, and grid builds its marker
+    payload from it.
+
+    :param token_run: The text after ``grid`` and before ``]``.
+    :returns: The payload with the present keys, or ``None`` when a token is invalid.
+    """
+    payload: dict[str, object] = {}
+    for token in token_run.split():
+        if token == "cards":
+            if "cards" in payload:
+                return None
+            payload["cards"] = True
+        elif token.isascii() and token.isdigit():
+            # ASCII digits only: str.isdigit() also accepts non-decimal Unicode
+            # digits (superscripts int() rejects, Arabic-Indic digits it misreads).
+            if "columns" in payload:
+                return None
+            count = int(token)
+            if not 1 <= count <= 6:
+                return None
+            payload["columns"] = count
+        else:
+            return None
+    return payload
+
+
 def _parse_opener(stripped: str) -> tuple[_ContainerKind, tuple[str, ...]] | None:
     """Parse a stripped line as a container opener.
 
     :param stripped: The line with leading and trailing whitespace removed.
-    :returns: The kind and argument tokens, or ``None`` when the line is not an opener.
+    :returns: The kind and argument tokens, or ``None`` when the line is not an opener (a
+        ``[grid ...]`` with an invalid token or count is not one).
     """
     grid_match = _GRID_OPEN_RE.match(stripped)
     if grid_match is not None:
+        # An invalid [grid ...] is not an opener, like an empty [tab ]: it never pairs.
+        if parse_grid_tokens(grid_match["args"]) is None:
+            return None
         return "grid", tuple(grid_match["args"].split())
     if _CARD_OPEN_RE.match(stripped) is not None:
         return "card", ()

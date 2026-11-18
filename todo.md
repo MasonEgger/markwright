@@ -14,11 +14,11 @@ The `/goal` loop checks items as it goes.
 
 ## Section 2: Containers Fixes (#30)
 
-- [ ] Step 2: An invalid `[grid ...]` is not an opener
-  - [ ] RED: tests/test_containers.py, tests/test_grid.py
-  - [ ] GREEN: _containers.py rejects invalid grid openers, reuse grid.py validity rule
-  - [ ] Docs: spec.md Grid and Cards
-  - [ ] just check
+- [x] Step 2: An invalid `[grid ...]` is not an opener
+  - [x] RED: tests/test_containers.py, tests/test_grid.py
+  - [x] GREEN: _containers.py rejects invalid grid openers, reuse grid.py validity rule
+  - [x] Docs: spec.md Grid and Cards
+  - [x] just check
 - [ ] Step 3: Column-based indentation pairing and the less-indented-line rule
   - [ ] RED: tests/test_containers.py (tab/space column equality, less-indented ends container, list-item case)
   - [ ] GREEN: _containers.py column indentation and less-indented-line rule

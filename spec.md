@@ -29,7 +29,7 @@ Likely future directions are tracked under Roadmap Deferred.
 - Stack: a pure-Python package on Python 3.11 through 3.15, built with `hatchling`, managed with `uv`; `just check` (ruff, ruff format, mypy strict, pytest) is the gate and runs after every change
 - Runtime dependencies are `markdown`, `pymdown-extensions` (floor `>=11.0.1`, set by a security fix), and `pydantic`; the 0.4.0 release raises the `markdown` floor from `>=3.4` to `>=3.8.2`, the first version that passes the suite; adding another needs a spec change
 - deps: frozen
-- paths: src/markwright/**, tests/**, docs/**, mkdocs.yml, README.md, CHANGELOG.md, CLAUDE.md, plan.md, todo.md, .ai-sessions/**
+- paths: src/markwright/**, tests/**, docs/**, mkdocs.yml, README.md, CHANGELOG.md, CLAUDE.md, spec.md, plan.md, todo.md, .ai-sessions/**
 - Coverage is reported (line and branch) but not gated; read it and either test or delete what it shows uncovered
 - Output stays at `do-markdownit` parity (the eight ported extensions) unless a Decision documents a divergence; the cross-tool contracts are versioned and read fail-soft: the `mw-fence`, `mw-grid`, `mw-grid-block`, `mw-grid-end`, `mw-card`, `mw-card-end`, `mw-grid-problem`, `mw-tab`, `mw-tab-end`, `mw-tab-problem`, and `mw-annotate` marker-comment payloads, the `mw-embed` preview, the `mw-annotations` list's `data-mw-version`, the grid and card classes, and the tab markup with its `mw-tab-S-T` ids; before 1.0 a contract change bumps its version with no compatibility shim
 - The package ships no JavaScript, no CSS, and no bundled assets, icons included: markwright owns markup and inlines host-supplied SVGs; hosts own behavior, styling, and the icon files
@@ -356,9 +356,8 @@ Both paths:
 
 - The grid opener is `[grid]` with optional tokens in any order, each at most once: `cards`, and a column count from 1 to 6.
   `[grid 3]`, `[grid cards 3]`, and `[grid 3 cards]` are all valid; any other token or count leaves the line literal.
-  Such a line stays literal with no report.
-  Planned (containers fixes): it is not an opener, like `[tab ]`, so it never pairs and never becomes the list shortcut, a `[/grid]` it leaves unpaired is a stray closer, and a `[card]` it leaves outside any block grid is reported as one.
-  Today its `[/grid]` also stays literal with no report, and a `[card]` between the two still becomes a card.
+  Such a line is not an opener, like `[tab ]`: it stays literal with no report of its own, never pairs, and never becomes the list shortcut.
+  A `[/grid]` it leaves unpaired is a stray closer, and a `[card]` it leaves outside any block grid is reported as one.
   Planned (containers fixes): a `[card]` is inside a block grid only when the `[grid ...]` it opened in is paired; a card in a `[grid ...]` that is never closed stays literal and is reported like a card outside a grid.
   Today such a card still becomes a card, with no grid around it.
 - A paired `[grid ...]` ... `[/grid]` is a block grid: it wraps everything between its lines in `<div class="mw-grid">`, plus `mw-grid-cards` with `cards` and `mw-grid-cols-N` with a count, and each child block is a grid cell.

@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- Check that spec.md is inside the spec's `paths:` fence before a plan whose every step edits it: the 0.4.0 fix plan's Step 2 hit a validator block because `spec.md` was missing from `## Invariants`, and Mason had to approve the fence change mid-run. (2026-11-18)
 - Write each plan step from the spec's `Planned (ITEM):` sentence and name, in the step's documentation sub-step, the sentence it clears, the `Today` sentence it deletes, and the Feature Status cell it updates: the 0.4.0 fix plan's 29 steps each carry that sub-step, so spec.md changes in the same commit as the code it describes, and the reconciliation after the run has less to find. (2026-11-18)
 - Open a draft PR on a feature branch's first push: `containers-30` carried 45 commits with no PR, so CI never ran on it, and a `pip-audit` failure on the locked `certifi` sat unseen on `main` and would have blocked the PyPI publish. (2026-11-17)
 - Give a review subagent a file list, a tool-call budget, and a stop condition before it starts: the 0.4.0 plan review ran 1,871 calls and 219.8M cached input tokens with none of the three, built five venvs and a browser probe, and died on the quota before it reported. (2026-11-17)
