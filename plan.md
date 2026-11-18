@@ -17,6 +17,8 @@ It is done by hand after the merge, because `pyproject.toml`, `uv.lock`, and the
 
 **Tools:** none
 
+**Batch:** single
+
 ### Step 1: Move the grid, annotate, and tabs postprocessors to 27
 
 **NOTE**: Grounded in `Planned (container postprocessor priority)` under Goals, Containers ("Both paths").
@@ -53,6 +55,8 @@ The fix is to run them at 27: below `raw_html` at 30 (stashed markers restored f
 
 ### Step 2: An invalid `[grid ...]` is not an opener
 
+**Batch:** containers-a
+
 **NOTE**: Grounded in `Planned (containers fixes)` under Goals, Grid and Cards.
 Today an invalid `[grid ...]` (a bad token or a count outside 1 to 6) stays literal, but its `[/grid]` also stays literal with no report and a `[card]` between the two still becomes a card.
 The fix makes an invalid opener behave like `[tab ]`: not an opener, so it never pairs and never becomes the list shortcut, its unpaired `[/grid]` is a stray closer, and a `[card]` it leaves outside any grid is reported once.
@@ -80,6 +84,8 @@ The fix makes an invalid opener behave like `[tab ]`: not an opener, so it never
 
 ### Step 3: Column-based indentation pairing and the less-indented-line rule
 
+**Batch:** containers-a
+
 **NOTE**: Grounded in two `Planned (containers fixes)` sentences under Goals, Containers ("Pairing").
 Today the scanner pairs by indentation compared as raw string prefix and pairs across list items, so a container opened in one list item and closed in the next straddles both, and a tab-indented opener does not pair with a four-space-indented closer in `mw pre`.
 The fix compares indentation by column (tab stop every four columns, the way `_fences` reads it) and ends a container's block at the first non-blank line indented less than its opener.
@@ -106,6 +112,8 @@ The fix compares indentation by column (tab stop every four columns, the way `_f
 
 ### Step 4: A card needs a paired grid
 
+**Batch:** containers-a
+
 **NOTE**: Grounded in `Planned (containers fixes)` under Goals, Grid and Cards.
 Today a `[card]` inside a `[grid ...]` that is never closed still becomes a card with no grid around it.
 The fix: a `[card]` is inside a block grid only when the `[grid ...]` it opened in is itself paired; a card in an unclosed grid is reported like a card outside a grid.
@@ -129,6 +137,8 @@ The fix: a `[card]` is inside a block grid only when the `[grid ...]` it opened 
 ```
 
 ### Step 5: Emit the shortcut and annotate markers as blocks; keep a CRLF line end
+
+**Batch:** containers-b
 
 **NOTE**: Grounded in `Planned (containers fixes)` under Goals, Containers ("Both paths").
 Today the `[grid]` shortcut marker and the `[annotate]` marker gain a blank line after but none before, so a marker directly under a paragraph's text is read as part of that paragraph, and a problem marker lands after a trailing carriage return.
@@ -156,6 +166,8 @@ The fix emits those two markers like the container markers (own line, blank line
 ```
 
 ### Step 6: Tabs grouping, set numbering, backtick names, and closer validation
+
+**Batch:** containers-b
 
 **NOTE**: Grounded in four `Planned (containers fixes)` sentences under Goals, Tabs.
 Four changes land together because they all edit `tabs.py` grouping and emission:
@@ -190,6 +202,8 @@ and strict decode of a closer marker's payload with the same model as its opener
 
 ### Step 7: Document the escape and the cards-list CSS sample (task)
 
+**Batch:** containers-b
+
 **NOTE**: Grounded in the `Planned (containers fixes)` escape sentence under Goals, Containers and the cards-list sentence under Goals, Grid and Cards.
 The backslash escape (`\[grid 3]`, `\[tab Name]`, `\[/tab]`) already works through Markdown's own escape; this step documents and pins it.
 The CSS sample for a list inside a `cards` block grid is docs-site CSS.
@@ -222,6 +236,8 @@ The CSS sample for a list inside a `cards` block grid is docs-site CSS.
 - Skills: python:python
 - MCPs: none
 - Linters: none
+
+**Batch:** block-bodies
 
 ### Step 8: `_fences` reads block-opener bodies as content, not indented code
 
@@ -260,6 +276,8 @@ Because the rule lives in `_fences`, both paths apply it.
 - MCPs: none
 - Linters: none
 
+**Batch:** pre-stage-order
+
 ### Step 9: Icons after the directive stages, and a mermaid fence in a list item
 
 **NOTE**: Grounded in `Planned (pre-stage order)` under Goals, Icons and Goals, Mermaid.
@@ -294,6 +312,8 @@ A `mermaid` fence inside a list item (or one holding a blank line, or indented o
 - Skills: python:python
 - MCPs: none
 - Linters: none
+
+**Batch:** highlight-escape
 
 ### Step 10: Read in-code markers and escapes from each code line's text
 
@@ -352,6 +372,8 @@ In prose `mw pre` reads the backslashes before a marker in pairs: an odd run esc
 - Skills: python:python
 - MCPs: none
 - Linters: none
+
+**Batch:** highlight-pairing
 
 ### Step 12: In-process prose pairing on the same line only
 
@@ -412,6 +434,8 @@ The tests are differential over a corpus of two-line and three-line documents fr
 - MCPs: none
 - Linters: none
 
+**Batch:** annotate-overlap
+
 ### Step 14: A comment token with a `!` marker is replaced by every marker's links
 
 **NOTE**: Grounded in `Planned (annotate overlap)` under Goals, Annotate.
@@ -443,6 +467,8 @@ The fix: when a comment token holds a `!` marker, the comment is replaced by the
 - Skills: python:python
 - MCPs: none
 - Linters: none
+
+**Batch:** config-warn
 
 ### Step 15: `mw post` takes the config `warn` key as the diagnostics default
 
@@ -502,6 +528,8 @@ The same parser edit turns off option abbreviations, prints the missing-subcomma
 - Skills: python:python
 - MCPs: none
 - Linters: none
+
+**Batch:** fence-api
 
 ### Step 17: `disallowed_environments(source, config)`
 
@@ -567,6 +595,8 @@ It deliberately does NOT include the Roadmap Deferred "Pre-stage scan cost" refa
 
 ### Step 19: One integer helper for every directive and annotation integer
 
+**Batch:** hardening-a
+
 **NOTE**: Grounded in `Planned (hardening)` under Goals, Embeds.
 Today a digit string of 4,301 characters, or a non-ASCII digit such as `²`, ends a stage in a traceback, in-process too.
 The fix: one helper reads every integer a directive or an annotation marker carries (height, width, column count, `(N)`), accepting ASCII digits up to a fixed length; any other value leaves the line literal.
@@ -591,6 +621,8 @@ The fix: one helper reads every integer a directive or an annotation marker carr
 
 ### Step 20: `decode_marker` turns every payload failure into a skip
 
+**Batch:** hardening-a
+
 **NOTE**: Grounded in `Planned (hardening)` under Goals, Rules Every Feature Follows ("marker is read fail-soft") and Component boundaries (`_markers.py`).
 Today a number too long to convert, nesting too deep to decode, or a string that holds a lone surrogate ends `mw post` in a traceback.
 The fix: `decode_marker` turns a `ValueError` or `RecursionError` from the JSON reader, and a lone surrogate, into a skip.
@@ -613,6 +645,8 @@ The fix: `decode_marker` turns a `ValueError` or `RecursionError` from the JSON 
 ```
 
 ### Step 21: Fence hardening: class tokens, dropped `prefix_value`, Chroma newline
+
+**Batch:** hardening-a
 
 **NOTE**: Grounded in three `Planned (hardening)` sentences under Goals, Fence.
 `label_class` and `secondary_label_class` accept space-separated class tokens of letters, digits, `-`, and `_`; any other value is a `ConfigError` (or `OptionError` in-process).
@@ -642,6 +676,8 @@ A Chroma line that already ends with a newline gains no second one.
 
 ### Step 22: Highlight skips `<title>` and `<textarea>`
 
+**Batch:** hardening-a
+
 **NOTE**: Grounded in `Planned (hardening)` under Goals, Highlight ("The pre stage wraps prose markers only").
 Today a pair in a page's `<title>` is wrapped and the browser tab shows the `<mark>` tags as text.
 The fix: the post stage also skips `<title>` and `<textarea>`, whose content a browser shows as characters.
@@ -665,6 +701,8 @@ The fix: the post stage also skips `<title>` and `<textarea>`, whose content a b
 
 ### Step 23: Icons reports an unreadable or non-UTF-8 SVG
 
+**Batch:** hardening-b
+
 **NOTE**: Grounded in `Planned (hardening)` under Goals, Icons.
 Today an SVG file that cannot be read or is not UTF-8 is a traceback.
 The fix makes it a boundary error that names the file.
@@ -687,6 +725,8 @@ The fix makes it a boundary error that names the file.
 ```
 
 ### Step 24: CLI and config I/O never end in a traceback
+
+**Batch:** hardening-b
 
 **NOTE**: Grounded in `Planned (hardening)` under Goals, The mw CLI (UTF-8, exit codes), Goals, Config and the Host API (unreadable config file), and Component boundaries (`cli.py`).
 `mw` reads and writes UTF-8 whatever the locale or `PYTHONIOENCODING`; a decode error, a closed stream, a broken pipe, and an unreadable or non-UTF-8 config file are each one `mw: error:` line and exit 2.
@@ -713,6 +753,8 @@ The fix makes it a boundary error that names the file.
 ```
 
 ### Step 25: Skip a multi-line HTML comment and pass front matter through
+
+**Batch:** hardening-b
 
 **NOTE**: Grounded in the two `Planned (hardening)` sentences under Goals, Rules Every Feature Follows (HTML comment region) and Goals, The mw CLI (front matter), plus Component boundaries (`_fences.py`).
 `_fences` reads a block that starts with `<!--` and runs to the line holding `-->` as a region its callers skip, so a directive inside a multi-line HTML comment stays commented out in both paths.
@@ -745,6 +787,8 @@ The fix makes it a boundary error that names the file.
 - Skills: content-design:review-content
 - MCPs: none
 - Linters: none
+
+**Batch:** docs-catch-up
 
 Docs-only, done after the code items so the CHANGELOG's Fixed list is final.
 Grounded in the two `Known gap (docs catch-up)` entries under Goals, Docs Site.
@@ -843,6 +887,8 @@ The gate is `just docs-build --strict`.
 - MCPs: none
 - Linters: none
 
+**Batch:** material-mapping
+
 ### Step 29: The Material-to-extension mapping page (task)
 
 **NOTE**: Grounded in the "Material mapping docs page" Roadmap Upcoming item; docs-only.
@@ -878,7 +924,7 @@ Optional and independent of the 0.4.0 release: it can be dropped from this run w
 - Do not implement a Roadmap Deferred item; in particular, do not add the shared one-scan-per-`run_pre` refactor, in-process diagnostics, or problem-report line numbers while hardening.
 - Keep the two cross-tool contract rules: a changed marker payload bumps its version and reads fail-soft.
 - Respect the module dependency directions in Component boundaries: `config` may import `fence`; `fence` never imports `config`; the sibling rule lives in `tabs.py`, column pairing in `_containers.py`.
-- One commit per step, each with a new `.ai-sessions/session-*.md`, on `containers-30`; never commit to `main`.
+- One commit per batch (a batch of one is a step), each with a new `.ai-sessions/session-*.md`, on `containers-30`; never commit to `main`.
 
 ## Success Metrics
 
