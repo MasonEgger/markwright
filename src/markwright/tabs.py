@@ -306,7 +306,7 @@ class TabsExtension(Extension):
         :param md: The Markdown instance to extend.
         """
         md.preprocessors.register(TabsPreprocessor(md), "mw-tabs-pre", 20)
-        md.postprocessors.register(TabsPostprocessor(md), "mw-tabs-post", 30)
+        md.postprocessors.register(TabsPostprocessor(md), "mw-tabs-post", 27)
 
 
 def makeExtension(**kwargs: object) -> TabsExtension:  # noqa: N802 - Python-Markdown's loader name

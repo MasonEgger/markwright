@@ -248,7 +248,7 @@ class AnnotateExtension(Extension):
         :param md: The Markdown instance to extend.
         """
         md.preprocessors.register(AnnotatePreprocessor(md), "mw-annotate-pre", 20)
-        md.postprocessors.register(AnnotatePostprocessor(md), "mw-annotate-post", 30)
+        md.postprocessors.register(AnnotatePostprocessor(md), "mw-annotate-post", 27)
 
 
 def makeExtension(**kwargs: object) -> AnnotateExtension:  # noqa: N802 - Python-Markdown's loader name

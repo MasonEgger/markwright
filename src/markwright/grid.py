@@ -446,7 +446,7 @@ class GridExtension(Extension):
         :param md: The Markdown instance to extend.
         """
         md.preprocessors.register(GridPreprocessor(md), "mw-grid-pre", 20)
-        md.postprocessors.register(GridPostprocessor(md), "mw-grid-post", 30)
+        md.postprocessors.register(GridPostprocessor(md), "mw-grid-post", 27)
 
 
 def makeExtension(**kwargs: object) -> GridExtension:  # noqa: N802 - Python-Markdown's loader name

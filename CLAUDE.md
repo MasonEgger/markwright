@@ -96,7 +96,7 @@ markwright emits classes and markup only and ships no CSS, JavaScript, or icons;
 | 20 | Preprocessor | all embeds | Runs *after* superfences (embed syntax in fences is already stashed); skip fenced and indented code through `_fences.map_lines` |
 | 175 | InlineProcessor | highlight | Runs before emphasis |
 | 85 | InlineProcessor | icons | After links, images, autolinks, and inline HTML (90), so a shortcode inside an attribute stays literal; before entities and emphasis |
-| 30 | Postprocessor | grid, annotate, tabs | Runs ahead of fence, so annotate still sees the fence marker as a comment |
+| 27 | Postprocessor | grid, annotate, tabs | Runs below `raw_html` (30) and above fence (25), so annotate still sees the fence marker as a comment |
 | 25 | Postprocessor | fence, highlight | Standard post-processing |
 | 15 | Postprocessor | codepen, twitter, instagram | Script injection (runs after other postprocessors) |
 

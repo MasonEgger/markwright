@@ -77,7 +77,7 @@ class TestTabsRegistration:
         assert "tabs" in EXTENSION_NAMES
         spec = REGISTRY["tabs"]
         assert spec.pre_priority == 20
-        assert spec.post_priority == 30
+        assert spec.post_priority == 27
 
     def test_tabs_takes_no_options(self) -> None:
         assert OPTION_NAMES["tabs"] == frozenset()

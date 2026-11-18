@@ -145,9 +145,9 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | lightbox | own | Unreleased | block bodies | `extensions/lightbox.md` | `lightbox.py` |
 | mermaid | own | Unreleased | pre-stage order, block bodies | `extensions/mermaid.md` | `mermaid.py` |
 | icons | own | Unreleased | pre-stage order, hardening | `extensions/icons.md` | `icons.py` |
-| annotate | own | Unreleased | annotate overlap, container postprocessor priority, containers fixes (#30), block bodies | `extensions/annotate.md` | `annotate.py` |
-| grid and cards | own | Unreleased | container postprocessor priority, containers fixes (#30), block bodies | `extensions/grid.md` | `grid.py`, `_containers.py` |
-| tabs | own | Unreleased | container postprocessor priority, containers fixes (#30), block bodies | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
+| annotate | own | Unreleased | annotate overlap, containers fixes (#30), block bodies | `extensions/annotate.md` | `annotate.py` |
+| grid and cards | own | Unreleased | containers fixes (#30), block bodies | `extensions/grid.md` | `grid.py`, `_containers.py` |
+| tabs | own | Unreleased | containers fixes (#30), block bodies | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
 
 ### Rules Every Feature Follows
 
@@ -349,8 +349,7 @@ Both paths:
   The scanner reads a line that is solely one of the six paired container markers as the opener or closer it stands for, so pairing and card enclosure come out the same in either order, and a stage leaves a pair that is already its own markers alone.
   `mw pre` over its own output therefore leaves a valid document's container markers unchanged.
 - The post stages wrap the content through `_html` span edits and remove the markers.
-  Planned (container postprocessor priority): the in-process grid, annotate, and tabs postprocessors run at 27, below Python-Markdown's `raw_html` at 30, so the stashed markers are restored first whatever the extension load order, and ahead of fence at 25; a test renders tabs, both grid forms, and annotate with `md_in_html` listed before and after the markwright extensions.
-  Today they run at 30 and tie with `raw_html`, which `md_in_html` registers again, so a host that lists `md_in_html` after the markwright extensions gets no tab set and no grid, and the marker comments stay in the page.
+  The in-process grid, annotate, and tabs postprocessors run at 27, below Python-Markdown's `raw_html` at 30, so the stashed markers are restored first whatever the extension load order, and ahead of fence at 25; a test renders tabs, both grid forms, and annotate with `md_in_html` listed before and after the markwright extensions.
 - `tests/test_roundtrip.py` and its hypothesis grammar cover containers, and the Hugo integration test carries a block grid with cards and a tab set.
 
 ### Grid and Cards

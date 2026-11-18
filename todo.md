@@ -6,11 +6,11 @@ The `/goal` loop checks items as it goes.
 
 ## Section 1: Container Postprocessor Priority
 
-- [ ] Step 1: Move the grid, annotate, and tabs postprocessors to 27
-  - [ ] RED: load-order test with md_in_html before and after (tests/test_container_priority.py)
-  - [ ] GREEN: priority 30 to 27 in grid.py, annotate.py, tabs.py, registry.py
-  - [ ] Docs: CLAUDE.md priority table, spec.md Containers and Feature Status
-  - [ ] just check
+- [x] Step 1: Move the grid, annotate, and tabs postprocessors to 27
+  - [x] RED: load-order test with md_in_html before and after (tests/test_container_priority.py)
+  - [x] GREEN: priority 30 to 27 in grid.py, annotate.py, tabs.py, registry.py
+  - [x] Docs: CLAUDE.md priority table, spec.md Containers and Feature Status
+  - [x] just check
 
 ## Section 2: Containers Fixes (#30)
 
