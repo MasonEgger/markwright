@@ -2,6 +2,7 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- Write each plan step from the spec's `Planned (ITEM):` sentence and name, in the step's documentation sub-step, the sentence it clears, the `Today` sentence it deletes, and the Feature Status cell it updates: the 0.4.0 fix plan's 29 steps each carry that sub-step, so spec.md changes in the same commit as the code it describes, and the reconciliation after the run has less to find. (2026-11-18)
 - Open a draft PR on a feature branch's first push: `containers-30` carried 45 commits with no PR, so CI never ran on it, and a `pip-audit` failure on the locked `certifi` sat unseen on `main` and would have blocked the PyPI publish. (2026-11-17)
 - Give a review subagent a file list, a tool-call budget, and a stop condition before it starts: the 0.4.0 plan review ran 1,871 calls and 219.8M cached input tokens with none of the three, built five venvs and a browser probe, and died on the quota before it reported. (2026-11-17)
 - Measure a parity rule over a generated corpus on every path (in-process, stub pipeline, Hugo pipeline) before writing it into spec.md as Planned: the paragraph-end rule for #34 read well and gave 294 path differences over 1,133 documents, and the same-line rule gave none. (2026-11-17)
@@ -11,7 +12,6 @@
 - markwright is not a port of `do-markdownit`: eight of the fifteen extensions are, and the rest, the config system, and the `mw` CLI are markwright's own. Write "part of it is a port" or "inspired by", never "a port of", and when the claim changes in one file, grep README.md, NOTICE, `pyproject.toml`, `mkdocs.yml`, CLAUDE.md, and spec.md for it rather than copying another file's wording. (2026-11-13)
 - When a background dev server is stuck on a stale error, restart it and load a page before reporting; stopping it only removes the symptom, and `curl --retry 15 --retry-connrefused` waits for the first build without a sleep. (2026-11-12)
 - Put an open decision to Mason through AskUserQuestion with a recommended option, never as a prose list at the end of a reply. (2026-11-12)
-- After a `/bpe:goal` run, reconcile spec.md before calling the run done: run each spec rule, and its malformed inputs, through `mw pre | python -m markdown | mw post --warn`, then amend the spec or flag the code one deviation at a time. Validators grade the diff against the plan, so all eight steps passed while an invalid `[grid 7]` ... `[/grid]` still paired and wrapped its cards. (2026-11-12)
 
 ## Documentation
 - markwright is not a port of `do-markdownit`: eight of the fifteen extensions are, and the rest, the config system, and the `mw` CLI are markwright's own. Write "part of it is a port" or "inspired by", never "a port of", and when the claim changes in one file, grep README.md, NOTICE, `pyproject.toml`, `mkdocs.yml`, CLAUDE.md, and spec.md for it rather than copying another file's wording. (2026-11-13)
@@ -27,6 +27,7 @@
 - Routing every directive-line pre stage through `_fences.map_lines` (not raw line iteration) is what makes `mw pre` leave a `[button]`, `[grid]`, `[annotate]`, or embed directive literal inside a fenced code block, matching the in-process render whose preprocessors run after superfences stashes the fence; the fix is one shared fence-aware mapper, not per-stage regex, and the `tests/test_roundtrip.py` hypothesis grammar needs a fenced-directive case or the parity gap passes silently (2026-10-31)
 
 ## Workflow
+- Write each plan step from the spec's `Planned (ITEM):` sentence and name, in the step's documentation sub-step, the sentence it clears, the `Today` sentence it deletes, and the Feature Status cell it updates: the 0.4.0 fix plan's 29 steps each carry that sub-step, so spec.md changes in the same commit as the code it describes, and the reconciliation after the run has less to find. (2026-11-18)
 - Give a review subagent a file list, a tool-call budget, and a stop condition before it starts: the 0.4.0 plan review ran 1,871 calls and 219.8M cached input tokens with none of the three, built five venvs and a browser probe, and died on the quota before it reported. (2026-11-17)
 - In spec.md, mark behavior that is not built yet on the sentence itself (`Planned (ITEM):`, with a "Today ..." sentence beside it): the first rebuilt Goals stated four containers fix-cycle rules in the present tense, and the reviewer read all four as shipped. (2026-11-15)
 - A sentence in spec.md that says what the product does gets run before it is committed, not copied from the docs: a claim-by-claim review of the rebuilt Goals found five false sentences, and two were real defects the docs had hidden (`mw post` ignores the config key `warn`, #33; in-process highlight pairs across a soft line break and `mw pre` does not, #34). (2026-11-15)
