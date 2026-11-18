@@ -48,11 +48,11 @@ The `/goal` loop checks items as it goes.
 
 ## Section 3: Block Bodies
 
-- [ ] Step 8: `_fences` reads block-opener bodies as content, not indented code
-  - [ ] RED: tests/test_fences_map_lines.py, tests/test_fences_map_prose.py, tests/test_roundtrip.py (five bodies)
-  - [ ] GREEN: _fences.py reads block-opener bodies as content
-  - [ ] Docs: spec.md Rules Every Feature Follows, Component boundaries, Feature Status drops block bodies
-  - [ ] just check
+- [x] Step 8: `_fences` reads block-opener bodies as content, not indented code
+  - [x] RED: tests/test_fences_map_lines.py, tests/test_fences_map_prose.py, tests/test_roundtrip.py (five bodies)
+  - [x] GREEN: _fences.py reads block-opener bodies as content
+  - [x] Docs: spec.md Rules Every Feature Follows, Component boundaries, Feature Status drops block bodies
+  - [x] just check
 
 ## Section 4: Pre-Stage Order
 
@@ -171,6 +171,7 @@ The `/goal` loop checks items as it goes.
   - [ ] just docs-build --strict and tests/test_docs_tokens.py
 - [ ] Step 28: CHANGELOG corrections (task)
   - [ ] CHANGELOG.md Unreleased section corrected and per-item lines added
+  - [ ] Reminder: the CHANGELOG line for an indented directive that now stays inside its list item or block body is owed to Step 28 (from Step 8)
   - [ ] Docs: spec.md closes both docs-catch-up Known gaps
   - [ ] just check and just docs-build --strict
 

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
 
-from markwright._fences import map_lines
+from markwright._fences import map_directive_lines
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -98,7 +98,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: The text with standalone slideshow embeds replaced by HTML.
     """
-    return map_lines(text, lambda line: [_render_match(line) or line])
+    return map_directive_lines(text, _render_match)
 
 
 class SlideshowPreprocessor(Preprocessor):
@@ -114,11 +114,11 @@ class SlideshowPreprocessor(Preprocessor):
         :returns: Modified lines with slideshow embeds replaced by HTML.
         """
 
-        def transform(line: str) -> list[str]:
+        def render(line: str) -> str | None:
             slideshow_html = _render_match(line)
-            return [line] if slideshow_html is None else [self.md.htmlStash.store(slideshow_html)]
+            return None if slideshow_html is None else self.md.htmlStash.store(slideshow_html)
 
-        return map_lines("\n".join(lines), transform).split("\n")
+        return map_directive_lines("\n".join(lines), render).split("\n")
 
 
 class SlideshowExtension(Extension):

@@ -26,7 +26,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from markwright._fences import _code_line_indexes, _indent_width, find_fenced_blocks
+from markwright._fences import _code_regions, _indent_width
 
 # Openers and closers are matched against the stripped line, the whole line and nothing else.
 _GRID_OPEN_RE = re.compile(r"^\[grid(?P<args>(?:\s+\w+)*)\]$")
@@ -305,8 +305,8 @@ def scan_containers(text: str) -> ContainersScan:
     :returns: The matched pairs, the problems, and the unclosed grid shortcuts.
     """
     lines = text.split("\n")
-    code_lines = _code_line_indexes(lines)
-    fence_openings = {block.opening for block in find_fenced_blocks(lines)}
+    fenced_blocks, code_lines = _code_regions(tuple(lines))
+    fence_openings = {block.opening for block in fenced_blocks}
     stack: list[_Frame] = []
     closed: list[tuple[_Frame, int, bool]] = []
     problems: list[ContainerProblem] = []

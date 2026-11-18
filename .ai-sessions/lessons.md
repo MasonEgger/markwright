@@ -2,6 +2,9 @@
 
 ## Recent
 <!-- 10 most recent lessons, newest first -->
+- A first-character prefilter in front of a regex must be proven against that regex over every code point: the `-*+0123456789` list prefilter looked exact but `\d` matches any Unicode decimal digit, so a list written with `１.` lost its body to the code path; `str.isdecimal()` matches `\d` exactly. (2026-11-18)
+- Before a speed fix to a scanner that every stage shares, save verdicts (per-line classification and `run_pre` hashes for the docs pages plus a generated shape corpus) and compare after: the cache and prefilters then shipped with proof of no behavior change. (2026-11-18)
+- A parity test between two paths passes when both are wrong the same way; assert containment (the expansion sits inside the block element) as well. (2026-11-18)
 - After a bpe upgrade that adds plan grammar, check plan.md for the new lines before the next `/bpe:goal`: the 0.4.0 fix plan was written on 0.7.1, so on 0.7.3 it had no `**Batch:**` lines and every section would have run as `single`, with none of the batch-mode context savings, until the lines were added by hand. (2026-11-18)
 - Check that spec.md is inside the spec's `paths:` fence before a plan whose every step edits it: the 0.4.0 fix plan's Step 2 hit a validator block because `spec.md` was missing from `## Invariants`, and Mason had to approve the fence change mid-run. (2026-11-18)
 - Write each plan step from the spec's `Planned (ITEM):` sentence and name, in the step's documentation sub-step, the sentence it clears, the `Today` sentence it deletes, and the Feature Status cell it updates: the 0.4.0 fix plan's 29 steps each carry that sub-step, so spec.md changes in the same commit as the code it describes, and the reconciliation after the run has less to find. (2026-11-18)

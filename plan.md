@@ -872,6 +872,7 @@ The gate is `just docs-build --strict`.
    - Correct the mw-cards -> mw-grid-cards rename line (mw-cards never shipped) and name all nine markers the release adds.
    - Fix the #20 and #29 Fixed entries that describe the embed-in-code fix backwards; add the missing entry for a <^> pair inside indented code.
    - Add the per-item lines each plan item owes: the pairs that stop highlighting under same-line pairing (#34), an existing warn = true that starts printing (#33), and the abbreviated options that stop working (#33).
+   - Add the line Step 8 owes: a directive line indented under a list item or a block opener's body now expands at its own indentation, so it stays inside the item or body (an embed under a list item no longer ends the list in-process), while a directive at column 0 renders as before.
 
 4. Verify:
    - just check and just docs-build --strict both exit 0.

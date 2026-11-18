@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
 
-from markwright._fences import map_lines
+from markwright._fences import map_directive_lines
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -47,7 +47,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: The text with standalone button directives replaced by links.
     """
-    return map_lines(text, lambda line: [_render_match(line) or line])
+    return map_directive_lines(text, _render_match)
 
 
 class ButtonPreprocessor(Preprocessor):
@@ -62,7 +62,7 @@ class ButtonPreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with button directives replaced by inline HTML.
         """
-        return map_lines("\n".join(lines), lambda line: [_render_match(line) or line]).split("\n")
+        return map_directive_lines("\n".join(lines), _render_match).split("\n")
 
 
 class ButtonExtension(Extension):

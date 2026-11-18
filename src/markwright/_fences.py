@@ -3,11 +3,15 @@
 
 from __future__ import annotations
 
+import functools
 import itertools
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict
+
+# How many documents' scans the pre stages remember; stages run in turn over one document
+_REGION_CACHE_SIZE = 8
 
 # Python-Markdown expands a tab to four columns, so every pattern below runs on tab-expanded text.
 _TAB_WIDTH = 4
@@ -16,6 +20,28 @@ _TAB_WIDTH = 4
 _FENCE_OPEN_RE = re.compile(r"^(?P<indent>[ ]*)(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
 # A list item's first line: indentation, a bullet or ordinal marker, then content
 _LIST_ITEM_RE = re.compile(r"^(?P<indent>[ ]*)(?:[-*+]|\d{1,9}[.)])[ ]+\S")
+# The block openers whose body is content, matched against the stripped line and mirroring the grammars of
+# Python-Markdown's admonition and footnotes extensions and of pymdownx.details and pymdownx.tabbed. The
+# first three (an admonition "!!! note", a details block "???+ note", a content tab "===+ \"Tab\"") must sit
+# at the column of the block that holds them. A footnote definition may sit up to three columns in at the top
+# level, and a definition up to three columns in at the top level or in an opener's body.
+_COLUMN_OPENER_RES = (
+    re.compile(r"!!! ?[\w\-]+(?: +[\w\-]+)*(?: +\".*?\")? *$"),
+    re.compile(r"\?{3}\+? ?(?:(?:[\w\-]+(?: +[\w\-]+)*?)?(?: +\".*?\")|[\w\-]+(?: +[\w\-]+)*?) *$"),
+    re.compile(r"={3}(?:\+!|!\+|\+|!)? +\".*?\" *$"),
+)
+_FOOTNOTE_RE = re.compile(r"\[\^[^\]]*\]:")
+# A definition line (extra def_list's ": text"); it opens a body only when a line precedes it
+_DEFINITION_RE = re.compile(r":[ ]{1,3}")
+
+# The first characters an opener can start with, so a line that starts with anything else skips the opener patterns
+_OPENER_FIRST_CHARACTERS = "!?=:["
+# The first characters of a list marker besides a decimal digit (any Unicode decimal digit starts an ordered
+# marker, as in the pattern's \d), so a line that starts with anything else skips the list item pattern
+_LIST_FIRST_CHARACTERS = "-*+"
+
+# The columns a block opener's body sits past the opener, and the extra columns that make a line code there
+_BODY_OFFSET = 4
 
 
 # An inline code span: a backtick run, content, and a closing run of exactly the same length
@@ -58,13 +84,226 @@ def find_fenced_blocks(lines: list[str]) -> list[FencedBlock]:
     """Find the closed fenced code blocks in Markdown source lines.
 
     Follows CommonMark: an opening fence is indented up to three columns (or sits inside a list
-    item, under the item's content), a tab counts as four columns, a backtick fence's info string
-    holds no backtick, and the closing fence uses the same character, is at least as long, and carries nothing else. An
-    unclosed fence is not a code block, matching ``pymdownx.superfences``.
+    item, under the item's content, or in a block opener's body), a tab counts as four columns, a
+    backtick fence's info string holds no backtick, and the closing fence uses the same character, is
+    at least as long, and carries nothing else. An unclosed fence is not a code block, matching
+    ``pymdownx.superfences``.
 
     :param lines: Source lines.
     :returns: The fenced blocks in source order; nested fences inside a block are content.
     """
+    return list(_code_regions(tuple(lines))[0])
+
+
+def _indent_width(line: str) -> int:
+    """Count a line's leading columns, reading a tab as four columns like Python-Markdown.
+
+    :param line: A source line.
+    :returns: The number of leading spaces after tab expansion.
+    """
+    expanded = line.expandtabs(_TAB_WIDTH)
+    return len(expanded) - len(expanded.lstrip(" "))
+
+
+class _Holder(BaseModel):
+    """An earlier line that may hold the lines after it: a list item, a block opener, or plain text.
+
+    :ivar indent: The line's indentation in columns.
+    :ivar kind: ``list`` for a list item, ``opener`` for a block opener, else ``plain``.
+    :ivar body_column: The holding block's column plus four, read only for a list item or an opener.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    indent: int
+    kind: Literal["plain", "list", "opener"]
+    body_column: int
+
+
+class _BlockScan(BaseModel):
+    """What one pass over the source learns about each line's block context.
+
+    :ivar outside_code: Per line, whether it is prose or fence territory rather than indented code.
+    :ivar code_floor: Per line, the indentation an indented code block starting at it needs to continue.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    outside_code: list[bool]
+    code_floor: list[int]
+
+
+def _holding_column(chain: list[_Holder], indent_width: int) -> int:
+    """Find the column of the block that holds a line: 0, a list item's content column, or an opener's body column.
+
+    Walks up the chain of earlier, less indented lines. A list item on the way holds the line at its
+    content column, an opener holds it at its body column when the line sits at or past that column,
+    and a plain line on the way is a body line, so the walk goes on.
+
+    :param chain: The earlier lines indented less than the line, outermost first.
+    :param indent_width: The line's indentation in columns.
+    :returns: The column of the holding block.
+    """
+    body_indent = indent_width
+    for holder in reversed(chain):
+        if holder.kind == "list":
+            return holder.body_column
+        if holder.kind == "opener" and body_indent >= holder.body_column:
+            return holder.body_column
+        body_indent = holder.indent
+    return 0
+
+
+def _enclosing_opener(chain: list[_Holder], indent_width: int) -> _Holder | None:
+    """Find the block opener whose body holds a line.
+
+    Walks up the chain. A plain line on the way is a body line of the opener, so the line must sit at
+    or past the opener's body column. A list item on the way ends the search: the line belongs to the
+    list item.
+
+    :param chain: The earlier lines indented less than the line, outermost first.
+    :param indent_width: The line's indentation in columns.
+    :returns: The opener, or ``None`` when the line is not in an opener's body.
+    """
+    body_indent = indent_width
+    for holder in reversed(chain):
+        if holder.kind == "list":
+            return None
+        if holder.kind == "opener":
+            return holder if body_indent >= holder.body_column else None
+        body_indent = holder.indent
+    return None
+
+
+def _scan_blocks(lines: list[str]) -> _BlockScan:
+    """Classify every line's block context in one forward pass.
+
+    Keeps the chain of earlier lines that are each indented less than the next, which is the chain a
+    backward search for the nearest less indented line would walk, so each line costs the length of its
+    chain and nothing recurses.
+
+    A line of up to three columns is never indented code. Four or more is content, not code, only
+    inside a list item or a block opener's body. In a list item, the nearest earlier line indented less
+    must be the item and this line must sit at or past its content. In an opener's body, this line must
+    sit from the body column through three more columns, and a line four columns past the body column
+    is code, so a line four columns further than the body's lines after a blank line is still code.
+    A line eight or more columns deep under a list item is indented code to Python-Markdown but list
+    content here, so it is still transformed; erring toward transforming is the safer failure.
+
+    An opener is a line that opens an admonition, details, content-tab, definition, or footnote body.
+    An admonition, details, or content-tab opener must start at the column of the block that holds it
+    (column 0 at the top level, the content column under a list item, an enclosing opener's body column),
+    because Python-Markdown reads such a line at the start of a block. A list item's content column is
+    its level (its indentation divided by four, rounded down, plus one) times four, as in Python-Markdown.
+    A footnote definition sits at the top level and up to three columns in. A definition sits up to three
+    columns in at the top level or in an opener's body, not in a list item, and needs a line before it,
+    so it is not an opener at the start of the document.
+
+    :param lines: Source lines.
+    :returns: Each line's ``outside_code`` and ``code_floor``; blank lines carry the defaults.
+    """
+    outside_code = [True] * len(lines)
+    code_floor = [_BODY_OFFSET] * len(lines)
+    chain: list[_Holder] = []
+    seen_text = False
+    for line_index, line in enumerate(lines):
+        if not line.strip():
+            continue
+
+        expanded = line.expandtabs(_TAB_WIDTH)
+        stripped = expanded.strip()
+        indent_width = len(expanded) - len(expanded.lstrip(" "))
+        while chain and chain[-1].indent >= indent_width:
+            chain.pop()
+
+        enclosing = _enclosing_opener(chain, indent_width)
+        if indent_width > _BODY_OFFSET - 1 and not chain:
+            outside_code[line_index] = False
+        elif indent_width > _BODY_OFFSET - 1 and chain[-1].kind == "list":
+            outside_code[line_index] = indent_width >= min(chain[-1].indent + 2, chain[-1].body_column)
+        elif indent_width > _BODY_OFFSET - 1:
+            outside_code[line_index] = enclosing is not None and indent_width < enclosing.body_column + _BODY_OFFSET
+        if enclosing is not None:
+            code_floor[line_index] = enclosing.body_column + _BODY_OFFSET
+
+        if (stripped[0] in _LIST_FIRST_CHARACTERS or stripped[0].isdecimal()) and _LIST_ITEM_RE.match(expanded):
+            holder = _Holder(
+                indent=indent_width, kind="list", body_column=(indent_width // _BODY_OFFSET + 1) * _BODY_OFFSET
+            )
+        else:
+            column = _holding_column(chain, indent_width)
+            if stripped[0] not in _OPENER_FIRST_CHARACTERS:
+                is_opener = False
+            elif any(opener_re.match(stripped) for opener_re in _COLUMN_OPENER_RES):
+                is_opener = indent_width == column
+            elif _FOOTNOTE_RE.match(stripped):
+                is_opener = column == 0 and indent_width < _BODY_OFFSET
+            else:
+                # A definition works at the top level and in an opener's body, but not in a list item
+                is_opener = (
+                    _DEFINITION_RE.match(stripped) is not None
+                    and seen_text
+                    and 0 <= indent_width - column < _BODY_OFFSET
+                    and (column == 0 or enclosing is not None)
+                )
+            holder = _Holder(
+                indent=indent_width, kind="opener" if is_opener else "plain", body_column=column + _BODY_OFFSET
+            )
+        chain.append(holder)
+        seen_text = True
+    return _BlockScan(outside_code=outside_code, code_floor=code_floor)
+
+
+def _indented_code_lines(lines: list[str], fenced_lines: set[int], scan: _BlockScan) -> set[int]:
+    """Find the lines of top-level indented code blocks.
+
+    A non-blank line of four or more columns that follows a blank line (or starts the document) and
+    is not list or block-opener content opens a block. The block runs through blank lines and lines
+    indented at least as far as its first line's floor (four columns, or four past the body column when it
+    starts in an opener's body); the first non-blank line of fewer columns ends it. A four-column line straight after a
+    paragraph line is a lazy continuation, not code. Fenced lines are skipped and end any open block.
+
+    :param lines: Source lines.
+    :param fenced_lines: Indexes of lines inside closed fences.
+    :param scan: The :func:`_scan_blocks` result for ``lines``.
+    :returns: The indexes of indented code lines.
+    """
+    code_lines: set[int] = set()
+    in_block = False
+    block_floor = _BODY_OFFSET
+    previous_blank = True
+    for line_index, line in enumerate(lines):
+        if line_index in fenced_lines:
+            in_block = False
+            previous_blank = False
+            continue
+        if not line.strip():
+            previous_blank = True
+            continue
+        indent_width = _indent_width(line)
+        if in_block and indent_width >= block_floor:
+            code_lines.add(line_index)
+        elif indent_width >= _BODY_OFFSET and previous_blank and not scan.outside_code[line_index]:
+            in_block = True
+            block_floor = scan.code_floor[line_index]
+            code_lines.add(line_index)
+        else:
+            in_block = False
+        previous_blank = False
+    return code_lines
+
+
+@functools.lru_cache(maxsize=_REGION_CACHE_SIZE)
+def _code_regions(lines: tuple[str, ...]) -> tuple[tuple[FencedBlock, ...], frozenset[int]]:
+    """Find the closed fenced blocks and every code line of one document, remembering the answer.
+
+    The pre stages run one after another over text that most of them leave unchanged, so each stage
+    that scans the same lines again reads this cache instead of scanning twice.
+
+    :param lines: Source lines.
+    :returns: The fenced blocks, and the indexes of lines that are closed fences or indented code.
+    """
+    scan = _scan_blocks(list(lines))
     blocks: list[FencedBlock] = []
     line_index = 0
     while line_index < len(lines):
@@ -72,7 +311,7 @@ def find_fenced_blocks(lines: list[str]) -> list[FencedBlock]:
         if (
             open_match is None
             or (open_match["marker"][0] == "`" and "`" in open_match["info"])
-            or not _is_outside_indented_code(lines, line_index, len(open_match["indent"]))
+            or not scan.outside_code[line_index]
         ):
             line_index += 1
             continue
@@ -103,98 +342,17 @@ def find_fenced_blocks(lines: list[str]) -> list[FencedBlock]:
             )
         )
         line_index = closing + 1
-    return blocks
 
-
-def _indent_width(line: str) -> int:
-    """Count a line's leading columns, reading a tab as four columns like Python-Markdown.
-
-    :param line: A source line.
-    :returns: The number of leading spaces after tab expansion.
-    """
-    expanded = line.expandtabs(_TAB_WIDTH)
-    return len(expanded) - len(expanded.lstrip(" "))
-
-
-def _is_outside_indented_code(lines: list[str], line_index: int, indent_width: int) -> bool:
-    """Report whether a line at this indentation is not an indented code line.
-
-    Up to three columns is never indented code. Four or more is list content, not code, only inside
-    a list item: the nearest earlier non-blank line indented less than this line must be a list
-    item, and this line must sit at or past that item's content. A fence opens at such a position,
-    and an indented code block cannot start there. A line eight or more columns deep under a list
-    item is indented code to Python-Markdown but list content here, so it is still transformed;
-    erring toward transforming is the safer failure.
-
-    :param lines: Source lines.
-    :param line_index: Index of the line.
-    :param indent_width: The line's indentation in columns.
-    :returns: ``True`` if the line is prose or fence territory rather than indented code.
-    """
-    if indent_width <= 3:
-        return True
-    for earlier_line in reversed(lines[:line_index]):
-        earlier_indent = _indent_width(earlier_line)
-        if not earlier_line.strip() or earlier_indent >= indent_width:
-            continue
-        item_match = _LIST_ITEM_RE.match(earlier_line.expandtabs(_TAB_WIDTH))
-        return item_match is not None and indent_width >= len(item_match["indent"]) + 2
-    return False
-
-
-def _indented_code_lines(lines: list[str], fenced_lines: set[int]) -> set[int]:
-    """Find the lines of top-level indented code blocks.
-
-    A non-blank line of four or more columns that follows a blank line (or starts the document) and
-    is not list content opens a block. The block runs through blank lines and lines of four or more
-    columns; the first non-blank line of fewer columns ends it. A four-column line straight after a
-    paragraph line is a lazy continuation, not code. Fenced lines are skipped and end any open block.
-
-    :param lines: Source lines.
-    :param fenced_lines: Indexes of lines inside closed fences.
-    :returns: The indexes of indented code lines.
-    """
-    code_lines: set[int] = set()
-    in_block = False
-    previous_blank = True
-    for line_index, line in enumerate(lines):
-        if line_index in fenced_lines:
-            in_block = False
-            previous_blank = False
-            continue
-        if not line.strip():
-            previous_blank = True
-            continue
-        indent_width = _indent_width(line)
-        if indent_width >= 4 and (
-            in_block or (previous_blank and not _is_outside_indented_code(lines, line_index, indent_width))
-        ):
-            in_block = True
-            code_lines.add(line_index)
-        else:
-            in_block = False
-        previous_blank = False
-    return code_lines
-
-
-def _code_line_indexes(lines: list[str]) -> set[int]:
-    """Find every line that is code: closed fences and indented code blocks.
-
-    :param lines: Source lines.
-    :returns: The indexes of lines the mappers must leave untouched.
-    """
-    fenced_lines = {
-        line_index for block in find_fenced_blocks(lines) for line_index in range(block.opening, block.closing + 1)
-    }
-    return fenced_lines | _indented_code_lines(lines, fenced_lines)
+    fenced_lines = {line_index for block in blocks for line_index in range(block.opening, block.closing + 1)}
+    return tuple(blocks), frozenset(fenced_lines | _indented_code_lines(list(lines), fenced_lines, scan))
 
 
 def map_prose(text: str, transform: Callable[[str], str], *, skip_html: bool = False) -> str:
     """Apply a transform to the prose of Markdown source, skipping code.
 
     Fenced code blocks (found by :func:`find_fenced_blocks`), indented code blocks (four columns or
-    a tab after a blank line, outside a list item) and inline code spans pass through unchanged;
-    ``transform`` sees only the runs of text between them.
+    a tab after a blank line, outside a list item and a block opener's body) and inline code spans pass
+    through unchanged; ``transform`` sees only the runs of text between them.
 
     With ``skip_html``, HTML tags, HTML comments, and autolinks pass through unchanged too (a tag's
     text content is prose), and a backtick inside a tag does not open a code span. The flag exists
@@ -207,7 +365,7 @@ def map_prose(text: str, transform: Callable[[str], str], *, skip_html: bool = F
     :returns: The source with every prose run transformed.
     """
     lines = text.split("\n")
-    code_lines = _code_line_indexes(lines)
+    _, code_lines = _code_regions(tuple(lines))
     skipped_span_re = _SKIPPED_SPAN_RE if skip_html else _INLINE_CODE_RE
 
     output_chunks: list[str] = []
@@ -242,9 +400,35 @@ def map_lines(text: str, transform: Callable[[str], list[str]]) -> str:
     :returns: The source with every non-code line transformed.
     """
     lines = text.split("\n")
-    code_lines = _code_line_indexes(lines)
+    _, code_lines = _code_regions(tuple(lines))
 
     output: list[str] = []
     for line_index, line in enumerate(lines):
         output.extend([line] if line_index in code_lines else transform(line))
     return "\n".join(output)
+
+
+def map_directive_lines(text: str, render: Callable[[str], str | None]) -> str:
+    """Replace each standalone directive line with its expansion, keeping the line's indentation.
+
+    A directive inside an admonition, details, content-tab, definition, or footnote body, or a list item,
+    sits at four or more columns. The expansion starts every one of its lines at that indentation, so
+    the renderer keeps it inside the block instead of closing the block before it. A directive at
+    column 0 expands byte-identically. Empty lines of a multi-line expansion stay empty, and lines
+    inside fenced or indented code are left alone, as in :func:`map_lines`.
+
+    :param text: Raw Markdown source.
+    :param render: A function returning the expansion of one source line, or ``None`` when the line is
+        not a directive. The expansion may hold several lines.
+    :returns: The source with every directive line replaced by its indented expansion.
+    """
+
+    def transform(line: str) -> list[str]:
+        expansion = render(line)
+        if expansion is None:
+            return [line]
+
+        indent = line[: len(line) - len(line.lstrip())]
+        return [f"{indent}{part}" if part else part for part in expansion.split("\n")]
+
+    return map_lines(text, transform)

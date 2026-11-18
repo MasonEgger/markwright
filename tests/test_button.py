@@ -79,3 +79,19 @@ class TestButtonSkipsIndentedCode:
 
     def test_in_process_directive_under_a_list_item_still_expands(self) -> None:
         assert 'class="mw-button"' in render_button("- item\n\n    [button /x Go]\n")
+
+
+class TestButtonKeepsIndentation:
+    """An expansion stays at the directive line's indentation so it stays inside a block body."""
+
+    def test_expand_source_keeps_the_indentation(self) -> None:
+        result = expand_source("!!! note\n\n    [button /start Go]")
+
+        assert result == '!!! note\n\n    <a class="mw-button" href="/start">Go</a>'
+
+    def test_in_process_button_stays_inside_an_admonition(self) -> None:
+        md = markdown.Markdown(extensions=["admonition", "markwright.button"])
+
+        html = md.convert("!!! note\n\n    [button /start Go]\n")
+
+        assert html.index('class="mw-button"') < html.rindex("</div>")

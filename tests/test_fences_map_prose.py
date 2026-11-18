@@ -74,3 +74,16 @@ class TestMapProseHtml:
             map_prose('<span title="<^>hit<^>">x</span> hit', _mark_hit, skip_html=True)
             == '<span title="<^>HIT<^>">X</span> HIT'
         )
+
+
+class TestMapProseBlockBodies:
+    def test_transforms_prose_in_each_block_opener_body(self) -> None:
+        for opener in ['!!! note "Title"', "??? note", '===+ "Tab"', ": definition", "[^note]: footnote"]:
+            source = f"term\n{opener}\n\n    body text\n"
+
+            assert map_prose(source, str.upper) == f"TERM\n{opener.upper()}\n\n    BODY TEXT\n", opener
+
+    def test_leaves_a_line_four_columns_further_untouched(self) -> None:
+        source = "!!! note\n    body\n\n        code here"
+
+        assert map_prose(source, str.upper) == "!!! NOTE\n    BODY\n\n        code here"

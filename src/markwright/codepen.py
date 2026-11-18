@@ -14,7 +14,7 @@ from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
 from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, load_mode, wrap_preview
-from markwright._fences import map_lines
+from markwright._fences import map_directive_lines
 from markwright._html import provider_script_needed
 
 if TYPE_CHECKING:
@@ -172,7 +172,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :raises OptionError: If ``load`` is not a supported value.
     """
     load = load_mode(options, LOAD_MODES)
-    return map_lines(text, lambda line: [_render_match(line, load) or line])
+    return map_directive_lines(text, lambda line: _render_match(line, load))
 
 
 def apply_html(
@@ -214,11 +214,11 @@ class CodePenPreprocessor(Preprocessor):
         :returns: Modified lines with CodePen embeds replaced by HTML.
         """
 
-        def transform(line: str) -> list[str]:
+        def render(line: str) -> str | None:
             embed_html = _render_match(line, self.load)
-            return [line] if embed_html is None else [self.md.htmlStash.store(embed_html)]
+            return None if embed_html is None else self.md.htmlStash.store(embed_html)
 
-        return map_lines("\n".join(lines), transform).split("\n")
+        return map_directive_lines("\n".join(lines), render).split("\n")
 
 
 class CodePenPostprocessor(Postprocessor):

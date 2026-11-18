@@ -70,7 +70,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 **Upcoming:**
 - container postprocessor priority (no issue): the grid, annotate, and tabs postprocessors move from 30 to 27, below Python-Markdown's `raw_html` and above fence, so the stashed markers are restored first whatever order a host lists its extensions in; today a host that lists `md_in_html` after markwright gets no tab set and no grid, and the marker comments stay in the page; first in the plan, since it is the smallest change and Bartleby's extension order hits it
 - containers fixes (#30): an invalid `[grid ...]` is not an opener; indentation pairs by column, and a less-indented line ends a container's block; a card needs a paired grid; tabs group by a sibling rule, number their sets in opening order, and render a backticked name as text in both paths; closer markers are validated; the shortcut and annotate markers are emitted as blocks, and a problem marker keeps a CRLF line end; the backslash escape for a literal directive line is documented and tested; and the sample CSS covers a list inside a `cards` block grid; written as `Planned (containers fixes)` sentences under Goals in Containers, Grid and Cards, and Tabs
-- block bodies (no issue): a directive line, a fence with its directives, and a `mermaid` fence work inside the body of an admonition, a details block, a content tab, a definition, or a footnote, in both paths; since #29 `_fences` reads those four-column bodies as indented code, so an embed that 0.3.0 expanded there stays literal on this branch
+- block bodies (no issue): a directive line, a fence with its directives, and a `mermaid` fence work inside the body of an admonition, a details block, a content tab, a definition, or a footnote, in both paths; `_fences` reads those four-column bodies as content, so an embed that 0.3.0 expanded there expands again
 - pre-stage order (no issue): in `mw pre` the icons stage runs after the directive stages, and a `mermaid` fence in a list item renders as one block; the two land together, since icons after mermaid would otherwise rewrite a shortcode inside a diagram
 - highlight escape in split spans (#31): `\<^>` fails inside a code block whose lexer separates the backslash from the marker with a tag, and a lexer that splits the marker itself defeats a plain pair too; the post stage reads markers and escapes from the text of each code line, tags ignored, under Pygments and under Chroma, and `mw pre` writes an escaped prose marker in a form both renderers hand back
 - highlight same-line pairing (#34): a prose pair never holds a line end, in either path; the in-process path stops pairing across a soft line break, which departs from `do-markdownit`, and `mw pre` wraps a same-line pair in one `<mark>`, code spans included; decided on 2026-11-16, after the plan review found that no paragraph-end test brings the two renderers together
@@ -102,7 +102,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - Problem report line numbers: a line map through `run_pre`, so a report names the source line even when an earlier stage added lines above it; the report already names the directive and the reason
 - Fence marker binding: bind an `mw-fence` marker only to a `<pre>` that follows it with nothing but whitespace between; every case that differs needs a fence the renderer failed to render, unchanged since 0.1.0
 - `[button]` argument checks: a style word followed by one token reads the style word as the URL; it needs an author mistake and is visibly wrong on the page
-- Pre-stage scan cost: the fence and indented-code scan runs once per stage and is quadratic for a document of unclosed fence openers or one very long list item, and two directive regexes backtrack on a line of thousands of spaces; ordinary documents scale linearly (0.10 s for the 24 pages under `docs/`); one scan per `run_pre` shared by every stage is the fix, and a host that renders untrusted Markdown should know before 1.0
+- Pre-stage scan cost: the fence and indented-code scan runs once per stage and is quadratic for a document of unclosed fence openers, and two directive regexes backtrack on a line of thousands of spaces; ordinary documents scale linearly (about 0.06 s for the 24 pages under `docs/` on the development machine, measured by timing `run_pre` over each page, with the result of a scan remembered per document so stages that leave the text unchanged share it); a stage that rewrites the text still makes the next stage scan it again, and one scan per `run_pre` shared by every stage is the fix, and a host that renders untrusted Markdown should know before 1.0
 - Release pipeline hygiene: actions pinned by SHA, protection rules on the `pypi` environment and on `main`, a tag-equals-version check in the publish workflow, and the `Typing :: Typed` classifier; none changes what installs or runs
 
 ## Goals
@@ -130,24 +130,24 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | Feature | Origin | State | Open Work | Docs | Code |
 |---------|--------|-------|-----------|------|------|
 | highlight | ported | Released 0.1.0 | escape in split spans (#31), same-line pairing (#34), hardening | `extensions/highlight.md` | `highlight.py` |
-| fence | ported | Released 0.1.0 | public fence API (#32), block bodies, hardening | `extensions/fence.md` | `fence.py` |
-| youtube | ported | Released 0.1.0 | block bodies, hardening | `extensions/youtube.md` | `youtube.py` |
-| codepen | ported | Released 0.1.0 | block bodies, hardening | `extensions/codepen.md` | `codepen.py` |
-| twitter | ported | Released 0.1.0 | block bodies, hardening | `extensions/twitter.md` | `twitter.py` |
-| instagram | ported | Released 0.1.0 | block bodies, hardening | `extensions/instagram.md` | `instagram.py` |
-| slideshow | ported | Released 0.1.0 | block bodies, hardening | `extensions/slideshow.md` | `slideshow.py` |
-| image_compare | ported | Released 0.1.0 | block bodies, hardening | `extensions/image-compare.md` | `image_compare.py` |
+| fence | ported | Released 0.1.0 | public fence API (#32), hardening | `extensions/fence.md` | `fence.py` |
+| youtube | ported | Released 0.1.0 | hardening | `extensions/youtube.md` | `youtube.py` |
+| codepen | ported | Released 0.1.0 | hardening | `extensions/codepen.md` | `codepen.py` |
+| twitter | ported | Released 0.1.0 | hardening | `extensions/twitter.md` | `twitter.py` |
+| instagram | ported | Released 0.1.0 | hardening | `extensions/instagram.md` | `instagram.py` |
+| slideshow | ported | Released 0.1.0 | hardening | `extensions/slideshow.md` | `slideshow.py` |
+| image_compare | ported | Released 0.1.0 | hardening | `extensions/image-compare.md` | `image_compare.py` |
 | `mw` CLI | own | Released 0.1.0 | `warn` default (#33), pre-stage order, hardening | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
 | config | own | Released 0.2.0 | `warn` default (#33), hardening | `config.md` | `config.py` |
 | host API | own | Released 0.3.0 | public fence API (#32) | `config.md` | `config.py`, `__init__.py` |
 | click-to-load | own | Released 0.3.0 | none | `click-to-load.md` | `_embed_load.py` |
-| button | own | Unreleased | block bodies | `extensions/button.md` | `button.py` |
-| lightbox | own | Unreleased | block bodies | `extensions/lightbox.md` | `lightbox.py` |
-| mermaid | own | Unreleased | pre-stage order, block bodies | `extensions/mermaid.md` | `mermaid.py` |
+| button | own | Unreleased | none | `extensions/button.md` | `button.py` |
+| lightbox | own | Unreleased | none | `extensions/lightbox.md` | `lightbox.py` |
+| mermaid | own | Unreleased | pre-stage order | `extensions/mermaid.md` | `mermaid.py` |
 | icons | own | Unreleased | pre-stage order, hardening | `extensions/icons.md` | `icons.py` |
-| annotate | own | Unreleased | annotate overlap, block bodies | `extensions/annotate.md` | `annotate.py` |
-| grid and cards | own | Unreleased | block bodies | `extensions/grid.md` | `grid.py`, `_containers.py` |
-| tabs | own | Unreleased | block bodies | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
+| annotate | own | Unreleased | annotate overlap | `extensions/annotate.md` | `annotate.py` |
+| grid and cards | own | Unreleased | none | `extensions/grid.md` | `grid.py`, `_containers.py` |
+| tabs | own | Unreleased | none | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
 
 ### Rules Every Feature Follows
 
@@ -159,10 +159,17 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 - Code is not prose.
   A directive line or an icon shortcode inside a fenced code block or a top-level indented code block stays literal, found through `_fences`.
   Highlight is the deliberate exception: its markers work inside code, through its post stage.
-  Planned (block bodies): the body of an admonition (`!!!`), a details block (`???`, `???+`), a content tab (`===`), a definition (`:`), or a footnote definition (`[^name]:`) is not indented code: `_fences` reads the lines indented four columns under such an opener as that block's content, the way it reads a list item's, so a directive line, a fence with its directives, and a `mermaid` fence inside the body work, and a line indented four columns further after a blank line is still code.
-  Planned (block bodies): the rule lives in `_fences`, so both paths apply it, and an expanded line keeps its indentation, so the result stays inside the block; `tests/test_roundtrip.py` covers each of the five bodies with `admonition`, `def_list`, `footnotes`, `pymdownx.details`, and `pymdownx.tabbed` loaded in both paths.
-  Planned (block bodies): `mw pre` follows the opener, since a document that carries `!!!`, `???`, or `===` is written for a renderer that reads them; under a CommonMark renderer with no such extension the body is indented code, and an expanded directive there shows as code text.
-  Today `_fences` reads those bodies as indented code, so every directive there stays literal and a `mermaid` fence there stays a code block; 0.3.0 expanded an embed in an admonition body and placed it after the admonition's closing tag, and fence directives have never worked there.
+  The body of an admonition (`!!!`), a details block (`???`, `???+`), a content tab (`===`), a definition (`:`), or a footnote definition (`[^name]:`) is not indented code: `_fences` reads the lines indented four columns under such an opener as that block's content, the way it reads a list item's, so a directive line, a fence with its directives, and a `mermaid` fence inside the body work, and a line indented four columns further after a blank line is still code.
+  The rule lives in `_fences`, so both paths apply it, and an expanded line keeps its indentation, so the result stays inside the block; `tests/test_roundtrip.py` covers each of the five bodies with `admonition`, `def_list`, `footnotes`, `pymdownx.details`, and `pymdownx.tabbed` loaded in both paths.
+  The openers follow the grammars of Python-Markdown's `admonition` and `footnotes` and of `pymdownx.details` and `pymdownx.tabbed`: `!!! note`, `!!!note`, `??? note`, `???+ "Title"`, `=== "Tab"`, `===+ "Tab"`, `===! "Tab"`, and `[^name]:` open a body, while `=== Tab` (no quotes), `!!! "Title"` (no class), and `!!! note: text` do not.
+  An admonition, details, or content-tab opener counts only at the column of the block that holds it (column 0 at the top level, an item's content column under a list item, which is four columns for an item indented 0 to 3 columns, and another opener's body column inside an opener's body), as in Python-Markdown; a footnote definition counts at the top level, up to three columns in, and a definition counts up to three columns in at the top level or inside an opener's body, not inside a list item.
+  The body starts at the holding block's column plus four, and a line four columns further after a blank line is code.
+  Known gap (body after an ended block): a footnote or definition indented one to three columns after a list item and a blank line (`- item`, a blank line, ` [^9]: fn`, a blank line, a five-column line) is a top-level footnote or definition to Python-Markdown, since the list ends, but `_fences` reads its body as code, so a directive in that body stays literal; in the same way a line one to three columns past a nested opener's body column (`!!! note`, a four-column `!!! tip`, a blank line, a six-column line) is content of the outer opener to Python-Markdown and code to `_fences`; both paths agree, because both read through `_fences`.
+  A definition (`: text`) needs a line before it, since extra `def_list` reads a leading colon line as a paragraph; markwright does not check that the preceding line is a term, and it does not read `md_in_html` or `attr_list` blocks.
+  A directive's expansion starts every line at the directive line's indentation, which keeps it in the body in-process; a directive at column 0 expands byte-identically.
+  Known gap (block-level HTML nested four columns deep, `mw pre` path): the `mw pre` output keeps the expansion indented, but Python-Markdown wraps raw HTML nested in a body, a list item, a nested list, or a card in `<p>` (`md_in_html` does not change this), so the embeds that emit a `<div>`, `<iframe>`, or `<pre>` render as a `<p>`-wrapped block through a Python-Markdown stub while the in-process stash keeps them a block; the slideshow's `onclick` attribute holds `=>`, which Python-Markdown's inline HTML pattern cannot read, so its tag also breaks there; `tests/test_roundtrip.py` states the difference.
+  Known gap (footnote body): Python-Markdown appends a footnote's back link to the body's last paragraph, so a block-level expansion that ends the body shares a paragraph with the back link, in-process and through `mw pre`.
+  `mw pre` follows the opener, since a document that carries `!!!`, `???`, or `===` is written for a renderer that reads them; under a CommonMark renderer with no such extension the body is indented code, and an expanded directive there shows as code text.
   Planned (hardening): `_fences` reads a block that starts with `<!--` and runs to the line holding `-->` as a region its callers skip, like fenced and indented code, so a directive inside a multi-line HTML comment stays commented out in both paths.
   Today `mw pre` writes a tab, grid, or annotate marker comment inside the author's comment, the marker's `-->` ends that comment, and the commented-out text is published; for a fence directive the in-process path does the same.
   Known gap (code `mw pre` reads as prose): `_fences` does not see a fenced block behind a block quote marker, a fence that opens on a list marker line, indented code inside a list item, or a four-column line straight after a heading or a thematic break, and it reads inline code spans one line at a time; `mw pre` rewrites a highlight marker or an icon shortcode in any of these and the reader sees the markup as code text, and fence directives behind a block quote marker are inert in both paths.
@@ -249,7 +256,7 @@ Each embed line becomes raw HTML that matches `do-markdownit`'s output, its inli
 - Planned (hardening): every integer a directive or an annotation marker carries (a height, a width, a column count, an `(N)`) is read by one helper that accepts ASCII digits up to a fixed length; any other value leaves the line literal.
   Today a digit string of 4,301 characters, or a non-ASCII digit such as `²`, ends the stage in a traceback, in-process too.
 - Known gap (embed beside other content): an embed line with no blank line before and after it renders inside the neighboring paragraph, list item, or heading in-process and as its own block through `mw pre`, and under a CommonMark renderer the lines that follow it up to the next blank line are raw HTML; put a blank line on both sides.
-  An embed inside a list item ends the list in-process.
+  An embed indented under a list item stays in the item in-process, since the expansion keeps the line's indentation.
 
 ### Click-to-Load
 
@@ -276,9 +283,9 @@ Each embed line becomes raw HTML that matches `do-markdownit`'s output, its inli
 
 - A closed `mermaid` fence becomes `<pre class="mermaid">` with the source HTML-escaped and otherwise intact and no `<code>` wrapper, matching mermaid.js's default selector.
 - It is pre-stage only and its own extension, not a fence feature, so it can be disabled alone and fence parity is untouched.
-- It runs ahead of fence and `pymdownx.superfences`, so a `custom_fences` mermaid entry in the host config is inert for the fences markwright converts; a `mermaid` fence it does not convert (behind a block quote marker, or today in the body of an admonition, a details block, or a content tab) still reaches that entry.
+- It runs ahead of fence and `pymdownx.superfences`, so a `custom_fences` mermaid entry in the host config is inert for the fences markwright converts; a `mermaid` fence it does not convert (behind a block quote marker) still reaches that entry.
   Planned (pre-stage order): in-process, mermaid runs as a preprocessor below Python-Markdown's whitespace normalizer and above `pymdownx.superfences` and stashes the block, and fence skips a `mermaid` fence when `mermaid` is selected, so a diagram inside a list item, or one that holds a blank line, renders as one `<pre>`.
-  Today, in-process, a `mermaid` fence inside a list item is wrapped in `<p>`, a blank line in the diagram splits the `<pre>` across two paragraphs, and a fence indented one to three columns keeps that indent on every line after the first.
+  Today, in-process, a `mermaid` fence in a list item or a block opener's body indented four or more columns is stashed as one `<pre>`, while one indented one to three columns keeps that indent on every line after the first, and one indented one to three columns under a list item ends the list there; a blank line in the diagram does not split the `<pre>`.
   Known gap (directive inside a mermaid fence): `mw pre` replaces the mermaid fence before the directive stages run, so a directive line in the diagram source is expanded, while in-process it stays literal.
 - The host loads mermaid.js; markwright ships none.
 
@@ -486,7 +493,7 @@ Permanent; markwright does not do these:
   Planned (public fence API): `disallowed_environments` lives here with the other host API functions and calls the scan `fence.py` exposes, so `config` gains `fence` as a dependency and `fence` never imports `config`.
 - **`registry.py`** maps each extension name to a pydantic `StageSpec` (stage functions, priorities, the extension class, its option checker) and provides `run_pre`, `run_post`, and `describe`. Selection lives in `config.selected_extensions`; there is no `registry.select_extensions`.
 - **`_fences.py`** (CommonMark fenced-code scanning) and **`_html.py`** (offset-preserving tokenizing over the stdlib `html.parser`) own structured-text parsing. No stage hand-rolls Markdown-structure or HTML regex; single-line token grammars (embed directives, the marker comment) may stay regex.
-  Planned (block bodies): `_fences` also reads the body of a Python-Markdown block opener (an admonition, a details block, a content tab, a definition, a footnote definition) as that block's content, not as indented code.
+  `_fences` also reads the body of a Python-Markdown block opener (an admonition, a details block, a content tab, a definition, a footnote definition) as that block's content, not as indented code.
   Planned (hardening): `_fences` also reads a multi-line HTML comment as a region its callers skip.
 - **`_markers.py`** owns the marker-comment contract the post stages share: comment-safe encoding (every `<` and `>` escaped so a payload can never close the comment early, and every backtick escaped so no code span can open inside it), locating markers among `_html` tokens with each marker's block bounds, and fail-soft decode into a strict pydantic payload model. It also owns the emission and pairing helpers `grid` and `tabs` share: `marker_block` (one marker as its own indented block, blank lines around it), `inline_problem_marker`, `match_marker_pairs` (stack-match open and close markers by position), and `report_problem_markers`. `fence`, `grid`, `tabs`, and `annotate` depend on it; it depends only on `_html`.
   Planned (hardening): `decode_marker` turns every payload failure into a skip: a `ValueError` or `RecursionError` from the JSON reader, and a string that holds a lone surrogate.

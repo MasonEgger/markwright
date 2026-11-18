@@ -575,6 +575,108 @@ class TestRoundTripIndentedDirective:
         assert _normalize(pipeline) == _normalize(in_process_render(INDENTED_DIRECTIVE_FIXTURE, names))
 
 
+_BODY_EXTENSIONS = ["admonition", "def_list", "footnotes", "pymdownx.details", "pymdownx.tabbed"]
+# Each opener with the tag that starts the block in the render and the tag that ends it
+_BODY_OPENERS = {
+    "admonition": ('!!! note "Title"', '<div class="admonition', "</div>"),
+    "details": ("??? note", "<details", "</details>"),
+    "tab": ('=== "Tab"', '<div class="tabbed-content"', "</div>"),
+    "definition": ("Term\n: A definition", "<dd>", "</dd>"),
+    "footnote": ("Text[^1]\n\n[^1]: A footnote", '<div class="footnote"', "</div>"),
+}
+# Each body with the text that marks its expansion in the output
+_BODY_CONTENT = {
+    "directive": ("    [button primary /start Get started]", 'class="mw-button'),
+    "embed": ("    [youtube dQw4w9WgXcQ]", "youtube.com/embed/"),
+    "fence with a label": ("    ```python\n    [label app.py]\n    x = 1\n    ```", 'class="code-label"'),
+    "mermaid": ("    ```mermaid\n    graph TD\n      A-->B\n    ```", '<pre class="mermaid"'),
+}
+_UNWRAPPED_BLOCK_RE = re.compile(r"<p>(<(?P<tag>iframe|pre|div)\b.*?</(?P=tag)>)</p>", re.DOTALL)
+
+
+def _body_document(opener: str, content: str) -> str:
+    """Build one block opener with a content body under it."""
+    return f"{opener}\n\n{content}\n"
+
+
+def _body_pipeline(document: str, names: list[str]) -> str:
+    """Run the pre stage, a stub renderer holding the block extensions, and the post stage."""
+    instance = markdown.Markdown(
+        extensions=["pymdownx.superfences", "pymdownx.highlight", *_BODY_EXTENSIONS],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    return registry.run_post(instance.convert(registry.run_pre(document, names)), names)
+
+
+def _body_in_process(document: str, names: list[str]) -> str:
+    """Render in-process with the block extensions beside the markwright ones."""
+    instance = markdown.Markdown(
+        extensions=[
+            "pymdownx.superfences",
+            "pymdownx.highlight",
+            *_BODY_EXTENSIONS,
+            *(f"markwright.{name}" for name in names),
+        ],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    return instance.convert(document)
+
+
+def _is_inside_block(html: str, start_tag: str, end_tag: str, expansion: str) -> bool:
+    """Report whether the expansion sits between the block's start tag and its end tag."""
+    block_start = html.index(start_tag)
+    return block_start < html.index(expansion) < html.index(end_tag, block_start)
+
+
+class TestRoundTripBlockBodies:
+    """A directive, an embed, a labelled fence, and a mermaid fence in a block opener body stay in the body."""
+
+    @pytest.mark.parametrize("opener_name", list(_BODY_OPENERS))
+    @pytest.mark.parametrize("content_name", list(_BODY_CONTENT))
+    def test_in_process_render_keeps_the_expansion_inside_the_block(self, opener_name: str, content_name: str) -> None:
+        opener, start_tag, end_tag = _BODY_OPENERS[opener_name]
+        content, expansion = _BODY_CONTENT[content_name]
+        names = list(registry.EXTENSION_NAMES)
+
+        html = _body_in_process(_body_document(opener, content), names)
+
+        assert _is_inside_block(html, start_tag, end_tag, expansion)
+
+    @pytest.mark.parametrize("opener_name", list(_BODY_OPENERS))
+    @pytest.mark.parametrize("content_name", list(_BODY_CONTENT))
+    def test_pipeline_keeps_the_expansion_inside_the_block_and_equals_in_process(
+        self, opener_name: str, content_name: str
+    ) -> None:
+        opener, start_tag, end_tag = _BODY_OPENERS[opener_name]
+        content, expansion = _BODY_CONTENT[content_name]
+        names = list(registry.EXTENSION_NAMES)
+        document = _body_document(opener, content)
+
+        pipeline = _body_pipeline(document, names)
+
+        assert _is_inside_block(pipeline, start_tag, end_tag, expansion)
+        # The stub renderer wraps an embed's block-level HTML in a paragraph that the in-process stash avoids
+        assert _normalize(_UNWRAPPED_BLOCK_RE.sub(r"\1", pipeline)) == _normalize(_body_in_process(document, names))
+
+    @pytest.mark.parametrize("opener_name", list(_BODY_OPENERS))
+    def test_run_pre_keeps_a_mermaid_diagram_at_the_body_indentation(self, opener_name: str) -> None:
+        opener, _, _ = _BODY_OPENERS[opener_name]
+        document = _body_document(opener, _BODY_CONTENT["mermaid"][0])
+
+        expanded = registry.run_pre(document, list(registry.EXTENSION_NAMES))
+
+        assert '\n    <pre class="mermaid">' in expanded
+
+    @pytest.mark.parametrize("opener_name", ["admonition", "details", "tab", "definition"])
+    def test_in_process_render_does_not_wrap_a_mermaid_diagram_in_a_paragraph(self, opener_name: str) -> None:
+        opener, _, _ = _BODY_OPENERS[opener_name]
+        document = _body_document(opener, _BODY_CONTENT["mermaid"][0])
+
+        html = _body_in_process(document, list(registry.EXTENSION_NAMES))
+
+        assert "<p><pre" not in html
+
+
 class TestRoundTripProperty:
     """Any document built from markwright's grammar renders the same through the pipeline and in-process."""
 

@@ -63,3 +63,40 @@ class TestMermaidInProcess:
         assert result == EXPECTED
         assert "<code" not in result
         assert "<span" not in result
+
+
+class TestMermaidInBlockBody:
+    """A diagram nested four columns deep is stashed in-process, so it is not wrapped in a paragraph."""
+
+    def test_nested_diagram_is_not_wrapped_in_a_paragraph(self) -> None:
+        md = markdown.Markdown(extensions=["admonition", "markwright.mermaid"])
+
+        html = md.convert("!!! note\n\n    ```mermaid\n    graph TD\n      A-->B\n    ```\n\n    after\n")
+
+        assert '<pre class="mermaid">graph TD\n  A--&gt;B\n</pre>\n<p>after</p>' in html
+
+
+class TestMermaidPlaceholderLine:
+    """A source line that looks like a deferred-diagram placeholder is plain text."""
+
+    def test_a_literal_placeholder_line_passes_through(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.mermaid"])
+
+        html = md.convert("mw-mermaid-pending-0\n\nmw-mermaid-pending-99999999999\n")
+
+        assert html == "<p>mw-mermaid-pending-0</p>\n<p>mw-mermaid-pending-99999999999</p>"
+
+    def test_a_literal_placeholder_line_beside_a_nested_diagram_is_not_replaced(self) -> None:
+        md = markdown.Markdown(extensions=["admonition", "markwright.mermaid"])
+
+        html = md.convert("mw-mermaid-pending-0\n\n!!! note\n\n    ```mermaid\n    graph TD\n    ```\n")
+
+        assert html.count('<pre class="mermaid">') == 1
+        assert "<p>mw-mermaid-pending-0</p>" in html
+
+    def test_both_extension_orders_render_a_nested_diagram_the_same(self) -> None:
+        source = "!!! note\n\n    ```mermaid\n    graph TD\n    ```\n"
+        fenced_first = markdown.Markdown(extensions=["pymdownx.superfences", "admonition", "markwright.mermaid"])
+        mermaid_first = markdown.Markdown(extensions=["markwright.mermaid", "admonition", "pymdownx.superfences"])
+
+        assert fenced_first.convert(source) == mermaid_first.convert(source)
