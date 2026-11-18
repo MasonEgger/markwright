@@ -436,6 +436,38 @@ class TestInvalidGridOpener:
         assert expand_source(source) == source
 
 
+class TestCardInUnclosedGrid:
+    SOURCE = "[grid]\n[card]\nx\n[/card]"
+    CARD_REPORT = "Leaving [card] on line 2 literal: a card must be directly inside a block grid"
+
+    def test_expand_source_leaves_the_card_literal_with_a_problem_marker(self) -> None:
+        result = expand_source(self.SOURCE)
+
+        assert CARD_MARKER not in result
+        assert CARD_END_MARKER not in result
+        assert result.count("mw-grid-problem") == 1
+        assert "[card]" in result
+
+    def test_apply_html_reports_the_card_and_renders_no_card_div(self) -> None:
+        skip_reasons: list[str] = []
+        result = apply_html(render_plain(expand_source(self.SOURCE)), skip_reasons)
+
+        assert "mw-card" not in result
+        assert "[card]" in result
+        assert self.CARD_REPORT in skip_reasons
+
+    def test_the_in_process_render_matches(self) -> None:
+        result = render_grid(self.SOURCE)
+
+        assert "mw-card" not in result
+        assert "[card]" in result
+
+    def test_a_card_in_a_paired_grid_is_unaffected(self) -> None:
+        result = render_grid("[grid]\n\n[card]\n\nx\n\n[/card]\n\n[/grid]")
+
+        assert '<div class="mw-card">' in result
+
+
 class TestContainerProblems:
     def test_card_outside_grid_is_reported_by_apply_html(self) -> None:
         skip_reasons: list[str] = []

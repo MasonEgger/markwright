@@ -125,6 +125,77 @@ class TestIndentationAndMatching:
         assert "unclosed" in scan.problems[0].reason
 
 
+class TestColumnIndentation:
+    def test_a_tab_opener_pairs_with_a_four_space_closer(self) -> None:
+        scan = scan_containers("- a\n\n\t[card]\n\n\tx\n\n    [/card]")
+
+        assert [pair.kind for pair in scan.pairs] == ["card"]
+        assert scan.problems == ()
+
+    def test_a_four_space_opener_pairs_with_a_tab_closer(self) -> None:
+        scan = scan_containers("- a\n\n    [tab One]\n\n    x\n\n\t[/tab]")
+
+        assert [pair.kind for pair in scan.pairs] == ["tab"]
+        assert scan.problems == ()
+
+
+class TestLessIndentedLine:
+    def test_a_less_indented_line_ends_a_tab_and_its_later_closer_is_stray(self) -> None:
+        scan = scan_containers("  [tab One]\n  x\ny\n  [/tab]")
+
+        assert scan.pairs == ()
+        reasons = {problem.line: problem.reason for problem in scan.problems}
+        assert reasons == {0: "unclosed [tab] opener", 3: "no matching [tab] opener"}
+
+    def test_a_less_indented_line_ends_a_card_and_its_later_closer_is_stray(self) -> None:
+        scan = scan_containers("  [card]\n  x\ny\n  [/card]")
+
+        assert scan.pairs == ()
+        reasons = {problem.line: problem.reason for problem in scan.problems}
+        assert reasons == {0: "unclosed [card] opener", 3: "no matching [card] opener"}
+
+    def test_a_less_indented_line_leaves_a_grid_as_a_shortcut(self) -> None:
+        scan = scan_containers("  [grid]\n  x\ny")
+
+        assert scan.pairs == ()
+        assert scan.problems == ()
+        assert [grid.line for grid in scan.unclosed_grids] == [0]
+
+    def test_a_less_indented_line_then_a_stray_grid_closer_follows_the_stray_rule(self) -> None:
+        scan = scan_containers("  [grid]\n  x\ny\n  [/grid]")
+
+        assert scan.pairs == ()
+        assert scan.unclosed_grids == ()
+        assert [problem.line for problem in scan.problems] == [0, 3]
+
+    def test_a_column_zero_fence_ends_a_list_item_card(self) -> None:
+        scan = scan_containers("- a\n\n  [card]\n  x\n\n```\ncode\n```\n\n  [/card]")
+
+        assert scan.pairs == ()
+        reasons = {problem.line: problem.reason for problem in scan.problems}
+        assert reasons == {2: "unclosed [card] opener", 9: "no matching [card] opener"}
+
+    def test_a_column_zero_fence_right_after_an_indented_fence_ends_a_list_item_card(self) -> None:
+        scan = scan_containers("- a\n\n  [card]\n  x\n\n  ```\n  c\n  ```\n```\nd\n```\n\n  [/card]")
+
+        assert scan.pairs == ()
+        reasons = {problem.line: problem.reason for problem in scan.problems}
+        assert reasons == {2: "unclosed [card] opener", 12: "no matching [card] opener"}
+
+    def test_a_blank_line_does_not_end_a_container(self) -> None:
+        scan = scan_containers("  [card]\n\n  x\n\n  [/card]")
+
+        assert [pair.kind for pair in scan.pairs] == ["card"]
+
+    def test_a_card_is_not_paired_across_two_list_items(self) -> None:
+        scan = scan_containers("[grid]\n- a\n\n  [card]\n  x\n\n- b\n\n  [/card]")
+
+        assert scan.pairs == ()
+        reasons = {problem.line: problem.reason for problem in scan.problems}
+        assert reasons == {3: "unclosed [card] opener", 8: "no matching [card] opener"}
+        assert [grid.line for grid in scan.unclosed_grids] == [0]
+
+
 class TestCodeSkipping:
     def test_a_directive_inside_a_fenced_block_is_left_literal(self) -> None:
         source = "```\n[grid]\n[/grid]\n```"
@@ -234,6 +305,13 @@ class TestEnclosedByGrid:
 
         card = next(pair for pair in scan.pairs if pair.kind == "card")
         assert card.enclosed_by_grid is True
+
+    def test_a_card_in_an_unclosed_grid_is_not_enclosed(self) -> None:
+        scan = scan_containers("[grid]\n[card]\nx\n[/card]")
+
+        card = next(pair for pair in scan.pairs if pair.kind == "card")
+        assert card.enclosed_by_grid is False
+        assert [grid.line for grid in scan.unclosed_grids] == [0]
 
     def test_a_card_at_top_level_is_not_enclosed(self) -> None:
         scan = scan_containers("[card]\n\ntext\n\n[/card]")

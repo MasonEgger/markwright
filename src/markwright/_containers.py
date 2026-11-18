@@ -4,7 +4,11 @@
 # A container is a standalone opener line and a matching closer line: [grid]/[/grid],
 # [card]/[/card], and [tab NAME]/[/tab]. The scanner walks the non-code lines with a stack,
 # pairing each closer with the nearest unpaired opener of its kind at the same indentation
-# (bracket matching), so nested and mixed containers pair with no special cases. Lines inside
+# (bracket matching), so nested and mixed containers pair with no special cases. Indentation is
+# compared by column (a tab counts to the next stop of four, the way _fences reads it), and a
+# non-blank line indented less than an open container's opener ends that container unclosed, so a
+# container never straddles two list items. A card is enclosed by a grid only when that grid pairs.
+# Lines inside
 # fenced or indented code are skipped through _fences, so an opener or closer in code stays
 # literal. A line that is solely one of the paired container marker comments (mw-grid-block,
 # mw-grid-end, mw-card, mw-card-end, mw-tab, mw-tab-end) counts as the opener or closer it
@@ -22,7 +26,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from markwright._fences import _code_line_indexes
+from markwright._fences import _code_line_indexes, _indent_width, find_fenced_blocks
 
 # Openers and closers are matched against the stripped line, the whole line and nothing else.
 _GRID_OPEN_RE = re.compile(r"^\[grid(?P<args>(?:\s+\w+)*)\]$")
@@ -65,10 +69,12 @@ class ContainerPair(BaseModel):
     :ivar kind: The container kind, ``grid``, ``card``, or ``tab``.
     :ivar open_line: Zero-based line index of the opener.
     :ivar close_line: Zero-based line index of the closer.
-    :ivar indent: The opener's leading whitespace, shared with the closer.
+    :ivar indent: The opener's leading whitespace; the closer sits at the same column, possibly written
+        with different whitespace.
     :ivar tokens: The opener's argument tokens: for a grid the whitespace-split words after
         ``grid``, for a tab a single element holding the trimmed name, for a card empty.
-    :ivar enclosed_by_grid: Whether the nearest enclosing open container at the opener was a grid.
+    :ivar enclosed_by_grid: Whether the nearest enclosing container at the opener was a grid that itself
+        pairs; a card in an unclosed grid is not enclosed.
     :ivar from_marker: Whether the opener or the closer was an emitted marker comment rather than a
         directive. True when a pre stage meets its own markers again (mw pre run twice, or
         hand-written markers), so the owning stage skips the pair instead of re-emitting it.
@@ -142,8 +148,10 @@ class _Frame(BaseModel):
     :ivar kind: The container kind.
     :ivar open_line: Zero-based line index of the opener.
     :ivar indent: The opener's leading whitespace.
+    :ivar column: The opener's indentation in columns, a tab counting to the next stop of four.
     :ivar tokens: The opener's argument tokens.
-    :ivar enclosed_by_grid: Whether the nearest enclosing open container at push was a grid.
+    :ivar parent_grid_line: Line index of the nearest enclosing open container at push when that
+        container was a grid, else ``None``. The grid counts as an enclosure only if it later pairs.
     :ivar from_marker: Whether the opener was an emitted marker comment rather than a directive.
     """
 
@@ -152,8 +160,9 @@ class _Frame(BaseModel):
     kind: _ContainerKind
     open_line: int
     indent: str
+    column: int
     tokens: tuple[str, ...]
-    enclosed_by_grid: bool
+    parent_grid_line: int | None
     from_marker: bool
 
 
@@ -251,16 +260,16 @@ def _classify_closer(stripped: str) -> tuple[_ContainerKind, bool] | None:
     return None
 
 
-def _find_match(stack: list[_Frame], kind: _ContainerKind, indent: str) -> int | None:
-    """Find the nearest unpaired opener of a kind at an indentation.
+def _find_match(stack: list[_Frame], kind: _ContainerKind, column: int) -> int | None:
+    """Find the nearest unpaired opener of a kind at an indentation column.
 
     :param stack: The open containers, oldest first.
     :param kind: The closer's kind.
-    :param indent: The closer's leading whitespace.
+    :param column: The closer's indentation in columns.
     :returns: The stack index of the matching opener, or ``None`` when none matches.
     """
     for frame_index in range(len(stack) - 1, -1, -1):
-        if stack[frame_index].kind == kind and stack[frame_index].indent == indent:
+        if stack[frame_index].kind == kind and stack[frame_index].column == column:
             return frame_index
     return None
 
@@ -282,8 +291,11 @@ def scan_containers(text: str) -> ContainersScan:
     """Scan Markdown source for container openers and closers.
 
     Walks the lines outside fenced and indented code with a stack. Each opener is pushed; each
-    closer pairs with the nearest unpaired opener of its kind at the same indentation, and the
-    openers it skips over are left unclosed. A stray closer, an unclosed ``[card]`` or ``[tab]``,
+    closer pairs with the nearest unpaired opener of its kind at the same indentation column (a tab
+    counts to the next stop of four), and the openers it skips over are left unclosed. A non-blank
+    line indented less than an open container's opener ends that container unclosed before the line
+    is read as a closer, so a container never straddles two list items. A card is enclosed by a
+    grid only when that grid itself pairs. A stray closer, an unclosed ``[card]`` or ``[tab]``,
     and a malformed ``[tab]`` are problems; an unclosed ``[grid]`` is the list shortcut and is
     returned in ``unclosed_grids`` rather than as a problem. A stray ``[/grid]`` with no
     same-indent opener pulls the nearest still-open ``[grid]`` down as an unclosed-opener problem
@@ -294,21 +306,36 @@ def scan_containers(text: str) -> ContainersScan:
     """
     lines = text.split("\n")
     code_lines = _code_line_indexes(lines)
+    fence_openings = {block.opening for block in find_fenced_blocks(lines)}
     stack: list[_Frame] = []
-    pairs: list[ContainerPair] = []
+    closed: list[tuple[_Frame, int, bool]] = []
     problems: list[ContainerProblem] = []
     unpaired: list[_Frame] = []
+    ended_grids: list[_Frame] = []
 
     for line_index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        indent = line[: len(line) - len(line.lstrip())]
+        column = _indent_width(line)
+
+        # A line indented less than an open container's opener ends that container's block. A
+        # code block counts through its first line (an opening fence, or the start of an indented
+        # run), so a column-0 fence ends a list-item container; later code lines end nothing.
+        if line_index not in code_lines or line_index in fence_openings or line_index - 1 not in code_lines:
+            ended = [frame for frame in stack if frame.column > column]
+            if ended:
+                unpaired.extend(ended)
+                ended_grids.extend(frame for frame in ended if frame.kind == "grid")
+                stack = [frame for frame in stack if frame.column <= column]
         if line_index in code_lines:
             continue
-        stripped = line.strip()
-        indent = line[: len(line) - len(line.lstrip())]
 
         closer = _classify_closer(stripped)
         if closer is not None:
             close_kind, close_from_marker = closer
-            match_index = _find_match(stack, close_kind, indent)
+            match_index = _find_match(stack, close_kind, column)
             if match_index is None:
                 problems.append(
                     ContainerProblem(
@@ -320,8 +347,14 @@ def scan_containers(text: str) -> ContainersScan:
                 )
                 if close_kind == "grid":
                     stray_index = _nearest_of_kind(stack, "grid")
+                    stray_frame = None
                     if stray_index is not None:
                         stray_frame = stack.pop(stray_index)
+                    elif ended_grids:
+                        # A grid a less-indented line already ended is the nearest unclosed grid.
+                        stray_frame = ended_grids.pop()
+                        unpaired.remove(stray_frame)
+                    if stray_frame is not None:
                         problems.append(
                             ContainerProblem(
                                 line=stray_frame.open_line,
@@ -333,17 +366,7 @@ def scan_containers(text: str) -> ContainersScan:
                 continue
             unpaired.extend(stack[match_index + 1 :])
             opener = stack[match_index]
-            pairs.append(
-                ContainerPair(
-                    kind=opener.kind,
-                    open_line=opener.open_line,
-                    close_line=line_index,
-                    indent=opener.indent,
-                    tokens=opener.tokens,
-                    enclosed_by_grid=opener.enclosed_by_grid,
-                    from_marker=opener.from_marker or close_from_marker,
-                )
-            )
+            closed.append((opener, line_index, close_from_marker))
             del stack[match_index:]
             continue
 
@@ -355,8 +378,9 @@ def scan_containers(text: str) -> ContainersScan:
                     kind=kind,
                     open_line=line_index,
                     indent=indent,
+                    column=column,
                     tokens=tokens,
-                    enclosed_by_grid=bool(stack) and stack[-1].kind == "grid",
+                    parent_grid_line=stack[-1].open_line if stack and stack[-1].kind == "grid" else None,
                     from_marker=open_from_marker,
                 )
             )
@@ -368,6 +392,19 @@ def scan_containers(text: str) -> ContainersScan:
             )
 
     unpaired.extend(stack)
+    paired_grid_lines = {opener.open_line for opener, _, _ in closed if opener.kind == "grid"}
+    pairs = [
+        ContainerPair(
+            kind=opener.kind,
+            open_line=opener.open_line,
+            close_line=close_line,
+            indent=opener.indent,
+            tokens=opener.tokens,
+            enclosed_by_grid=opener.parent_grid_line in paired_grid_lines,
+            from_marker=opener.from_marker or close_from_marker,
+        )
+        for opener, close_line, close_from_marker in closed
+    ]
     unclosed_grids: list[UnclosedGrid] = []
     for frame in unpaired:
         if frame.kind == "grid":

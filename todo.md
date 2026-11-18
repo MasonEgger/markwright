@@ -19,16 +19,16 @@ The `/goal` loop checks items as it goes.
   - [x] GREEN: _containers.py rejects invalid grid openers, reuse grid.py validity rule
   - [x] Docs: spec.md Grid and Cards
   - [x] just check
-- [ ] Step 3: Column-based indentation pairing and the less-indented-line rule
-  - [ ] RED: tests/test_containers.py (tab/space column equality, less-indented ends container, list-item case)
-  - [ ] GREEN: _containers.py column indentation and less-indented-line rule
-  - [ ] Docs: spec.md Containers
-  - [ ] just check
-- [ ] Step 4: A card needs a paired grid
-  - [ ] RED: tests/test_containers.py, tests/test_grid.py
-  - [ ] GREEN: _containers.py card enclosure requires a paired grid
-  - [ ] Docs: spec.md Grid and Cards
-  - [ ] just check
+- [x] Step 3: Column-based indentation pairing and the less-indented-line rule
+  - [x] RED: tests/test_containers.py (tab/space column equality, less-indented ends container, list-item case)
+  - [x] GREEN: _containers.py column indentation and less-indented-line rule
+  - [x] Docs: spec.md Containers
+  - [x] just check
+- [x] Step 4: A card needs a paired grid
+  - [x] RED: tests/test_containers.py, tests/test_grid.py
+  - [x] GREEN: _containers.py card enclosure requires a paired grid
+  - [x] Docs: spec.md Grid and Cards
+  - [x] just check
 - [ ] Step 5: Emit the shortcut and annotate markers as blocks; keep a CRLF line end
   - [ ] RED: tests/test_grid.py, tests/test_annotate.py, tests/test_tabs.py
   - [ ] GREEN: grid.py and annotate.py via marker_block; _markers.py CRLF-safe problem marker
