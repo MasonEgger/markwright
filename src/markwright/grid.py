@@ -40,7 +40,6 @@ from markwright._html import add_classes, apply_edits, tokenize
 from markwright._markers import (
     InvalidMarkerError,
     decode_marker,
-    encode_marker,
     find_markers,
     inline_problem_marker,
     marker_block,
@@ -243,7 +242,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
             # post stage to drop fail-soft rather than converting it into an mw-grid shortcut.
             continue
         payload = _grid_payload(unclosed.tokens)
-        replacements[unclosed.line] = [f"{unclosed.indent}{encode_marker(MARKER_NAME, payload)}", ""]
+        replacements[unclosed.line] = marker_block(unclosed.indent, MARKER_NAME, payload)
     for problem in scan.problems:
         if problem.from_marker:
             # The problem line is one of grid's own markers; the post stage reports the lone marker
@@ -421,9 +420,12 @@ class GridExtension(Extension):
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the grid preprocessor and postprocessor.
 
+        The preprocessor runs at 21, ahead of Python-Markdown's ``html_block`` (20), so the marker
+        comments exist before that preprocessor stashes raw HTML and are stashed whole.
+
         :param md: The Markdown instance to extend.
         """
-        md.preprocessors.register(GridPreprocessor(md), "mw-grid-pre", 20)
+        md.preprocessors.register(GridPreprocessor(md), "mw-grid-pre", 21)
         md.postprocessors.register(GridPostprocessor(md), "mw-grid-post", 27)
 
 

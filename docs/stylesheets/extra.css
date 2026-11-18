@@ -406,13 +406,25 @@ a.mw-button.mw-button-primary:hover {
 
 .md-typeset .mw-grid > li,
 .md-typeset ul.mw-grid > li,
-.md-typeset ol.mw-grid > li {
+.md-typeset ol.mw-grid > li,
+.md-typeset .mw-grid-cards > ul > li,
+.md-typeset .mw-grid-cards > ol > li {
     margin: 0;
+}
+
+/* A list inside a block grid with cards keeps its markup; display: contents drops the list's own box,
+   so each item becomes a cell of the grid and takes the card rules below. The .md-typeset prefix ties
+   mkdocs-material's own list rule on weight and wins on source order. */
+.md-typeset .mw-grid-cards > ul,
+.md-typeset .mw-grid-cards > ol {
+    display: contents;
 }
 
 .md-typeset .mw-card,
 .md-typeset ul.mw-grid-cards > li,
-.md-typeset ol.mw-grid-cards > li {
+.md-typeset ol.mw-grid-cards > li,
+.md-typeset .mw-grid-cards > ul > li,
+.md-typeset .mw-grid-cards > ol > li {
     display: block;
     padding: 0.8rem;
     border: 0.05rem solid var(--md-default-fg-color--lightest);
@@ -431,32 +443,42 @@ a.mw-button.mw-button-primary:hover {
 
 .md-typeset .mw-card > hr,
 .md-typeset ul.mw-grid-cards > li > hr,
-.md-typeset ol.mw-grid-cards > li > hr {
+.md-typeset ol.mw-grid-cards > li > hr,
+.md-typeset .mw-grid-cards > ul > li > hr,
+.md-typeset .mw-grid-cards > ol > li > hr {
     margin-block: 1em;
 }
 
 .md-typeset .mw-card > :first-child,
 .md-typeset ul.mw-grid-cards > li > :first-child,
-.md-typeset ol.mw-grid-cards > li > :first-child {
+.md-typeset ol.mw-grid-cards > li > :first-child,
+.md-typeset .mw-grid-cards > ul > li > :first-child,
+.md-typeset .mw-grid-cards > ol > li > :first-child {
     margin-top: 0;
 }
 
 .md-typeset .mw-card > :last-child,
 .md-typeset ul.mw-grid-cards > li > :last-child,
-.md-typeset ol.mw-grid-cards > li > :last-child {
+.md-typeset ol.mw-grid-cards > li > :last-child,
+.md-typeset .mw-grid-cards > ul > li > :last-child,
+.md-typeset .mw-grid-cards > ol > li > :last-child {
     margin-bottom: 0;
 }
 
 /* An icon that opens a card is its headline icon: larger, and centered on the title beside it. */
 .md-typeset .mw-card > p:first-child > .mw-icon:first-child,
 .md-typeset ul.mw-grid-cards > li > p:first-child > .mw-icon:first-child,
-.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child {
+.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child,
+.md-typeset .mw-grid-cards > ul > li > p:first-child > .mw-icon:first-child,
+.md-typeset .mw-grid-cards > ol > li > p:first-child > .mw-icon:first-child {
     vertical-align: middle;
 }
 
 .md-typeset .mw-card > p:first-child > .mw-icon:first-child svg,
 .md-typeset ul.mw-grid-cards > li > p:first-child > .mw-icon:first-child svg,
-.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child svg {
+.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child svg,
+.md-typeset .mw-grid-cards > ul > li > p:first-child > .mw-icon:first-child svg,
+.md-typeset .mw-grid-cards > ol > li > p:first-child > .mw-icon:first-child svg {
     width: 2em;
     height: 2em;
 }

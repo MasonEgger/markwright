@@ -266,6 +266,12 @@ Each marker is a versioned public contract, read fail-soft like the [fence](fenc
 The `cards` and `columns` fields are present only when the opener carries them.
 A payload bumps its version with no migration shim when a field changes, since the project is pre-1.0 with one host.
 
+## Escaping a Directive
+
+A backslash before the opening bracket keeps a standalone directive line literal: `\[grid 3]`, `\[card]`, `\[/grid]`, and `\[/card]`.
+Markdown's own escape removes the backslash, so the line renders as the text `[grid 3]` with no grid, no marker, and no report.
+It works the same in-process and through `mw pre | renderer | mw post`.
+
 ## Fail-Soft and Warnings
 
 A directive the extension cannot turn into markup stays literal and is reported by `mw post --warn`, never raised:

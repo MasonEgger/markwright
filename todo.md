@@ -29,22 +29,22 @@ The `/goal` loop checks items as it goes.
   - [x] GREEN: _containers.py card enclosure requires a paired grid
   - [x] Docs: spec.md Grid and Cards
   - [x] just check
-- [ ] Step 5: Emit the shortcut and annotate markers as blocks; keep a CRLF line end
-  - [ ] RED: tests/test_grid.py, tests/test_annotate.py, tests/test_tabs.py
-  - [ ] GREEN: grid.py and annotate.py via marker_block; _markers.py CRLF-safe problem marker
-  - [ ] Docs: spec.md Containers (Both paths)
-  - [ ] just check
-- [ ] Step 6: Tabs grouping, set numbering, backtick names, and closer validation
-  - [ ] RED: tests/test_tabs.py (sibling rule, S numbering, backtick names, closer decode)
-  - [ ] GREEN: tabs.py grouping, numbering, html_block ordering, strict closer decode
-  - [ ] Docs: spec.md Tabs, CLAUDE.md priority note
-  - [ ] just check
-- [ ] Step 7: Document the escape and the cards-list CSS sample (task)
-  - [ ] Tests pin the backslash escape (tests/test_grid.py, tests/test_tabs.py)
-  - [ ] docs/extensions/grid.md and tabs.md escape note
-  - [ ] docs/stylesheets/extra.css cards-list rules
-  - [ ] Docs: spec.md Containers and Grid and Cards, Feature Status drops containers fixes (#30)
-  - [ ] just check and just docs-build --strict
+- [x] Step 5: Emit the shortcut and annotate markers as blocks; keep a CRLF line end
+  - [x] RED: tests/test_grid.py, tests/test_annotate.py, tests/test_tabs.py
+  - [x] GREEN: grid.py and annotate.py via marker_block; _markers.py CRLF-safe problem marker
+  - [x] Docs: spec.md Containers (Both paths)
+  - [x] just check
+- [x] Step 6: Tabs grouping, set numbering, backtick names, and closer validation
+  - [x] RED: tests/test_tabs.py (sibling rule, S numbering, backtick names, closer decode)
+  - [x] GREEN: tabs.py grouping, numbering, html_block ordering, strict closer decode
+  - [x] Docs: spec.md Tabs, CLAUDE.md priority note
+  - [x] just check
+- [x] Step 7: Document the escape and the cards-list CSS sample (task)
+  - [x] Tests pin the backslash escape (tests/test_grid.py, tests/test_tabs.py)
+  - [x] docs/extensions/grid.md and tabs.md escape note
+  - [x] docs/stylesheets/extra.css cards-list rules
+  - [x] Docs: spec.md Containers and Grid and Cards, Feature Status drops containers fixes (#30)
+  - [x] just check and just docs-build --strict
 
 ## Section 3: Block Bodies
 

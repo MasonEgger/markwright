@@ -121,6 +121,12 @@ Each marker is a versioned public contract, read fail-soft.
 
 A payload bumps its version with no migration shim when a field changes, since the project is pre-1.0 with one host.
 
+## Escaping a Directive
+
+A backslash before the opening bracket keeps a standalone directive line literal: `\[tab Name]` and `\[/tab]`.
+Markdown's own escape removes the backslash, so the line renders as the text `[tab Name]` with no tab, no marker, and no report.
+It works the same in-process and through `mw pre | renderer | mw post`.
+
 ## Fail-Soft and Warnings
 
 A tab the extension cannot pair stays literal and is reported by `mw post --warn`, never raised:

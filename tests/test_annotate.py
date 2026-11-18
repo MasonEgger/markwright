@@ -39,10 +39,13 @@ def render_annotate(source: str) -> str:
 
 class TestExpandSource:
     def test_line_becomes_marker_and_blank_line(self) -> None:
-        assert expand_source("[annotate]\nText (1)\n\n1. note") == MARKER + "\n\nText (1)\n\n1. note"
+        assert expand_source("[annotate]\nText (1)\n\n1. note") == "\n" + MARKER + "\n\nText (1)\n\n1. note"
+
+    def test_marker_is_a_block_with_a_blank_line_before_it(self) -> None:
+        assert expand_source("Intro text\n[annotate]\nText (1)") == f"Intro text\n\n{MARKER}\n\nText (1)"
 
     def test_indent_is_preserved(self) -> None:
-        assert expand_source("- item\n\n    [annotate]\n    Text") == f"- item\n\n    {MARKER}\n\n    Text"
+        assert expand_source("- item\n\n    [annotate]\n    Text") == f"- item\n\n\n    {MARKER}\n\n    Text"
 
     def test_inline_mention_is_unchanged(self) -> None:
         source = "Use [annotate] in prose."

@@ -232,6 +232,115 @@ class TestProblems:
         assert skip_reasons == ["Skipping malformed mw-tab-problem marker: '{nope'"]
 
 
+class TestSiblingRule:
+    def test_a_tab_nested_in_a_tab_starts_its_own_set(self) -> None:
+        source = "[tab A]\n\n[tab B]\n\nb\n\n[/tab]\n\n[/tab]"
+        result = apply_html(render_plain(expand_source(source)))
+        assert result.count("tabbed-set tabbed-alternate") == 2
+        assert result.count('data-tabs="1:1"') == 1
+        assert result.count('data-tabs="2:1"') == 1
+
+    def test_nested_set_tabs_and_the_parent_sibling_keep_their_own_sets(self) -> None:
+        source = "[tab A]\n\n[tab B]\n\nb\n\n[/tab]\n\n[tab C]\n\nc\n\n[/tab]\n\n[/tab]\n\n[tab D]\n\nd\n\n[/tab]"
+        result = apply_html(render_plain(expand_source(source)))
+        assert '<label for="mw-tab-1-1">A</label>' in result
+        assert '<label for="mw-tab-1-2">D</label>' in result
+        assert '<label for="mw-tab-2-1">B</label>' in result
+        assert '<label for="mw-tab-2-2">C</label>' in result
+
+    def test_a_tab_inside_a_grid_and_a_card_in_a_tab_starts_its_own_set(self) -> None:
+        source = "[tab A]\n\n[grid]\n\n[card]\n\n[tab B]\n\nb\n\n[/tab]\n\n[/card]\n\n[/grid]\n\n[/tab]"
+        result = markdown.Markdown(extensions=["markwright.grid", "markwright.tabs"]).convert(source)
+        assert 'data-tabs="1:1"' in result
+        assert 'data-tabs="2:1"' in result
+        assert result.index('for="mw-tab-1-1">A<') < result.index('for="mw-tab-2-1">B<')
+
+    def test_a_tab_ending_a_list_item_does_not_join_a_top_level_tab(self) -> None:
+        source = "- item\n\n    [tab A]\n\n    a\n\n    [/tab]\n\n[tab B]\n\nb\n\n[/tab]"
+        assert '"name": "B", "first": true' in expand_source(source)
+        result = apply_html(render_plain(expand_source(source)))
+        assert 'data-tabs="1:1"' in result
+        assert 'data-tabs="2:1"' in result
+
+    def test_a_sibling_after_blank_lines_still_joins_the_set(self) -> None:
+        source = "[tab A]\n\na\n\n[/tab]\n\n\n[tab B]\n\nb\n\n[/tab]"
+        assert apply_html(render_plain(expand_source(source))).count('data-tabs="1:2"') == 1
+
+
+class TestSetNumbering:
+    def test_an_enclosing_set_has_a_lower_number_than_a_set_nested_in_its_first_tab(self) -> None:
+        source = "[tab A]\n\n[tab B]\n\nb\n\n[/tab]\n\n[/tab]"
+        result = apply_html(render_plain(expand_source(source)))
+        assert '<label for="mw-tab-1-1">A</label>' in result
+        assert '<label for="mw-tab-2-1">B</label>' in result
+        assert '<input checked="checked" type="radio" id="mw-tab-2-1" name="mw-tab-2" />' in result
+
+
+class TestBacktickName:
+    SOURCE = "[tab `x`]\n\nbody\n\n[/tab]"
+
+    def test_the_in_process_render_shows_the_backticks_as_text(self) -> None:
+        result = render_tabs(self.SOURCE)
+        assert "<code>" not in result
+        assert '<label for="mw-tab-1-1">`x`</label>' in result
+
+    def test_the_pipeline_matches_the_in_process_render(self) -> None:
+        assert apply_html(render_plain(expand_source(self.SOURCE))) == render_tabs(self.SOURCE)
+
+
+class TestBacktickNameWhenIndented:
+    SOURCE = "- item\n\n    [tab `x`]\n\n    body\n\n    [/tab]"
+
+    def test_a_backticked_name_stays_text_in_a_four_space_list_item_in_process(self) -> None:
+        result = render_tabs(self.SOURCE)
+        assert "<code>" not in result
+        assert "`x`" in result
+
+    def test_the_pipeline_matches_the_in_process_render(self) -> None:
+        assert apply_html(render_plain(expand_source(self.SOURCE))) == render_tabs(self.SOURCE)
+
+
+class TestRawHtmlBlock:
+    def test_a_tab_line_inside_a_raw_html_block_is_expanded_in_process_as_in_the_pipeline(self) -> None:
+        source = "<div>\n[tab A]\n\nx\n\n[/tab]\n</div>"
+        result = render_tabs(source)
+        assert '<label for="mw-tab-1-1">A</label>' in result
+        assert result == apply_html(render_plain(expand_source(source)))
+
+
+class TestPreBlock:
+    def test_a_tab_line_inside_a_pre_block_is_expanded_in_process_as_in_the_pipeline(self) -> None:
+        source = "<pre>\n[tab A]\n\nx\n\n[/tab]\n</pre>"
+        assert render_tabs(source) == apply_html(render_plain(expand_source(source)))
+
+
+class TestCloserValidation:
+    def test_a_closer_with_an_unsupported_version_does_not_close_its_tab(self) -> None:
+        skip_reasons: list[str] = []
+        page = f'{TAB_OPEN}\n<p>x</p>\n<!-- mw-tab-end:{{"version": 2}} -->'
+        result = apply_html(page, skip_reasons)
+        assert "tabbed-set" not in result
+        assert "mw-tab" not in result
+        assert skip_reasons == ["Skipping mw-tab-end marker with unsupported version 2"]
+
+    def test_a_malformed_closer_is_skipped_and_reported(self) -> None:
+        skip_reasons: list[str] = []
+        apply_html(f"{TAB_OPEN}\n<p>x</p>\n<!-- mw-tab-end:{{nope -->", skip_reasons)
+        assert skip_reasons == ["Skipping malformed mw-tab-end marker: '{nope'"]
+
+    def test_a_valid_closer_is_unaffected(self) -> None:
+        skip_reasons: list[str] = []
+        apply_html(f"{TAB_OPEN}\n<p>x</p>\n{TAB_END}", skip_reasons)
+        assert skip_reasons == []
+
+
+class TestCrlfProblemMarker:
+    def test_a_problem_marker_lands_before_the_carriage_return(self) -> None:
+        result = expand_source("text\r\n\r\n[/tab]\r\n")
+        problem = '{"version": 1, "line": 3, "directive": "[/tab]", "reason": "stray-closer"}'
+        assert result.endswith(f"[/tab]<!-- mw-tab-problem:{problem} -->\r\n")
+
+
 class TestInProcess:
     def test_single_set_renders_a_tabbed_set(self) -> None:
         result = render_tabs("[tab Python]\n\ncode\n\n[/tab]\n\n[tab Shell]\n\nmore\n\n[/tab]")
@@ -289,3 +398,15 @@ class TestOrderIndependenceWithGrid:
         assert '<div class="mw-grid">' in grid_first
         assert '<div class="mw-card">' in grid_first
         assert '<div class="tabbed-set' in grid_first
+
+
+class TestEscapedDirective:
+    def test_an_escaped_tab_pair_stays_literal_in_both_paths(self) -> None:
+        source = "\\[tab Name]\n\ntext\n\n\\[/tab]"
+        skip_reasons: list[str] = []
+        piped = apply_html(render_plain(expand_source(source)), skip_reasons)
+        assert piped == render_tabs(source)
+        assert "<p>[tab Name]</p>" in piped
+        assert "<p>[/tab]</p>" in piped
+        assert "tabbed-set" not in piped
+        assert skip_reasons == []

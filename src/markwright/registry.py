@@ -118,7 +118,7 @@ REGISTRY: dict[str, StageSpec] = {
     "grid": StageSpec(
         pre=grid.expand_source,
         post=grid.apply_html,
-        pre_priority=20,
+        pre_priority=21,
         post_priority=27,
         extension=grid.GridExtension,
     ),
@@ -132,7 +132,7 @@ REGISTRY: dict[str, StageSpec] = {
     "tabs": StageSpec(
         pre=tabs.expand_source,
         post=tabs.apply_html,
-        pre_priority=20,
+        pre_priority=21,
         post_priority=27,
         extension=tabs.TabsExtension,
     ),

@@ -3,8 +3,9 @@
 
 # A marker is an HTML comment placed in the source by a pre stage: ``<!-- NAME:{JSON} -->``.
 # The JSON payload carries an integer ``version`` plus the extension's own fields. The
-# payload is comment-safe: every literal ``<`` and ``>`` is written as its ``\uXXXX``
-# escape, so a value containing ``-->`` can never close the comment early. ``json.loads``
+# payload is comment-safe: every literal ``<``, ``>``, and backtick is written as its ``\uXXXX``
+# escape, so a value containing ``-->`` can never close the comment early and no inline
+# processor can match inside it. ``json.loads``
 # restores the characters, so reading needs no manual decode step. Post stages read
 # markers fail-soft: a marker that is malformed, not an object, an unsupported version,
 # or has a wrongly typed field is skipped with a reason, never an exception. Fence, grid,
@@ -27,6 +28,11 @@ if TYPE_CHECKING:
     from markwright._html import HtmlToken
 
 MARKER_VERSION = 1
+
+# Written as \uXXXX in a payload: ``<`` and ``>`` so a value can never close the comment, and the
+# backtick so no inline processor can open a code span inside a marker that reaches Python-Markdown
+# as paragraph text (a marker indented four columns or more is not stashed by html_block).
+_COMMENT_UNSAFE = {"<": "\\u003c", ">": "\\u003e", "`": "\\u0060"}
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -55,9 +61,11 @@ def encode_marker(name: str, payload: Mapping[str, object]) -> str:
 
     :param name: The marker name, such as ``mw-fence``.
     :param payload: The extension's fields; ``version`` is added first.
-    :returns: ``<!-- NAME:{JSON} -->`` with every literal ``<`` and ``>`` unicode-escaped.
+    :returns: ``<!-- NAME:{JSON} -->`` with every literal ``<``, ``>``, and backtick unicode-escaped.
     """
-    encoded = json.dumps({"version": MARKER_VERSION, **payload}).replace("<", "\\u003c").replace(">", "\\u003e")
+    encoded = json.dumps({"version": MARKER_VERSION, **payload})
+    for character, escape in _COMMENT_UNSAFE.items():
+        encoded = encoded.replace(character, escape)
     return f"<!-- {name}:{encoded} -->"
 
 
@@ -79,14 +87,17 @@ def inline_problem_marker(line: str, name: str, payload: Mapping[str, object]) -
     """Attach a marker comment inline, directly after a literal directive line.
 
     The comment rides on the same line so the literal text keeps its paragraph structure: a
-    comment on its own line would split a paragraph the directive belonged to.
+    comment on its own line would split a paragraph the directive belonged to. A line that ends in
+    a carriage return (a CRLF source split on ``\\n``) gets the comment before the ``\\r``, so it
+    keeps its line ending.
 
     :param line: The original source line, kept verbatim.
     :param name: The marker name.
     :param payload: The marker payload; ``version`` is added by the encoder.
-    :returns: The line with the marker comment appended.
+    :returns: The line with the marker comment appended before any trailing carriage return.
     """
-    return f"{line}{encode_marker(name, payload)}"
+    text = line.removesuffix("\r")
+    return f"{text}{encode_marker(name, payload)}{line[len(text) :]}"
 
 
 def find_markers(name: str, rendered_html: str, tokens: list[HtmlToken]) -> list[MarkerComment]:

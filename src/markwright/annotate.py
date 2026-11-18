@@ -21,7 +21,7 @@ from markwright._html import (
     render_start_tag,
     tokenize,
 )
-from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
+from markwright._markers import InvalidMarkerError, decode_marker, find_markers, marker_block
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -56,15 +56,16 @@ class AnnotateMarker(BaseModel):
 
 
 def _transform_line(line: str) -> list[str]:
-    """Replace an ``[annotate]`` line with a marker comment and a blank line.
+    """Replace an ``[annotate]`` line with a marker comment block.
 
     :param line: A single source line.
-    :returns: The marker comment and a blank line for an annotate directive, else the line unchanged.
+    :returns: The marker comment as a block with a blank line on either side for an annotate
+        directive, else the line unchanged.
     """
     if ANNOTATE_RE.match(line.strip()) is None:
         return [line]
     indent = line[: len(line) - len(line.lstrip())]
-    return [f"{indent}{encode_marker(MARKER_NAME, {})}", ""]
+    return marker_block(indent, MARKER_NAME, {})
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:

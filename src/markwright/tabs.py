@@ -4,15 +4,23 @@
 # A [tab NAME] opener paired with [/tab] is one tab. The pre stage pairs containers with
 # _containers.scan_containers, so an opener or closer inside fenced or indented code stays literal,
 # and it emits an mw-tab open marker (carrying the name and a first flag) and an mw-tab-end close
-# marker around each tab's content. Tabs separated only by blank lines join one set; any other
-# content between them starts a new set, so the first flag is True for the opener that starts a
-# set. The post stage orders every mw-tab and mw-tab-end by position, stack-matches them, groups
-# the tabs into sets at each first marker, and wraps each set in pymdown-extensions' tabbed
-# alternate_style markup: a <div class="tabbed-set tabbed-alternate mw-tabs" data-tabs="S:N">, one
-# radio <input> per tab (id="mw-tab-S-T", name="mw-tab-S", the first checked), a tabbed-labels div
-# of <label for="mw-tab-S-T"> with the name html-escaped, and a tabbed-content div holding one
-# tabbed-block per tab. S counts sets and T counts tabs within a set, both from 1 per document; the
-# mw-tab- prefix keeps the ids from colliding with pymdown-extensions' own __tabbed_ ids. An
+# marker around each tab's content. A tab joins the set of the tab before it only when the nearest
+# non-blank line above its opener is the closer of a paired tab at the same indentation; any other
+# tab starts a new set, so the first flag is True for the opener that starts a set. That sibling
+# rule lives here, because tabs owns grouping; _containers only pairs. The post stage orders every
+# mw-tab and mw-tab-end by position, stack-matches them, decodes each pair's opener and closer
+# strictly (a pair with either payload invalid is skipped), and groups the tabs into sets: a tab
+# starts a new set at a first marker, and otherwise joins the latest set among the tabs that share
+# its enclosing tab, so a tab nested in another tab's body never joins its parent's set. Each set
+# wraps in pymdown-extensions' tabbed alternate_style markup: a <div class="tabbed-set
+# tabbed-alternate mw-tabs" data-tabs="S:N">, one radio <input> per tab (id="mw-tab-S-T",
+# name="mw-tab-S", the first checked), a tabbed-labels div of <label for="mw-tab-S-T"> with the
+# name html-escaped, and a tabbed-content div holding one tabbed-block per tab. S counts sets in
+# the order each set's first tab opens, and T counts tabs within a set, both from 1 per document;
+# the mw-tab- prefix keeps the ids from colliding with pymdown-extensions' own __tabbed_ ids. The
+# in-process preprocessor runs ahead of Python-Markdown's html_block preprocessor, which then
+# stashes each marker comment whole, so a tab name that holds backticks reaches the label as the
+# same escaped text in both paths. An
 # unclosed [tab] or a stray [/tab] stays literal and gains an inline mw-tab-problem marker so the
 # post stage reports it under --warn and removes the comment; an empty [tab ] is not an opener and
 # is left literal with no report. Every marker is a versioned public contract read fail-soft: a
@@ -30,6 +38,7 @@ from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict, Field
 
 from markwright._containers import TAB_END_MARKER_NAME, TAB_MARKER_NAME, scan_containers
+from markwright._fences import _indent_width
 from markwright._html import apply_edits, tokenize
 from markwright._markers import (
     InvalidMarkerError,
@@ -91,6 +100,21 @@ class TabMarker(BaseModel):
     first: bool
 
 
+class TabEndMarker(BaseModel):
+    """A validated v1 mw-tab-end marker payload.
+
+    The post stage decodes a tab's closer with this model, as it decodes the opener with
+    :class:`TabMarker`; a pair whose closer fails is skipped. Strict, so a field of the wrong type
+    fails validation instead of being coerced; unknown fields are ignored.
+
+    :ivar version: The payload version, ``1``.
+    """
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="ignore")
+
+    version: int
+
+
 class TabProblemMarker(BaseModel):
     """A validated v1 mw-tab-problem marker payload for a tab container left literal.
 
@@ -129,8 +153,8 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     Used by the ``mw pre`` CLI stage. Pairs containers with :func:`scan_containers`, so an opener
     or closer inside fenced or indented code stays literal. Each ``[tab NAME]``/``[/tab]`` pair
     becomes an mw-tab open marker carrying the name and a first flag, and an mw-tab-end close
-    marker. The first flag is True when the tab starts a set: for the first tab, or when any
-    non-blank content separates it from the previous tab. An unclosed ``[tab]`` or a stray
+    marker. The first flag is True when the tab starts a set: unless the nearest non-blank line
+    above its opener is the closer of a paired tab at the same indentation. An unclosed ``[tab]`` or a stray
     ``[/tab]`` stays literal and gains an inline mw-tab-problem marker; an empty ``[tab ]`` and
     every non-tab container are left untouched.
 
@@ -141,20 +165,19 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     scan = scan_containers(text)
     lines = text.split("\n")
     replacements: dict[int, list[str]] = {}
-    previous_close: int | None = None
-    for pair in scan.pairs:
-        if pair.kind != "tab" or pair.from_marker:
+    tab_pairs = [pair for pair in scan.pairs if pair.kind == "tab"]
+    closer_widths = {pair.close_line: _indent_width(lines[pair.close_line]) for pair in tab_pairs}
+    for pair in tab_pairs:
+        if pair.from_marker:
             # A tab pair whose lines are already tabs' own markers (mw pre run twice, or
             # hand-written) stays in place; re-emitting would crash on its empty tokens.
             continue
-        if previous_close is None:
-            first = True
-        else:
-            gap = lines[previous_close + 1 : pair.open_line]
-            first = any(gap_line.strip() for gap_line in gap)
+        line_above = next(
+            (line_index for line_index in range(pair.open_line - 1, -1, -1) if lines[line_index].strip()), None
+        )
+        first = line_above is None or closer_widths.get(line_above) != _indent_width(lines[pair.open_line])
         replacements[pair.open_line] = marker_block(pair.indent, MARKER_OPEN, {"name": pair.tokens[0], "first": first})
         replacements[pair.close_line] = marker_block(pair.indent, MARKER_CLOSE, {})
-        previous_close = pair.close_line
     for problem in scan.problems:
         if problem.from_marker:
             # The problem line is one of tabs' own markers; the post stage reports the lone marker
@@ -226,8 +249,10 @@ def apply_html(
     """Group tab markers into sets and wrap each set in the tabbed markup.
 
     Used by the ``mw post`` CLI stage. Orders every mw-tab and mw-tab-end marker by position and
-    stack-matches them; a ``first`` marker (or the first tab seen) starts a set, the rest join it.
-    Each set wraps in a ``tabbed-set`` ``<div>`` with one radio ``<input>`` and ``<label>`` per
+    stack-matches them; a ``first`` marker (or the first tab seen at its nesting level) starts a
+    set, and the rest join the latest set of the tabs that share their enclosing tab. Sets are
+    numbered in the order their first tab opens. A pair whose opener or closer payload fails to
+    decode is skipped. Each set wraps in a ``tabbed-set`` ``<div>`` with one radio ``<input>`` and ``<label>`` per
     tab and one ``tabbed-block`` per tab's body. An mw-tab-problem marker reports a tab container
     left literal and is removed. Markers are validated and skipped fail-soft; pass a
     ``skip_reasons`` list to collect the reports and the skips. Every recognized marker comment is
@@ -245,18 +270,29 @@ def apply_html(
 
     match = match_marker_pairs(MARKER_OPEN, MARKER_CLOSE, rendered_html, tokens)
     sets: list[list[tuple[TabMarker, MarkerComment, MarkerComment]]] = []
-    for open_marker, close_marker in match.pairs:
+    latest_set_by_parent: dict[int | None, list[tuple[TabMarker, MarkerComment, MarkerComment]]] = {}
+    enclosing_closers: list[MarkerComment] = []
+    for open_marker, close_marker in sorted(match.pairs, key=lambda pair: pair[0].token_index):
         try:
             marker = decode_marker(MARKER_OPEN, open_marker.raw_payload, TabMarker)
+            decode_marker(MARKER_CLOSE, close_marker.raw_payload, TabEndMarker)
         except InvalidMarkerError as skipped:
             edits.append((tokens[open_marker.token_index].start, tokens[open_marker.token_index].end, ""))
             edits.append((tokens[close_marker.token_index].start, tokens[close_marker.token_index].end, ""))
             if skip_reasons is not None:
                 skip_reasons.append(str(skipped))
             continue
-        if marker.first or not sets:
-            sets.append([])
-        sets[-1].append((marker, open_marker, close_marker))
+        while enclosing_closers and enclosing_closers[-1].token_index < open_marker.token_index:
+            enclosing_closers.pop()
+        parent = enclosing_closers[-1].token_index if enclosing_closers else None
+        # A tab joins a set only among the tabs that share its enclosing tab.
+        tab_group = latest_set_by_parent.get(parent)
+        if marker.first or tab_group is None:
+            tab_group = []
+            sets.append(tab_group)
+            latest_set_by_parent[parent] = tab_group
+        tab_group.append((marker, open_marker, close_marker))
+        enclosing_closers.append(close_marker)
     for set_number, tab_group in enumerate(sets, start=1):
         edits += _render_set(set_number, tab_group, tokens)
 
@@ -303,9 +339,12 @@ class TabsExtension(Extension):
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
         """Register the tabs preprocessor and postprocessor.
 
+        The preprocessor runs at 21, ahead of Python-Markdown's ``html_block`` (20), so the marker
+        comments exist before that preprocessor stashes raw HTML and are stashed whole.
+
         :param md: The Markdown instance to extend.
         """
-        md.preprocessors.register(TabsPreprocessor(md), "mw-tabs-pre", 20)
+        md.preprocessors.register(TabsPreprocessor(md), "mw-tabs-pre", 21)
         md.postprocessors.register(TabsPostprocessor(md), "mw-tabs-post", 27)
 
 

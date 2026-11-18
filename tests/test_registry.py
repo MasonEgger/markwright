@@ -76,7 +76,7 @@ class TestTabsRegistration:
     def test_tabs_is_registered_with_container_priorities(self) -> None:
         assert "tabs" in EXTENSION_NAMES
         spec = REGISTRY["tabs"]
-        assert spec.pre_priority == 20
+        assert spec.pre_priority == 21
         assert spec.post_priority == 27
 
     def test_tabs_takes_no_options(self) -> None:

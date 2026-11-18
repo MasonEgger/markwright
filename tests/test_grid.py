@@ -45,14 +45,14 @@ def render_grid(source: str) -> str:
 
 class TestExpandSource:
     def test_cards_line_becomes_marker_and_blank_line(self) -> None:
-        assert expand_source("[grid cards]\n- a\n- b") == CARDS_MARKER + "\n\n- a\n- b"
+        assert expand_source("[grid cards]\n- a\n- b") == "\n" + CARDS_MARKER + "\n\n- a\n- b"
 
     def test_plain_grid_line_becomes_marker_and_blank_line(self) -> None:
-        assert expand_source("[grid]\n\n- a") == GRID_MARKER + "\n\n\n- a"
+        assert expand_source("[grid]\n\n- a") == "\n" + GRID_MARKER + "\n\n\n- a"
 
     def test_indent_is_preserved(self) -> None:
         result = expand_source("- item\n\n    [grid cards]\n    - a")
-        assert result == f"- item\n\n    {CARDS_MARKER}\n\n    - a"
+        assert result == f"- item\n\n\n    {CARDS_MARKER}\n\n    - a"
 
     def test_inline_mention_is_unchanged(self) -> None:
         source = "Use [grid cards] in prose."
@@ -63,10 +63,10 @@ class TestExpandSource:
         assert expand_source(source) == source
 
     def test_column_count_becomes_marker_and_blank_line(self) -> None:
-        assert expand_source("[grid 3]\n- a") == COLS_MARKER + "\n\n- a"
+        assert expand_source("[grid 3]\n- a") == "\n" + COLS_MARKER + "\n\n- a"
 
     def test_cards_and_count_becomes_marker(self) -> None:
-        assert expand_source("[grid cards 2]\n- a") == CARDS_COLS_MARKER + "\n\n- a"
+        assert expand_source("[grid cards 2]\n- a") == "\n" + CARDS_COLS_MARKER + "\n\n- a"
 
     def test_count_out_of_range_is_unchanged(self) -> None:
         for source in ("[grid 7]\n- a", "[grid 0]\n- a", "[grid foo]\n- a"):
@@ -79,8 +79,8 @@ class TestExpandSource:
             assert expand_source(source) == source
 
     def test_count_bounds_are_markers(self) -> None:
-        assert expand_source("[grid 1]\n- a") == '<!-- mw-grid:{"version": 1, "columns": 1} -->\n\n- a'
-        assert expand_source("[grid 6]\n- a") == '<!-- mw-grid:{"version": 1, "columns": 6} -->\n\n- a'
+        assert expand_source("[grid 1]\n- a") == '\n<!-- mw-grid:{"version": 1, "columns": 1} -->\n\n- a'
+        assert expand_source("[grid 6]\n- a") == '\n<!-- mw-grid:{"version": 1, "columns": 6} -->\n\n- a'
 
     def test_repeated_token_is_unchanged(self) -> None:
         for source in ("[grid cards cards]\n- a", "[grid 2 3]\n- a"):
@@ -93,6 +93,27 @@ class TestExpandSource:
     def test_plain_grid_line_inside_a_fence_is_unchanged(self) -> None:
         source = "```\n[grid]\n- a\n```"
         assert expand_source(source) == source
+
+
+class TestShortcutMarkerIsABlock:
+    def test_a_shortcut_under_a_paragraph_gets_a_blank_line_before_the_marker(self) -> None:
+        assert expand_source("Intro text\n[grid cards]\n- a") == f"Intro text\n\n{CARDS_MARKER}\n\n- a"
+
+    def test_a_shortcut_is_not_absorbed_into_the_paragraph_above_it_in_process(self) -> None:
+        result = render_grid("Intro text\n[grid cards]\n\n- a")
+        assert "<p>Intro text</p>" in result
+        assert '<ul class="mw-grid mw-grid-cards">' in result
+        assert result.count("<p>") == 1
+
+
+class TestCrlfProblemMarker:
+    def test_a_problem_marker_lands_before_the_carriage_return(self) -> None:
+        result = expand_source("[card]\r\n")
+        unclosed = CARD_OUTSIDE_PROBLEM.replace("card-outside-grid", "unclosed")
+        assert result == f"[card]{unclosed}\r\n"
+
+    def test_a_crlf_line_without_a_problem_keeps_its_ending(self) -> None:
+        assert expand_source("text\r\n") == "text\r\n"
 
 
 class TestApplyHtml:
@@ -604,3 +625,20 @@ class TestMarkerSourcedContainers:
         twice = expand_source(expand_source(f"{BLOCK_CARDS_MARKER}\n\n- a\n- b\n\n{BLOCK_END_MARKER}"))
         result = apply_html(render_plain(twice))
         assert result.count('<div class="mw-grid mw-grid-cards">') == 1
+
+
+class TestEscapedDirective:
+    def test_an_escaped_grid_line_stays_literal_in_both_paths(self) -> None:
+        source = "\\[grid 3]\n\n- a"
+        skip_reasons: list[str] = []
+        piped = apply_html(render_plain(expand_source(source)), skip_reasons)
+        assert piped == render_grid(source)
+        assert "<p>[grid 3]</p>" in piped
+        assert "mw-grid" not in piped
+        assert skip_reasons == []
+
+    def test_escaped_card_and_grid_closers_stay_literal_with_no_report(self) -> None:
+        source = "\\[/grid]\n\n\\[/card]"
+        assert expand_source(source) == source
+        assert report_markers(source) == []
+        assert render_grid(source) == "<p>[/grid]</p>\n<p>[/card]</p>"

@@ -53,7 +53,7 @@ The codebase has **two consumers over one set of pure stage functions**, so the 
   It recognizes a stage's own emitted marker-comment lines (`mw-grid-block`, `mw-card`, `mw-tab`, and their `-end` closers) as openers and closers and flags those results `from_marker`, so the owning stage skips its own markers and pairing survives `mw pre` run twice over its own output.
 - `_html.py` tokenizes rendered HTML with the stdlib `html.parser` and keeps each token's source offsets (`HtmlToken`). Post stages find elements from tokens and apply span edits (`apply_edits`), so everything they do not touch stays byte-identical. A tree parser (lxml, selectolax) would re-serialize the whole page and is deliberately not used. `provider_script_needed` decides script injection from parsed classes and `src` attributes.
 
-- `_markers.py` owns the versioned `<!-- NAME:{JSON} -->` marker comment (`encode_marker`, `find_markers`, `decode_marker`) that carries data from a pre stage to a post stage, plus `marker_block` (a marker comment emitted as its own indented block, blank lines around it), `match_marker_pairs` (stack-match open and close markers by position), `inline_problem_marker` (append a problem marker to a literal line), and `report_problem_markers` (compose one `--warn` message per problem marker). It is fail-soft on read and comment-safe on write (`<` and `>` are `\uXXXX`-escaped). Fence, grid, annotate, and tabs share it, so the contract lives in one place.
+- `_markers.py` owns the versioned `<!-- NAME:{JSON} -->` marker comment (`encode_marker`, `find_markers`, `decode_marker`) that carries data from a pre stage to a post stage, plus `marker_block` (a marker comment emitted as its own indented block, blank lines around it), `match_marker_pairs` (stack-match open and close markers by position), `inline_problem_marker` (append a problem marker to a literal line), and `report_problem_markers` (compose one `--warn` message per problem marker). It is fail-soft on read and comment-safe on write (`<`, `>`, and the backtick are `\uXXXX`-escaped). Fence, grid, annotate, and tabs share it, so the contract lives in one place.
 
 Regex remains for single-line token grammars (the `[youtube ...]`-style directive lines ported from do-markdownit, fence info strings, the marker comment's own format, inline code spans and `<^>` markers within known text).
 
@@ -92,7 +92,8 @@ markwright emits classes and markup only and ships no CSS, JavaScript, or icons;
 | 40 | Preprocessor | fence | Runs *before* `pymdownx.superfences` (~38) |
 | 50 | pre stage (`mw pre` only) | icons | The registry's pre priority; in-process icons registers only the InlineProcessor |
 | 45 | Preprocessor | mermaid | Replaces mermaid fences before fence and superfences |
-| 20 | Preprocessor | button, lightbox, grid, annotate, tabs | Same slot as the embeds, after superfences; skip fenced and indented code through `_fences.map_lines` |
+| 21 | Preprocessor | grid, tabs | Runs *ahead of* Python-Markdown's `html_block` (20), so each marker comment is stashed whole (a tab name with backticks stays text), and after superfences; skip fenced and indented code through `_containers.scan_containers` |
+| 20 | Preprocessor | button, lightbox, annotate | Same slot as the embeds, after superfences; skip fenced and indented code through `_fences.map_lines` |
 | 20 | Preprocessor | all embeds | Runs *after* superfences (embed syntax in fences is already stashed); skip fenced and indented code through `_fences.map_lines` |
 | 175 | InlineProcessor | highlight | Runs before emphasis |
 | 85 | InlineProcessor | icons | After links, images, autolinks, and inline HTML (90), so a shortcode inside an attribute stays literal; before entities and emphasis |

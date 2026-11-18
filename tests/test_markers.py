@@ -32,6 +32,17 @@ class TestEncodeMarker:
         assert ">" not in inner
         assert json.loads(inner)["v"] == "a-->b<!--c"
 
+    def test_a_backtick_is_written_as_its_unicode_escape_and_decodes_back(self) -> None:
+        comment = encode_marker("mw-x", {"v": "`code`"})
+        inner = comment.removeprefix("<!-- mw-x:").removesuffix(" -->")
+
+        assert "`" not in inner
+        assert json.loads(inner)["v"] == "`code`"
+
+    def test_a_marker_with_a_literal_backtick_still_decodes(self) -> None:
+        # Output written before the backtick was escaped must still read back.
+        assert decode_marker("mw-x", '{"version": 1, "size": null, "v": "`x`"}', _Marker) == _Marker(version=1)
+
 
 class TestFindMarkers:
     def test_blocks_run_to_the_next_marker(self) -> None:

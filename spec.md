@@ -92,7 +92,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - `youtube-nocookie` option: reduces tracking even for `eager`; worth a separate issue
 - `mw-` rename of the existing embed CSS classes: align them with the `mw-embed` preview hooks; nothing blocks it before 1.0, but it is a separate concern from the containers phase
 - Richer Material-parity features past the 0.4.0 contracts: lightbox galleries, captions, and `srcset`; annotation forms beyond a block plus its following list; each 0.4.0 extension stays minimal, revisit per issue
-- `mw pre` parity inside Markdown constructs it cannot see without a parser: a highlight marker or icon shortcode inside an image's alt text, a link title, a link destination, a link reference definition, or the text content of a raw HTML block is rewritten by `mw pre`, which leaves markup inside an attribute or breaks the link, while in-process a marker in alt text, a title, or a destination is consumed and every other case stays literal; a directive line inside a raw HTML block or a `<pre>` block is expanded by `mw pre` and left literal in-process; the icons pre stage skips HTML tags, comments, and autolinks (the single-line grammar), and the highlight pre stage does not, so a pair inside an autolink or a tag's attribute breaks the link or the tag; the code `_fences` does not see is listed under Rules Every Feature Follows; the rest needs a block-level scanner or a Decision that the CLI's behavior is the reference, revisit per issue
+- `mw pre` parity inside Markdown constructs it cannot see without a parser: a highlight marker or icon shortcode inside an image's alt text, a link title, a link destination, a link reference definition, or the text content of a raw HTML block is rewritten by `mw pre`, which leaves markup inside an attribute or breaks the link, while in-process a marker in alt text, a title, or a destination is consumed and every other case stays literal; a directive line inside a raw HTML block or a `<pre>` block is expanded by `mw pre`, and in-process too when it is a `[grid]`, `[card]`, or `[tab]` container line (those preprocessors run ahead of `html_block`), while any other directive line there is left literal in-process; the icons pre stage skips HTML tags, comments, and autolinks (the single-line grammar), and the highlight pre stage does not, so a pair inside an autolink or a tag's attribute breaks the link or the tag; the code `_fences` does not see is listed under Rules Every Feature Follows; the rest needs a block-level scanner or a Decision that the CLI's behavior is the reference, revisit per issue
 - Grid extras: card column spans (`[card 2]`), per-breakpoint column counts (`[grid 1 2 3]`), and config defaults for columns, gap, or minimum width; revisit per issue
 - Tab extras: a marker that selects a tab other than the first, and one that forces a new set right after another; revisit when a page needs either
 - Move the docs site to Bartleby: once Bartleby reaches parity and releases, before May 5, 2027; the docs keep loading markwright's own CSS and JavaScript samples through Bartleby's `extra_css` and `extra_js`, so the samples stay exercised
@@ -145,9 +145,9 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | lightbox | own | Unreleased | block bodies | `extensions/lightbox.md` | `lightbox.py` |
 | mermaid | own | Unreleased | pre-stage order, block bodies | `extensions/mermaid.md` | `mermaid.py` |
 | icons | own | Unreleased | pre-stage order, hardening | `extensions/icons.md` | `icons.py` |
-| annotate | own | Unreleased | annotate overlap, containers fixes (#30), block bodies | `extensions/annotate.md` | `annotate.py` |
-| grid and cards | own | Unreleased | containers fixes (#30), block bodies | `extensions/grid.md` | `grid.py`, `_containers.py` |
-| tabs | own | Unreleased | containers fixes (#30), block bodies | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
+| annotate | own | Unreleased | annotate overlap, block bodies | `extensions/annotate.md` | `annotate.py` |
+| grid and cards | own | Unreleased | block bodies | `extensions/grid.md` | `grid.py`, `_containers.py` |
+| tabs | own | Unreleased | block bodies | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
 
 ### Rules Every Feature Follows
 
@@ -324,9 +324,8 @@ Pairing:
   An unclosed `[tab]` or `[card]` and its stray closer then stay literal and are reported, and an unclosed `[grid]` follows the rules for one (the list shortcut, or literal when a stray `[/grid]` follows).
 - A directive is the whole line, so a line with anything else on it is never an opener or closer.
   A backslash before the bracket (`\[grid 3]`, `\[tab Name]`, `\[/tab]`) keeps a standalone line literal through Markdown's own escape, with no report.
-  Planned (containers fixes): the grid and tabs pages document the escape and tests pin it in both paths.
-- Containers nest: a grid in a card, a grid in a grid, tabs in a card, a grid in a tab.
-  A tab set inside a tab is the exception until the sibling rule under Tabs is built.
+  The grid and tabs pages document the escape and tests pin it in both paths.
+- Containers nest: a grid in a card, a grid in a grid, tabs in a card, a grid in a tab, and a tab set in a tab (it starts a set of its own inside that tab's block, per the sibling rule under Tabs).
 - An opener or closer line inside fenced or indented code stays literal.
 
 Problems:
@@ -341,9 +340,8 @@ Both paths:
 
 - The pre stages emit each container marker as an HTML comment on its own line with a blank line on either side, at the opener's indentation, so the content between renders as normal Markdown in Python-Markdown and in Goldmark.
   A problem marker is the exception: it sits on the literal line, after the directive, so the line still renders as the text the author wrote.
-  Planned (containers fixes): the `[grid]` shortcut marker and the `[annotate]` marker are emitted like the container markers, on a line of their own with a blank line on either side, and a problem marker is appended before a trailing carriage return, so a CRLF line keeps its line end.
-  Today those two markers gain a blank line after and none before, so a marker directly under a paragraph's text is read as part of that paragraph, and a problem marker lands after the carriage return.
-- Grid and tabs both run their pre stage at 20, so either may scan a document the other has already rewritten.
+  The `[grid]` shortcut marker and the `[annotate]` marker are emitted like the container markers, on a line of their own with a blank line on either side, and a problem marker is appended before a trailing carriage return, so a CRLF line keeps its line end.
+- Grid and tabs both run their pre stage at 21, so either may scan a document the other has already rewritten.
   The scanner reads a line that is solely one of the six paired container markers as the opener or closer it stands for, so pairing and card enclosure come out the same in either order, and a stage leaves a pair that is already its own markers alone.
   `mw pre` over its own output therefore leaves a valid document's container markers unchanged.
 - The post stages wrap the content through `_html` span edits and remove the markers.
@@ -363,8 +361,7 @@ Both paths:
   A `[/grid]` with no opener at its indentation is a stray closer, and the nearest `[grid ...]` still open at another indentation then stays literal instead of becoming the shortcut, since its author meant a block grid; only the closer is reported.
 - `[card]` ... `[/card]` directly inside a block grid wraps its content in `<div class="mw-card">`, so one card can hold several blocks (a heading, a paragraph, a list, a link).
 - A list inside a block grid with `cards` keeps its markup; host CSS makes each item a cell.
-  Planned (containers fixes): the docs sample covers it with `display: contents` on the list (`.md-typeset .mw-grid-cards > ul`, `.md-typeset .mw-grid-cards > ol`, the prefix being what outranks Material's own list rule) and with the card rules extended to its items (`.md-typeset .mw-grid-cards > ul > li`, `.md-typeset .mw-grid-cards > ol > li`), each item laid out as a cell and styled as a card, as Material did.
-  Today the sample styles only the list shortcut (`ul.mw-grid-cards > li`).
+  The docs sample covers it with `display: contents` on the list (`.md-typeset .mw-grid-cards > ul`, `.md-typeset .mw-grid-cards > ol`, the prefix being what outranks Material's own list rule) and with the card rules extended to its items (`.md-typeset .mw-grid-cards > ul > li`, `.md-typeset .mw-grid-cards > ol > li`), each item laid out as a cell and styled as a card, as Material did.
 - Markers: the list shortcut is `mw-grid`; a block grid is `mw-grid-block` and `mw-grid-end`; a card is `mw-card` and `mw-card-end`.
   Each carries version 1, and `mw-grid` and `mw-grid-block` add `cards` and `columns`, each present only when set.
 - It takes no options.
@@ -375,18 +372,14 @@ Both paths:
 - `[tab NAME]` ... `[/tab]` is one tab; NAME is the rest of the opener line, trimmed, non-empty, without `]`, and may hold spaces (`[tab Node.js 20]`).
   A `[tab ]` with no name is not an opener: it stays literal with no report, and a `[/tab]` it leaves unpaired is a stray closer.
 - Tabs separated only by blank lines group into one set, any other content between them starts a new set, and the first tab in a set is selected.
-  Planned (containers fixes): a tab joins the set of the tab before it only when the nearest non-blank line above its opener is the closer of a paired tab at the same indentation; any other tab starts a new set, so a tab opened inside another tab's body, directly or inside a grid and a card, starts a set of its own inside that tab's block, and a set never runs past the end of a list item.
-  Today the gap test looks at neither indentation nor nesting: a tab nested in a set of two or more tabs is listed beside its parent or splits that set, and a tab that ends a list item joins a top-level tab after it.
+  A tab joins the set of the tab before it only when the nearest non-blank line above its opener is the closer of a paired tab at the same indentation; any other tab starts a new set, so a tab opened inside another tab's body, directly or inside a grid and a card, starts a set of its own inside that tab's block, and a set never runs past the end of a list item.
 - The name renders as escaped plain text; inline Markdown in it is not rendered.
-  Planned (containers fixes): the tabs and grid preprocessors run ahead of Python-Markdown's `html_block` preprocessor, which then stashes each marker comment whole, so a tab name that holds backticks renders as the same escaped text in both paths; a `[tab]` or `[grid]` line inside a raw HTML block is then expanded in-process, as `mw pre` already expands it.
-  Today a backtick span in a tab name reaches the label as a visible `<code>` tag in-process.
+  The tabs and grid preprocessors run ahead of Python-Markdown's `html_block` preprocessor, which then stashes each marker comment whole, so a tab name that holds backticks renders as the same escaped text in both paths, at any indentation, because `encode_marker` also writes a backtick as `\u0060` and no inline processor can open a code span inside a payload; a `[tab]` or `[grid]` line inside a raw HTML block is then expanded in-process, as `mw pre` already expands it.
 - A set renders as pymdown-extensions' `tabbed` `alternate_style` markup, so a host's existing tab CSS styles it: `<div class="tabbed-set tabbed-alternate mw-tabs" data-tabs="S:N">`, one radio `<input>` per tab (`id="mw-tab-S-T"`, `name="mw-tab-S"`, the first `checked`), a `<div class="tabbed-labels">` of `<label for="mw-tab-S-T">`, then a `<div class="tabbed-content">` holding one `<div class="tabbed-block">` per tab.
 - S counts sets and T counts tabs within a set, both from 1, per document; the `mw-tab-` prefix keeps the ids from colliding with pymdown-extensions' `__tabbed_` ids when a host loads both.
-  Planned (containers fixes): S follows the order in which each set's first tab opens in the document, so an enclosing set has a lower number than a set nested in it.
-  Today S follows the order in which each set's first tab closes, so a set nested in another set's first tab gets the lower number.
+  S follows the order in which each set's first tab opens in the document, so an enclosing set has a lower number than a set nested in it.
 - Markers: `mw-tab` (version 1, with `name`, and `first`, true for a tab that starts a set) and `mw-tab-end`.
-  Planned (containers fixes): the post stages decode a closer marker's payload with the same strict model as its opener, and a pair whose closer fails is skipped and reported under `--warn`.
-  Today a closer's payload is not checked, so an `mw-tab-end` marker with an unsupported version still closes its tab.
+  The post stages decode a closer marker's payload with the same strict model as its opener, and a pair whose closer fails is skipped and reported under `--warn`.
 - It takes no options.
   Tabs switch with CSS alone; the docs sample's selector chains cover six tabs per set.
 - The `mw-tabs` class, the markup, and the `mw-tab-S-T` id scheme are a public contract.
@@ -495,11 +488,11 @@ Permanent; markwright does not do these:
 - **`_fences.py`** (CommonMark fenced-code scanning) and **`_html.py`** (offset-preserving tokenizing over the stdlib `html.parser`) own structured-text parsing. No stage hand-rolls Markdown-structure or HTML regex; single-line token grammars (embed directives, the marker comment) may stay regex.
   Planned (block bodies): `_fences` also reads the body of a Python-Markdown block opener (an admonition, a details block, a content tab, a definition, a footnote definition) as that block's content, not as indented code.
   Planned (hardening): `_fences` also reads a multi-line HTML comment as a region its callers skip.
-- **`_markers.py`** owns the marker-comment contract the post stages share: comment-safe encoding (every `<` and `>` escaped so a payload can never close the comment early), locating markers among `_html` tokens with each marker's block bounds, and fail-soft decode into a strict pydantic payload model. It also owns the emission and pairing helpers `grid` and `tabs` share: `marker_block` (one marker as its own indented block, blank lines around it), `inline_problem_marker`, `match_marker_pairs` (stack-match open and close markers by position), and `report_problem_markers`. `fence`, `grid`, `tabs`, and `annotate` depend on it; it depends only on `_html`.
+- **`_markers.py`** owns the marker-comment contract the post stages share: comment-safe encoding (every `<` and `>` escaped so a payload can never close the comment early, and every backtick escaped so no code span can open inside it), locating markers among `_html` tokens with each marker's block bounds, and fail-soft decode into a strict pydantic payload model. It also owns the emission and pairing helpers `grid` and `tabs` share: `marker_block` (one marker as its own indented block, blank lines around it), `inline_problem_marker`, `match_marker_pairs` (stack-match open and close markers by position), and `report_problem_markers`. `fence`, `grid`, `tabs`, and `annotate` depend on it; it depends only on `_html`.
   Planned (hardening): `decode_marker` turns every payload failure into a skip: a `ValueError` or `RecursionError` from the JSON reader, and a string that holds a lone surrogate.
 - **`_containers.py`** owns container pairing: from the source text it returns each pair (kind, opener line, closer line, indentation, opener tokens, whether the nearest enclosing container is a paired grid, and whether its lines were already marker comments), each unpaired or misplaced line with its reason, and each unclosed `[grid ...]` shortcut, skipping fenced and indented code through `_fences`. It holds the opener and closer grammars and the names of the six paired container markers, which `grid` and `tabs` import, so it can read an emitted marker line as the opener or closer it stands for. `grid` (block grids and cards) and `tabs` call it, the second caller that justifies the module; it depends only on `_fences`. Its pairing rules are a self-contained algorithm with a contract of its own, so `tests/test_containers.py` tests it directly, as the `_fences` and `_markers` tests do.
   Column comparison, the less-indented-line rule, and a card's paired-grid test live here.
-  Planned (containers fixes): the tab sibling rule lives in `tabs.py`, which owns grouping.
+  The tab sibling rule lives in `tabs.py`, which owns grouping.
 - **`tabs.py`** is a marker-comment pre-plus-post pair like `grid`; its post stage builds each set's inputs and labels from that set's `mw-tab` payloads.
 - **Extension patterns.** Every extension but `highlight` follows one of three, so a new one needs no new machinery: the embeds, `button`, and `lightbox` are directive-expand pre stages (codepen, twitter, and instagram add a script-injecting post stage); `mermaid` and `icons` are pre-only (a fence rewrite and an inline-processor resolver); `fence`, `grid`, `tabs`, and `annotate` are marker-comment pre-plus-post pairs; `highlight` wraps prose in its pre stage and in-code markers in its post stage, with no marker comment. Their shared helpers are second-caller extractions: `_fences.map_prose` (prose outside fences and inline code, shared by `highlight` and `icons`), and `_html.add_classes` (shared by `fence`, `grid`, and `annotate`); `_html.matching_end` has one caller, `annotate`.
 - **`cli.py`** wires config into each subcommand and is the single place exceptions become exit codes (`ConfigError`, or a `ConfigWarning` escalated with `PYTHONWARNINGS=error`, prints `mw: error:` and exits 2).

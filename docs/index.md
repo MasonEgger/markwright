@@ -110,7 +110,7 @@ Each extension is a standalone Python-Markdown extension loaded by name (e.g., `
 
 5. **Icons** uses a pre stage (priority 50) for `mw pre` and an InlineProcessor (priority 85) in-process, both resolving `:pack-name:` shortcodes against SVG directories you configure.
 
-6. **Grid and Annotate** follow the fence marker-comment pattern: a Preprocessor (priority 20) swaps the directive for a versioned marker comment, and a Postprocessor (priority 30) reads it from the rendered HTML.
+6. **Grid and Annotate** follow the fence marker-comment pattern: a Preprocessor (priority 20, or 21 for grid, which runs ahead of Python-Markdown's `html_block`) swaps the directive for a versioned marker comment, and a Postprocessor (priority 27) reads it from the rendered HTML.
 
 markwright ships no CSS, JavaScript, or icons. The extensions emit classes and markup, and the host site styles them.
 
