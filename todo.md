@@ -3,6 +3,7 @@
 Mirrors `plan.md`.
 One top-level checkbox per step; sub-items track the step's own sub-steps.
 The `/goal` loop checks items as it goes.
+Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 1: Container Postprocessor Priority
 
@@ -102,12 +103,7 @@ The `/goal` loop checks items as it goes.
 - [ ] Step 15: `mw post` takes the config `warn` key as the diagnostics default
   - [ ] RED: tests/test_cli.py (config warn, --warn/--no-warn last wins, post-only, PYTHONWARNINGS not escalated)
   - [ ] GREEN: cli.py --no-warn and resolved warn default
-  - [ ] Docs: spec.md The mw CLI (warn default, correct the #33 Known gap)
-  - [ ] just check
-- [ ] Step 16: Parser hygiene in one pass
-  - [ ] RED: tests/test_cli.py (no abbreviations, missing-subcommand usage on stderr, --config "" error), tests/test_config.py (no-op warning names source)
-  - [ ] GREEN: cli.py allow_abbrev=False, usage on stderr, empty --config error; config.py source in no-op warning
-  - [ ] Docs: spec.md The mw CLI and Config and the Host API, Feature Status drops warn default (#33)
+  - [ ] Docs: spec.md The mw CLI (warn default, correct the #33 Known gap), Feature Status drops warn default (#33) from the mw CLI row
   - [ ] just check
 
 ## Section 9: Public Fence API (#32)
@@ -125,16 +121,6 @@ The `/goal` loop checks items as it goes.
 
 ## Section 10: Hardening
 
-- [ ] Step 19: One integer helper for every directive and annotation integer
-  - [ ] RED: embed tests, tests/test_grid.py, tests/test_annotate.py (long digit string, non-ASCII digit stay literal)
-  - [ ] GREEN: one integer helper; route every directive/annotation integer through it
-  - [ ] Docs: spec.md Embeds
-  - [ ] just check
-- [ ] Step 20: `decode_marker` turns every payload failure into a skip
-  - [ ] RED: tests/test_markers.py (too-long number, deep nesting, lone surrogate)
-  - [ ] GREEN: _markers.py decode_marker catches ValueError/RecursionError and lone surrogate
-  - [ ] Docs: spec.md Rules Every Feature Follows and Component boundaries
-  - [ ] just check
 - [ ] Step 21: Fence hardening: class tokens, dropped `prefix_value`, Chroma newline
   - [ ] RED: tests/test_config.py (class tokens), tests/test_fence.py (dropped prefix_value, Chroma newline)
   - [ ] GREEN: fence.py and config.py class-token validation; drop prefix_value; no second Chroma newline
@@ -155,10 +141,10 @@ The `/goal` loop checks items as it goes.
   - [ ] GREEN: cli.py UTF-8 stdio and boundary error mapping; config.py and icons.read_options turn OSError/UnicodeDecodeError into ConfigError/OptionError
   - [ ] Docs: spec.md The mw CLI, Config and the Host API, Component boundaries
   - [ ] just check
-- [ ] Step 25: Skip a multi-line HTML comment and pass front matter through
-  - [ ] RED: tests/test_fences_map_lines.py, tests/test_fences_map_prose.py, tests/test_roundtrip.py, tests/test_cli.py
-  - [ ] GREEN: _fences.py HTML-comment skip region; cli.py front matter pass-through
-  - [ ] Docs: spec.md Rules Every Feature Follows, The mw CLI, Component boundaries, Feature Status clears hardening
+- [ ] Step 25: `mw pre` passes front matter through
+  - [ ] RED: tests/test_cli.py (YAML and TOML front matter untouched)
+  - [ ] GREEN: cli.py front matter pass-through
+  - [ ] Docs: spec.md The mw CLI, Component boundaries, Feature Status clears hardening
   - [ ] just check
 
 ## Section 11: Docs Catch-Up

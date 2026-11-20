@@ -9,7 +9,8 @@ It is done by hand after the merge, because `pyproject.toml`, `uv.lock`, and the
 ## Current Status
 
 - Branch: `containers-30`, draft PR #35 into `main`, CI green on Python 3.11 through 3.15.
-- Not started. 0 of 29 steps complete.
+- In progress. Steps 1 through 9 are complete.
+- Cut on 2026-11-20, to ship 0.4.0: Step 16 (parser hygiene), Step 19 (the integer helper), Step 20 (`decode_marker` payload failures), and the HTML-comment half of Step 25. Each is now a `Known gap` sentence under Goals and a Roadmap Deferred line in `spec.md`. The remaining steps keep their numbers, so the numbering has gaps at 16, 19, and 20.
 - Gate: `just check` (ruff, ruff format, mypy strict, pytest, coverage reported) after every step; `just docs-build --strict` is the gate for the docs sections.
 - Fences honored: no step edits `pyproject.toml` or `uv.lock` (outside `paths:`); no step implements a Roadmap Deferred item (in-process diagnostics, the shared one-scan-per-`run_pre` refactor, problem-report line numbers, fence marker binding, `[button]` argument checks, release pipeline hygiene).
 
@@ -491,33 +492,7 @@ The fix: `mw post` takes `warn` as the default for its diagnostics; `--warn` tur
 3. REFACTOR: Confirm mw config already shows warn and its source (it is validated today); add the source display if missing.
 
 4. Update documentation:
-   - In spec.md, Goals, The mw CLI, remove the "Planned (config warn default)" prefix from the warn-default sentence and correct the "Known gap (config warn default, #33)" sentence to reflect that mw post now reads warn.
-
-5. Verify meaningful coverage and run just check.
-```
-
-### Step 16: Parser hygiene in one pass
-
-**NOTE**: Grounded in the second `Planned (config warn default)` sentence under Goals, The mw CLI and the `Planned (config warn default)` sentence under Goals, Config and the Host API.
-The same parser edit turns off option abbreviations, prints the missing-subcommand usage on stderr, makes `--config ""` an error, and names the source in every no-op warning raised while a config file or host table is validated.
-
-```text
-1. RED: Write tests first:
-   - In tests/test_cli.py:
-     - Test that "mw post --w", "--no", "--ex", and "--conf" are usage errors (exit 2), not read as --warn/--no-warn/--exclude/--config.
-     - Test that "mw" with no subcommand prints its usage line on STDERR and exits 2.
-     - Test that "--config ''" (empty string) is an error, not a fallback to discovery.
-   - In tests/test_config.py:
-     - Test that a no-op ConfigWarning raised while validating a config file or a host mapping names that source.
-
-2. GREEN: Implement:
-   - In src/markwright/cli.py, set allow_abbrev=False on the argument parsers; print the missing-subcommand usage to stderr and exit 2; treat an empty --config value as an error (a path that does not exist).
-   - In src/markwright/config.py, include the source label in a no-op ConfigWarning raised during file or mapping validation.
-
-3. REFACTOR: Keep other warning categories in Python's default format; only markwright's ConfigWarning is reformatted by the CLI.
-
-4. Update documentation:
-   - In spec.md, Goals, The mw CLI, remove the "Planned (config warn default)" prefix from the abbreviation/usage/--config sentence and delete its "Today" sentence; in Config and the Host API, remove the prefix from the no-op-source sentence and delete its "today" clause; drop "warn default (#33)" from the mw CLI and config rows in Feature Status "Open Work".
+   - In spec.md, Goals, The mw CLI, remove the "Planned (config warn default)" prefix from the warn-default sentence and correct the "Known gap (config warn default, #33)" sentence to reflect that mw post now reads warn; drop "warn default (#33)" from the mw CLI row in Feature Status "Open Work"; leave the "Known gap (parser hygiene)" and "Known gap (no-op warning source)" sentences as they are.
 
 5. Verify meaningful coverage and run just check.
 ```
@@ -590,59 +565,8 @@ The fix adds a public `disallowed_environments(source, config)` that fence.py ba
 - MCPs: none
 - Linters: none
 
-Hardening is the bundle of `Planned (hardening)` sentences across Goals; the goal is that no input ends in a traceback.
+Hardening is the bundle of `Planned (hardening)` sentences across Goals; the goal is that no input an author or a pipeline plausibly sends ends in a traceback.
 It deliberately does NOT include the Roadmap Deferred "Pre-stage scan cost" refactor (one shared scan per `run_pre`); these steps only make bad input fail soft.
-
-### Step 19: One integer helper for every directive and annotation integer
-
-**Batch:** hardening-a
-
-**NOTE**: Grounded in `Planned (hardening)` under Goals, Embeds.
-Today a digit string of 4,301 characters, or a non-ASCII digit such as `²`, ends a stage in a traceback, in-process too.
-The fix: one helper reads every integer a directive or an annotation marker carries (height, width, column count, `(N)`), accepting ASCII digits up to a fixed length; any other value leaves the line literal.
-
-```text
-1. RED: Write tests first:
-   - In tests/test_youtube.py, tests/test_codepen.py, tests/test_twitter.py, tests/test_instagram.py, tests/test_slideshow.py, tests/test_image_compare.py, tests/test_grid.py, tests/test_annotate.py (the places that parse an integer):
-     - Test that a 4301-character digit string and a non-ASCII digit ("²") leave the line LITERAL rather than raising, in both paths.
-     - Test that ordinary small integers still parse.
-
-2. GREEN: Implement:
-   - Add one integer-reading helper (a small private function, placed where the embeds and grid/annotate can all import it without a new cross-dependency, e.g. a shared helper module or _diagnostics-adjacent location consistent with the codebase layout) that accepts ASCII digits up to a fixed maximum length and returns None otherwise.
-   - Route every directive/annotation integer parse through it; a None result leaves the line literal.
-
-3. REFACTOR: Replace each ad hoc int() on directive input with the helper; keep config-side integer options (if any) as they are unless they share the same risk.
-
-4. Update documentation:
-   - In spec.md, Goals, Embeds, remove the "Planned (hardening)" prefix from the integer-helper sentence and delete its "Today" sentence.
-
-5. Verify meaningful coverage and run just check.
-```
-
-### Step 20: `decode_marker` turns every payload failure into a skip
-
-**Batch:** hardening-a
-
-**NOTE**: Grounded in `Planned (hardening)` under Goals, Rules Every Feature Follows ("marker is read fail-soft") and Component boundaries (`_markers.py`).
-Today a number too long to convert, nesting too deep to decode, or a string that holds a lone surrogate ends `mw post` in a traceback.
-The fix: `decode_marker` turns a `ValueError` or `RecursionError` from the JSON reader, and a lone surrogate, into a skip.
-
-```text
-1. RED: Write tests first:
-   - In tests/test_markers.py:
-     - Test that decode_marker returns the skip result (not a raise) for a payload with a number too long to convert, nesting too deep for the JSON reader (RecursionError), and a string holding a lone surrogate.
-     - Test that a valid payload still decodes.
-
-2. GREEN: Implement in src/markwright/_markers.py decode_marker:
-   - Catch ValueError and RecursionError from the JSON reader and detect a lone surrogate, returning the fail-soft skip in each case.
-
-3. REFACTOR: Keep the existing fail-soft cases (malformed JSON, non-object payload, unsupported version, wrong field type, no following element) unchanged.
-
-4. Update documentation:
-   - In spec.md, Goals, Rules Every Feature Follows, remove the "Planned (hardening)" prefix from the payload-skip sentence and delete its "Today" sentence; in Component boundaries, remove the prefix from the _markers.py sentence.
-
-5. Verify meaningful coverage and run just check.
-```
 
 ### Step 21: Fence hardening: class tokens, dropped `prefix_value`, Chroma newline
 
@@ -752,31 +676,27 @@ The fix makes it a boundary error that names the file.
 5. Verify meaningful coverage and run just check.
 ```
 
-### Step 25: Skip a multi-line HTML comment and pass front matter through
+### Step 25: `mw pre` passes front matter through
 
 **Batch:** hardening-b
 
-**NOTE**: Grounded in the two `Planned (hardening)` sentences under Goals, Rules Every Feature Follows (HTML comment region) and Goals, The mw CLI (front matter), plus Component boundaries (`_fences.py`).
-`_fences` reads a block that starts with `<!--` and runs to the line holding `-->` as a region its callers skip, so a directive inside a multi-line HTML comment stays commented out in both paths.
+**NOTE**: Grounded in the `Planned (hardening)` front matter sentence under Goals, The mw CLI.
 `mw pre` passes a leading YAML (`---`) or TOML (`+++`) front matter block through untouched.
+The multi-line HTML comment region this step once held was cut on 2026-11-20; it is `Known gap (directive in a multi-line HTML comment)` and a Roadmap Deferred line, so do not build it.
 
 ```text
 1. RED: Write tests first:
-   - In tests/test_fences_map_lines.py and tests/test_fences_map_prose.py:
-     - Test that a directive line, a highlight marker, and an icon shortcode inside a multi-line HTML comment (<!-- ... -->) are inside a skipped region in both map_lines and map_prose.
-   - In tests/test_roundtrip.py:
-     - Add a multi-line-HTML-comment case so both paths agree.
    - In tests/test_cli.py:
      - Test that mw pre passes a leading "---\n...\n---" YAML block and a leading "+++\n...\n+++" TOML block through UNTOUCHED, so a marker/shortcut/directive inside front matter is not rewritten.
+     - Test that a document with no front matter, and one whose first line is "---" with no closing line, are read as before.
 
 2. GREEN: Implement:
-   - In src/markwright/_fences.py, read a block from a line starting with "<!--" to the line holding "-->" as a skip region its callers (map_lines, map_prose) treat like fenced/indented code.
    - In src/markwright/cli.py, detect a leading YAML/TOML front matter block and pass it through run_pre untouched (split it off before the pre stages and re-prepend it).
 
-3. REFACTOR: Keep the single-line HTML comment marker handling the stages already rely on; this is the multi-line author comment case.
+3. REFACTOR: Keep the front matter split in cli.py; _fences.py does not change in this step.
 
 4. Update documentation:
-   - In spec.md, Goals, Rules Every Feature Follows, remove the "Planned (hardening)" prefix from the HTML-comment-region sentence and delete its "Today" sentence; in The mw CLI, remove the prefix from the front-matter sentence and delete its "Today" sentence; in Component boundaries, remove the prefix from the _fences.py HTML-comment sentence; drop the remaining "hardening" entries from Feature Status "Open Work".
+   - In spec.md, Goals, The mw CLI, remove the "Planned (hardening)" prefix from the front-matter sentence and delete its "Today" sentence; in Component boundaries, confirm the cli.py sentence carries no "Planned" prefix (Step 24 removes it); drop the remaining "hardening" entries from Feature Status "Open Work".
 
 5. Verify meaningful coverage and run just check.
 ```
@@ -871,7 +791,7 @@ The gate is `just docs-build --strict`.
    - Add to the upgrade notes: selected_extensions with no enable list returns fifteen names where 0.3.0 returned eight; the [grid N] forms; a mermaid entry in custom_fences goes inert; a directive with nothing to apply to is removed.
    - Correct the mw-cards -> mw-grid-cards rename line (mw-cards never shipped) and name all nine markers the release adds.
    - Fix the #20 and #29 Fixed entries that describe the embed-in-code fix backwards; add the missing entry for a <^> pair inside indented code.
-   - Add the per-item lines each plan item owes: the pairs that stop highlighting under same-line pairing (#34), an existing warn = true that starts printing (#33), and the abbreviated options that stop working (#33).
+   - Add the per-item lines each plan item owes: the pairs that stop highlighting under same-line pairing (#34) and an existing warn = true that starts printing (#33).
    - Add the line Step 8 owes: a directive line indented under a list item or a block opener's body now expands at its own indentation, so it stays inside the item or body (an embed under a list item no longer ends the list in-process), while a directive at column 0 renders as before.
 
 4. Verify:
