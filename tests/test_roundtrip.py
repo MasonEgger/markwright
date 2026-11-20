@@ -264,6 +264,36 @@ class TestRoundTripMermaidInAnItem:
         assert pipeline_text == ["mindmap\n   root\n     a\n   b\n "]
 
 
+class TestRoundTripHighlightEscape:
+    """A prose escape reads the same through ``mw pre | render | mw post`` as in-process."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            r"a \<^>x\<^> b",
+            r"a \\<^>x<^> b",
+            r"a \\\<^>x<^> b",
+            r"a \\\\<^>x<^> b",
+            r"<^>a \<^> b<^> c",
+            r"<^>a\<^> b",
+            r"\<^>x<^>",
+            r"x \<^>y\<^> and <^>z<^>",
+        ],
+    )
+    def test_prose_escape_matches_in_process(self, source: str) -> None:
+        names = ["highlight"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names))
+
+    def test_an_odd_run_is_a_literal_marker_and_an_even_run_is_live(self) -> None:
+        names = ["highlight"]
+        literal = registry.run_post(stub_render(registry.run_pre(r"a \<^>x\<^> b", names)), names)
+        live = registry.run_post(stub_render(registry.run_pre(r"a \\<^>x<^> b", names)), names)
+        assert "<mark>" not in literal
+        assert "&lt;&#94;&gt;x" in literal
+        assert "<mark>x</mark>" in live
+
+
 class TestRoundTripIdempotency:
     """Running the post stage twice does not double-apply any transform."""
 

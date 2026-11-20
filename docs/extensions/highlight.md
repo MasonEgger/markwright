@@ -79,6 +79,9 @@ Prefix a marker with a backslash (`\<^>`) to show it literally instead of applyi
 This works consistently in regular text, inline code, and fenced code blocks, and produces the same literal marker whether you render in-process or through the `mw pre | post` pipeline.
 This is how the code samples above print the raw `<^>` syntax.
 
+In text, backslashes before a marker are read in pairs: two of them print one backslash and leave the marker live, three print one backslash and a literal marker.
+A literal marker is written `&lt;&#94;&gt;` in the HTML, so running `mw post` again leaves it alone.
+
 ## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.

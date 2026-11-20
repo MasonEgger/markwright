@@ -65,16 +65,16 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 5: Highlight Escape in Split Spans (#31)
 
-- [ ] Step 10: Read in-code markers and escapes from each code line's text
-  - [ ] RED: tests/test_highlight.py (Pygments), Chroma fixtures in tests/test_fence.py or tests/test_highlight.py
-  - [ ] GREEN: highlight.py apply_html reads markers/escapes from code-line text, tags ignored
-  - [ ] Docs: spec.md Highlight (two post-stage sentences, correct the #31 Known gap)
-  - [ ] just check
-- [ ] Step 11: `mw pre` writes a prose escape both renderers hand back
-  - [ ] RED: tests/test_highlight.py, tests/test_roundtrip.py
-  - [ ] GREEN: highlight.py expand_source pairs backslashes, writes the marker's < as &lt;
-  - [ ] Docs: spec.md Highlight, Feature Status drops escape in split spans (#31)
-  - [ ] just check
+- [x] Step 10: Read in-code markers and escapes from each code line's text
+  - [x] RED: tests/test_highlight.py (Pygments), Chroma fixtures in tests/test_fence.py or tests/test_highlight.py
+  - [x] GREEN: highlight.py apply_html reads markers/escapes from code-line text, tags ignored
+  - [x] Docs: spec.md Highlight (two post-stage sentences, correct the #31 Known gap)
+  - [x] just check
+- [x] Step 11: `mw pre` writes a prose escape both renderers hand back
+  - [x] RED: tests/test_highlight.py, tests/test_roundtrip.py
+  - [x] GREEN: highlight.py expand_source pairs backslashes, writes the marker's < as &lt;
+  - [x] Docs: spec.md Highlight, Feature Status drops escape in split spans (#31)
+  - [x] just check
 
 ## Section 6: Highlight Same-Line Pairing (#34)
 
