@@ -193,6 +193,76 @@ class TestRoundTripIcons:
         assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
         assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
 
+    def test_shortcodes_beside_directives_and_a_diagram_match_in_process(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        source = (
+            "[tab :demo-check: One]\nbody :demo-check:\n[/tab]\n\n"
+            "[button https://x.test :demo-check: Go]\n\n"
+            "[youtube abc123 :demo-check:]\n\n"
+            "```mermaid\ngraph LR\n  A[:demo-check:] --> B\n```\n"
+        )
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        assert '<pre class="mermaid">graph LR\n  A[:demo-check:] --&gt; B\n</pre>' in pipeline
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
+
+
+class TestRoundTripMermaid:
+    """A mermaid diagram renders the same through the pipeline and in-process, beside text and indented."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "para\n```mermaid\ngraph LR\n  A --> B\n```\nafter\n",
+            "  ```mermaid\n  graph LR\n  ```\n",
+            "para\n   ```mermaid\n   graph LR\n\n     A --> B\n   ```\nafter\n",
+        ],
+        ids=["beside-text", "indented-two", "indented-three-with-blank-line"],
+    )
+    def test_pipeline_equals_in_process_render(self, source: str) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names)
+        assert pipeline.count('<pre class="mermaid">') == 1
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names))
+
+
+class TestRoundTripMermaidInAnItem:
+    """Four columns or more under a list item the in-process text is exact; the pipeline keeps what the item leaves."""
+
+    @staticmethod
+    def diagram_texts(source: str) -> tuple[list[str], list[str]]:
+        """Render ``source`` both ways and read the text of each diagram.
+
+        :param source: Markdown source holding a mermaid fence.
+        :returns: The diagram texts of the pipeline render, then of the in-process render.
+        """
+        names = ["mermaid"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names)
+        in_process = in_process_render(source, names)
+        diagram_re = re.compile(r'<pre class="mermaid">(.*?)</pre>', re.DOTALL)
+        return diagram_re.findall(pipeline), diagram_re.findall(in_process)
+
+    def test_fence_at_the_item_column_matches_in_process(self) -> None:
+        source = "- item\n\n    ```mermaid\n    mindmap\n      root\n        a\n      b\n    ```\n"
+        pipeline_text, in_process_text = self.diagram_texts(source)
+        assert pipeline_text == in_process_text == ["mindmap\n  root\n    a\n  b\n"]
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "- item\n\n     ```mermaid\n     mindmap\n       root\n         a\n       b\n     ```\n",
+            "1. item\n\n     ```mermaid\n     mindmap\n       root\n         a\n       b\n     ```\n",
+        ],
+        ids=["bullet-five", "ordered-five"],
+    )
+    def test_fence_one_column_past_the_item_keeps_that_column_in_the_pipeline(self, source: str) -> None:
+        pipeline_text, in_process_text = self.diagram_texts(source)
+        assert in_process_text == ["mindmap\n  root\n    a\n  b\n"]
+        assert pipeline_text == ["mindmap\n   root\n     a\n   b\n "]
+
 
 class TestRoundTripIdempotency:
     """Running the post stage twice does not double-apply any transform."""

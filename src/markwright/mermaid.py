@@ -18,25 +18,38 @@ if TYPE_CHECKING:
     from markdown import Markdown
 
 MERMAID_CLASS = "mermaid"
+# The open tag of an emitted diagram. The icons stage reads it back to leave the diagram text alone.
+PRE_OPEN = f'<pre class="{MERMAID_CLASS}">'
 
-# A line holding only a deferred diagram's token: the in-process stage stashes the diagram later, below the
-# whitespace normalizer, because the normalizer would strip a stash placeholder's markers
+# A line holding only a deferred diagram's token: the in-process stage stashes that diagram later, below the
+# whitespace normalizer, which would strip a stash placeholder's markers
 _PENDING_PREFIX = "mw-mermaid-pending-"
-# Four columns is where a line is no longer top-level prose: it is a list item's or a block opener's body
+# Four columns is where a line is no longer top-level prose: _fences reads a fence that deep as one under a list
+# marker line or in a block opener's body, and in a list item's or an opener's body Python-Markdown does not read
+# a raw <pre> as an HTML block
 _NESTED_INDENT = 4
 
 
 def _expand_lines(lines: list[str], defer: Callable[[str], str] | None = None) -> list[str]:
     """Replace each closed mermaid fence with a raw ``<pre class="mermaid">`` block.
 
-    The block is emitted inline as raw HTML, never stashed: the in-process preprocessor runs above
-    Python-Markdown's whitespace normalizer, which would strip a stash placeholder's markers. A
-    block under a list item or a block opener (indented four or more columns) is the exception when
-    ``defer`` is given: Python-Markdown parses it as a paragraph there, so it is replaced by the
-    placeholder line ``defer`` returns, and the block is stashed later.
+    In ``mw pre`` (no ``defer``) the block is emitted inline as raw HTML, every line of it at the fence's
+    indentation. An indented fence leaves that indentation inside the ``<pre>`` on each line after the first,
+    unless the renderer strips it as the indent of the list item or block around the fence. A blank diagram
+    line stays empty, because a CommonMark renderer keeps the spaces of a whitespace-only line inside the
+    ``<pre>``.
+
+    In-process (``defer`` given), a fence indented four or more columns, which ``_fences`` reads as a fence
+    under a list marker line or in a block opener's body, is replaced by the one placeholder line ``defer``
+    returns, at the fence's indentation, and stashed later: raw lines left that deep in a list item's or an
+    opener's body would be wrapped in a paragraph or split at a blank line, and the preprocessor runs above
+    Python-Markdown's whitespace normalizer, which would strip a stash placeholder's markers. spec.md's
+    Mermaid entry lists the marker lines a renderer reads otherwise (``* * *``), where the stashed block lands
+    in a code block. Any other fence, one under a list item included, is emitted inline as in ``mw pre``, so
+    Python-Markdown reads the same raw HTML block in both.
 
     :param lines: Source lines.
-    :param defer: Takes the ``<pre>`` block of a nested diagram and returns the line that stands in for it.
+    :param defer: Takes the ``<pre>`` block of a diagram and returns the line that stands in for it.
     :returns: The lines with mermaid fences replaced; other lines pass through.
     """
     result: list[str] = []
@@ -53,11 +66,12 @@ def _expand_lines(lines: list[str], defer: Callable[[str], str] | None = None) -
             strip_width = min(len(block.indent), leading_spaces)
             diagram_lines.append(line[strip_width:])
         escaped = html.escape("\n".join(diagram_lines) + "\n", quote=False)
-        pre_block = f'<pre class="{MERMAID_CLASS}">{escaped}</pre>'
+        pre_block = f"{PRE_OPEN}{escaped}</pre>"
         if defer is not None and len(block.indent) >= _NESTED_INDENT:
             result.append(f"{block.indent}{defer(pre_block)}")
         else:
-            result.extend(f"{block.indent}{pre_line}" for pre_line in pre_block.split("\n"))
+            # A blank diagram line stays empty: a CommonMark renderer keeps a whitespace-only line's spaces
+            result.extend(f"{block.indent}{pre_line}" if pre_line else "" for pre_line in pre_block.split("\n"))
         next_line = block.closing + 1
 
     result.extend(lines[next_line:])
@@ -77,10 +91,12 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
 
 
 class MermaidPreprocessor(Preprocessor):
-    """Replace mermaid fences with raw ``<pre>`` blocks ahead of superfences.
+    """Replace each mermaid fence with a raw ``<pre>`` block, or with a placeholder line, ahead of superfences.
+
+    A fence indented four or more columns gets the placeholder line.
 
     :param md: The Markdown instance.
-    :param pending: The nested diagrams this run defers, keyed by their placeholder token and shared with
+    :param pending: The diagrams this run defers, keyed by their placeholder token and shared with
         :class:`MermaidStashPreprocessor`.
     """
 
@@ -92,7 +108,8 @@ class MermaidPreprocessor(Preprocessor):
         """Process lines, replacing mermaid fences.
 
         :param lines: Source lines to process.
-        :returns: Lines with mermaid fences replaced by raw HTML, or a placeholder line for a nested one.
+        :returns: Lines with each mermaid fence replaced by raw HTML, or by a placeholder line when the
+            fence is indented four or more columns.
         """
         self.pending.clear()
 
@@ -106,10 +123,10 @@ class MermaidPreprocessor(Preprocessor):
 
 
 class MermaidStashPreprocessor(Preprocessor):
-    """Stash the nested diagrams :class:`MermaidPreprocessor` deferred, below the whitespace normalizer.
+    """Stash the diagrams :class:`MermaidPreprocessor` deferred, below the whitespace normalizer.
 
-    A stashed block inside an admonition, details, tab, definition, footnote, or list body stays a block
-    instead of being wrapped in a paragraph.
+    A stashed block in an admonition, details, tab, definition, footnote, or list body stays one ``<pre>``,
+    with or without a blank line in the diagram or a text line beside it.
 
     :param md: The Markdown instance.
     :param pending: The deferred ``<pre>`` blocks, keyed by the token of the placeholder line that stands in for each.

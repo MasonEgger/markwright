@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, OptionError
 from markwright._fences import map_prose
+from markwright.mermaid import PRE_OPEN
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -122,8 +123,12 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     """Replace ``:pack-name:`` shortcodes in prose with inline SVG.
 
     The source-stage transform for ``mw pre``. Fenced code, indented code, inline code spans, HTML
-    tags, HTML comments, and autolinks are skipped (a tag's text content is still prose), and a
-    shortcode with no matching icon is left as text.
+    tags, HTML comments, and autolinks are skipped (a tag's text content is still prose), and so is a
+    diagram the mermaid stage emitted, which in-process is stashed and never read. A shortcode with no
+    matching icon is left as text.
+
+    The stage runs after the directive stages, so a shortcode inside a directive line is read as part of the
+    directive, and the markup a directive stage emitted is not rewritten.
 
     :param text: Raw Markdown source.
     :param options: The icons option table, or ``None`` for no packs.
@@ -138,7 +143,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
             return shortcode_match.group(0)
         return f'<span aria-hidden="true" class="{ICON_CLASS}">{svg}</span>'
 
-    return map_prose(text, lambda prose: pattern.sub(replace, prose), skip_html=True)
+    return map_prose(text, lambda prose: pattern.sub(replace, prose), skip_html=True, skip_blocks_opened_by=PRE_OPEN)
 
 
 class IconInlineProcessor(InlineProcessor):

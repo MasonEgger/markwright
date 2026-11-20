@@ -111,7 +111,7 @@ REGISTRY: dict[str, StageSpec] = {
     "mermaid": StageSpec(pre=mermaid.expand_source, pre_priority=45, extension=mermaid.MermaidExtension),
     "icons": StageSpec(
         pre=icons.expand_source,
-        pre_priority=50,
+        pre_priority=5,
         extension=icons.IconsExtension,
         check_options=icons.read_options,
     ),

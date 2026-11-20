@@ -347,7 +347,62 @@ def _code_regions(lines: tuple[str, ...]) -> tuple[tuple[FencedBlock, ...], froz
     return tuple(blocks), frozenset(fenced_lines | _indented_code_lines(list(lines), fenced_lines, scan))
 
 
-def map_prose(text: str, transform: Callable[[str], str], *, skip_html: bool = False) -> str:
+def _read_emitted_blocks(lines: list[str], opener: str) -> tuple[frozenset[int], dict[int, int]]:
+    """Find the blocks one stage emitted, and the code lines of the text around them.
+
+    A block starts at a line outside code whose first text is ``opener`` and ends right after the first
+    ``</pre>`` that follows it, on that line or a later one. A block that nothing closes is not a block.
+
+    The emitting stage wrote each block in place of a closed fence, whose text opened and closed nothing
+    outside it. So when a line of a block's text reads as code, the lines after the block's first are read as
+    copies of that first line, and the lines are scanned again before the next block is looked for. A fence
+    line or an indented line in the block's text then changes nothing about what is code after the block.
+
+    :param lines: The source split into lines.
+    :param opener: The exact open tag the emitting stage writes.
+    :returns: The indexes of the code lines, read with no block's text opening or closing code, and for
+        each line a block covers, how many of its leading characters are the block's.
+    """
+    scanned_lines = list(lines)
+    _, code_lines = _code_regions(tuple(scanned_lines))
+    block_ends: dict[int, int] = {}
+    line_index = 0
+    while line_index < len(lines):
+        closing_index = closing_end = -1
+        if line_index not in code_lines and lines[line_index].lstrip().startswith(opener):
+            search_from = lines[line_index].find(opener) + len(opener)
+            for scan_index in range(line_index, len(lines)):
+                closing_start = lines[scan_index].find("</pre>", search_from if scan_index == line_index else 0)
+                if closing_start >= 0:
+                    closing_index, closing_end = scan_index, closing_start + len("</pre>")
+                    break
+
+        if closing_index < 0:
+            line_index += 1
+            continue
+
+        for block_index in range(line_index, closing_index):
+            block_ends[block_index] = len(lines[block_index])
+        # Text after the closing tag is prose, unless the scan reads that whole line as code
+        block_ends[closing_index] = len(lines[closing_index]) if closing_index in code_lines else closing_end
+
+        # A line of the block's text that reads as code may hold a fence open past the closing tag, so the
+        # lines after the first are read as copies of the first, which is not code, and the scan runs again
+        later_lines = range(line_index + 1, closing_index + 1)
+        if any(later_index in code_lines for later_index in later_lines):
+            scanned_lines[later_lines.start : later_lines.stop] = [lines[line_index]] * len(later_lines)
+            _, code_lines = _code_regions(tuple(scanned_lines))
+        line_index = closing_index + 1
+    return code_lines, block_ends
+
+
+def map_prose(
+    text: str,
+    transform: Callable[[str], str],
+    *,
+    skip_html: bool = False,
+    skip_blocks_opened_by: str | None = None,
+) -> str:
     """Apply a transform to the prose of Markdown source, skipping code.
 
     Fenced code blocks (found by :func:`find_fenced_blocks`), indented code blocks (four columns or
@@ -359,32 +414,60 @@ def map_prose(text: str, transform: Callable[[str], str], *, skip_html: bool = F
     because a highlight pair may span inline HTML (``<^>a <b>c</b><^>``), so highlight must see the
     tags as prose, while a single-token shortcode never spans a tag.
 
+    With ``skip_blocks_opened_by``, a block that one stage emitted passes through unchanged too: it starts at
+    a line outside code whose first text is that exact open tag, at any indentation, and ends right after the
+    first ``</pre>`` that follows it, whatever the lines between them look like. A fence line or an indented
+    line between them changes nothing about what is code after the block. Text after the ``</pre>`` on its
+    line is prose, unless that line is code. The pre stage of mermaid is the one emitter, and the icons stage
+    is the one reader.
+
     :param text: Raw Markdown source.
     :param transform: A function applied to each prose run.
     :param skip_html: Also skip HTML tags, comments, and autolinks.
+    :param skip_blocks_opened_by: The open tag of the blocks to skip, or ``None`` to skip none.
     :returns: The source with every prose run transformed.
     """
     lines = text.split("\n")
-    _, code_lines = _code_regions(tuple(lines))
+    block_ends: dict[int, int] = {}
+    if skip_blocks_opened_by is None:
+        _, code_lines = _code_regions(tuple(lines))
+    else:
+        code_lines, block_ends = _read_emitted_blocks(lines, skip_blocks_opened_by)
     skipped_span_re = _SKIPPED_SPAN_RE if skip_html else _INLINE_CODE_RE
 
-    output_chunks: list[str] = []
-    for is_code, line_group in itertools.groupby(enumerate(lines), key=lambda entry: entry[0] in code_lines):
-        chunk = "\n".join(line for _, line in line_group)
-        if is_code:
-            output_chunks.append(chunk)
+    # Cut the source into prose and skipped pieces. The newline between two lines is prose only when the text
+    # on both sides of it is, so a prose run never starts or ends with a newline.
+    pieces: list[tuple[bool, str]] = []
+    for line_index, line in enumerate(lines):
+        block_end = block_ends.get(line_index)
+        if block_end is None:
+            line_pieces = [(line_index not in code_lines, line)]
+        elif block_end == len(line):
+            line_pieces = [(False, line)]
+        else:
+            line_pieces = [(False, line[:block_end]), (True, line[block_end:])]
+
+        if pieces:
+            previous_is_prose, _ = pieces[-1]
+            next_is_prose, _ = line_pieces[0]
+            pieces.append((previous_is_prose and next_is_prose, "\n"))
+        pieces.extend(line_pieces)
+
+    output: list[str] = []
+    for is_prose, piece_group in itertools.groupby(pieces, key=lambda piece: piece[0]):
+        run = "".join(piece_text for _, piece_text in piece_group)
+        if not is_prose:
+            output.append(run)
             continue
 
-        # Within prose, inline code spans (and HTML, when asked) are skipped as well
-        mapped_parts: list[str] = []
+        # Within prose, inline code spans and HTML (when asked) are skipped as well
         cursor = 0
-        for skipped_span in skipped_span_re.finditer(chunk):
-            mapped_parts.append(transform(chunk[cursor : skipped_span.start()]))
-            mapped_parts.append(skipped_span.group(0))
+        for skipped_span in skipped_span_re.finditer(run):
+            output.append(transform(run[cursor : skipped_span.start()]))
+            output.append(skipped_span.group(0))
             cursor = skipped_span.end()
-        mapped_parts.append(transform(chunk[cursor:]))
-        output_chunks.append("".join(mapped_parts))
-    return "\n".join(output_chunks)
+        output.append(transform(run[cursor:]))
+    return "".join(output)
 
 
 def map_lines(text: str, transform: Callable[[str], list[str]]) -> str:

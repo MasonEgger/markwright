@@ -56,11 +56,11 @@ The `/goal` loop checks items as it goes.
 
 ## Section 4: Pre-Stage Order
 
-- [ ] Step 9: Icons after the directive stages, and a mermaid fence in a list item
-  - [ ] RED: tests/test_icons.py, tests/test_mermaid.py
-  - [ ] GREEN: registry.py icons pre priority; mermaid.py and fence.py for list-item mermaid
-  - [ ] Docs: spec.md Icons and Mermaid, CLAUDE.md priority table, Feature Status drops pre-stage order
-  - [ ] just check
+- [x] Step 9: Icons after the directive stages, and a mermaid fence in a list item
+  - [x] RED: tests/test_icons.py, tests/test_mermaid.py
+  - [x] GREEN: registry.py icons pre priority; mermaid.py and fence.py for list-item mermaid
+  - [x] Docs: spec.md Icons and Mermaid, CLAUDE.md priority table, Feature Status drops pre-stage order
+  - [x] just check
 
 ## Section 5: Highlight Escape in Split Spans (#31)
 

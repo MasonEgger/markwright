@@ -259,6 +259,76 @@ def test_indented_and_list_item_fences_survive_hugo(tmp_path: Path) -> None:
     assert "[label" not in final
 
 
+def _pipeline_through_hugo(tmp_path: Path, source: str) -> str:
+    """Run ``source`` through ``mw pre``, a Hugo build, and ``mw post``.
+
+    :param tmp_path: A scratch directory for the Hugo site.
+    :param source: Markdown source text.
+    :returns: The final HTML of the built page.
+    """
+    assert HUGO is not None
+    site = tmp_path / "site"
+    (site / "content").mkdir(parents=True)
+    (site / "layouts" / "_default").mkdir(parents=True)
+    (site / "hugo.toml").write_text(HUGO_CONFIG)
+    (site / "layouts" / "_default" / "single.html").write_text(SINGLE_LAYOUT)
+    (site / "content" / "page.md").write_text('+++\ntitle = "Page"\n+++\n\n' + _run_mw(["pre"], source))
+    subprocess.run([HUGO, "--quiet"], cwd=site, check=True)
+    return _run_mw(["post"], (site / "public" / "page" / "index.html").read_text())
+
+
+def _mindmap_fence(indent: str, leaf: str) -> str:
+    """Build a mermaid fence whose text has a blank line and two levels of its own indentation.
+
+    :param indent: The indentation of every line of the fence.
+    :param leaf: The text of the deepest node, which names the diagram in the output.
+    :returns: The fence, ending with a blank line.
+    """
+    lines = ["```mermaid", "mindmap", "", "  root", f"    {leaf}", "```"]
+    return "".join(f"{indent}{line}\n" if line else "\n" for line in lines) + "\n"
+
+
+@requires_tools
+def test_mermaid_fence_at_the_column_hugo_strips_keeps_its_exact_text(tmp_path: Path) -> None:
+    source = (
+        _mindmap_fence("", "top")
+        + "- item\n\n"
+        + _mindmap_fence("  ", "bullet")
+        + "1. item\n\n"
+        + _mindmap_fence("   ", "ordered")
+        + "para\n\n1. - a\n\n"
+        + _mindmap_fence("     ", "nested")
+        + "Term\n: definition\n\n"
+        + _mindmap_fence("  ", "defined")
+    )
+
+    final = _pipeline_through_hugo(tmp_path, source)
+
+    assert final.count('<pre class="mermaid">') == 5
+    for leaf in ("top", "bullet", "ordered", "nested", "defined"):
+        assert f'<pre class="mermaid">mindmap\n\n  root\n    {leaf}\n</pre>' in final
+
+
+@requires_tools
+def test_mermaid_fence_past_the_column_hugo_strips_keeps_the_rest_of_its_indent(tmp_path: Path) -> None:
+    source = (
+        _mindmap_fence("  ", "top")
+        + "1. item\n\n"
+        + _mindmap_fence("    ", "ordered")
+        + "para\n\n1. - a\n\n"
+        + _mindmap_fence("      ", "nested")
+        + "para\n\n100. - a\n\n"
+        + _mindmap_fence("        ", "wide")
+    )
+
+    final = _pipeline_through_hugo(tmp_path, source)
+
+    assert final.count('<pre class="mermaid">') == 4
+    assert '  <pre class="mermaid">mindmap\n\n    root\n      top\n  </pre>' in final
+    for leaf in ("ordered", "nested", "wide"):
+        assert f' <pre class="mermaid">mindmap\n\n   root\n     {leaf}\n </pre>' in final
+
+
 @requires_tools
 def test_material_parity_directives_survive_hugo(tmp_path: Path) -> None:
     assert HUGO is not None

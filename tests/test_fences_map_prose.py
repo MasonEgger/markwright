@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from markwright._fences import map_prose
 
 
@@ -87,3 +89,73 @@ class TestMapProseBlockBodies:
         source = "!!! note\n    body\n\n        code here"
 
         assert map_prose(source, str.upper) == "!!! NOTE\n    BODY\n\n        code here"
+
+
+class TestMapProseSkipBlocksOpenedBy:
+    """With ``skip_blocks_opened_by``, a block whose first line starts with the opener is left alone."""
+
+    OPENER = '<pre class="mermaid">'
+
+    def skip(self, source: str) -> str:
+        return map_prose(source, str.upper, skip_blocks_opened_by=self.OPENER)
+
+    def test_block_is_skipped_through_the_line_holding_the_closing_tag(self) -> None:
+        source = f"a\n{self.OPENER}b\n  c\n</pre>\nd"
+        assert self.skip(source) == f"A\n{self.OPENER}b\n  c\n</pre>\nD"
+
+    def test_block_is_skipped_at_any_indentation(self) -> None:
+        source = f"- a\n\n    {self.OPENER}b\n      c\n    </pre>\n\n    d"
+        assert self.skip(source) == f"- A\n\n    {self.OPENER}b\n      c\n    </pre>\n\n    D"
+
+    def test_text_after_the_closing_tag_on_its_line_is_prose(self) -> None:
+        source = f"{self.OPENER}a\nb</pre> c\nd\n{self.OPENER}e</pre> f"
+        assert self.skip(source) == f"{self.OPENER}a\nb</pre> C\nD\n{self.OPENER}e</pre> F"
+
+    @pytest.mark.parametrize(
+        "block_text",
+        ["b\n\n    c\n  d", "b\n```\n  c\n```\n  d", "b\n\n    c\n\n```\n  d\n```"],
+        ids=["indented-code-line", "closed-fence", "indented-code-then-a-fence"],
+    )
+    def test_block_text_that_reads_as_code_stays_inside_the_block(self, block_text: str) -> None:
+        source = f"a\n{self.OPENER}{block_text}\n</pre> e\nf"
+        assert self.skip(source) == f"A\n{self.OPENER}{block_text}\n</pre> E\nF"
+
+    @pytest.mark.parametrize(
+        ("source", "expected"),
+        [
+            (f"{OPENER}a\n```\nb\n</pre>\nc\n```\nd", f"{OPENER}a\n```\nb\n</pre>\nC\n```\nD"),
+            (f"{OPENER}a\n~~~\nb\n</pre>\n~~~\nc\n~~~\nd", f"{OPENER}a\n~~~\nb\n</pre>\n~~~\nc\n~~~\nD"),
+            (
+                f"{OPENER}a\n```\n</pre>\nb\n{OPENER}c\n```\n</pre>\nd",
+                f"{OPENER}a\n```\n</pre>\nB\n{OPENER}c\n```\n</pre>\nD",
+            ),
+        ],
+        ids=["fence-line-in-the-block", "fence-after-the-block", "fence-line-in-each-of-two-blocks"],
+    )
+    def test_block_text_changes_nothing_after_the_block(self, source: str, expected: str) -> None:
+        assert self.skip(source) == expected
+
+    def test_two_blocks_are_both_skipped(self) -> None:
+        source = f"{self.OPENER}a\n</pre>\nb\n{self.OPENER}c\n</pre>"
+        assert self.skip(source) == f"{self.OPENER}a\n</pre>\nB\n{self.OPENER}c\n</pre>"
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            '<pre class="mermaid" id="x">b\n</pre>',
+            '<PRE CLASS="MERMAID">b\n</PRE>',
+            "<pre>b\n</pre>",
+            f"text {OPENER}b\n</pre>",
+            f"{OPENER}b\nno closing tag",
+        ],
+        ids=["other-attribute", "upper-case", "plain-pre", "mid-line", "unclosed"],
+    )
+    def test_other_shapes_are_prose(self, source: str) -> None:
+        assert self.skip(source) == source.upper()
+
+    def test_nothing_is_skipped_by_default(self) -> None:
+        assert map_prose(f"{self.OPENER}b\n</pre>", str.upper) == f"{self.OPENER.upper()}B\n</PRE>"
+
+    def test_an_opener_inside_a_fence_is_code(self) -> None:
+        source = f"```\n{self.OPENER}\n```\n\nb\n\n```\n</pre>\n```"
+        assert "\nB\n" in self.skip(source)

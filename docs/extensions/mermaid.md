@@ -55,6 +55,12 @@ Other fences, and a mermaid fence shown inside a longer outer fence like the one
 ```
 
 The diagram text is HTML-escaped and placed straight inside `<pre>`, with no `<code>` wrapper.
+`mw pre` writes the fence's indentation before every line of the `<pre>` and leaves a blank diagram line empty.
+Indentation the renderer does not strip with a list item's indent stays inside the `<pre>`, before every line after the first.
+So write a top-level fence at column 0, and under Hugo write a fence in a list item at the item's content column (two columns under `- item`, three under `1. item`), where Hugo strips all of it.
+In-process, a fence indented four or more columns, in a list item or in the body of an admonition, details block, content tab, definition, or footnote, holds the exact diagram text, with no indent.
+A fence indented one to three columns keeps that indentation in-process too, under a list item as at the top level.
+So in-process write a fence in a list item four columns in, where the diagram stays in the item.
 The extension runs ahead of `pymdownx.superfences` and `markwright.fence` (preprocessor priority 45), so neither sees the block.
 If your `mkdocs.yml` also has a `custom_fences` entry named `mermaid`, remove it: this extension replaces the fence first, and the entry never runs.
 

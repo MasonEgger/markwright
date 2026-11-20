@@ -10,6 +10,7 @@ import pytest
 
 from markwright import ConfigError, ConfigWarning, OptionError, config_from_mapping
 from markwright.icons import IconsExtension, expand_source
+from markwright.registry import run_pre
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -99,6 +100,165 @@ class TestIconsExpandSource:
         source = ":octicons-rocket-16:"
         with pytest.warns(ConfigWarning, match="'packs' is empty"):
             assert expand_source(source, {"packs": {}}) == source
+
+
+class TestIconsStageOrder:
+    """In ``mw pre`` the icons stage runs after the directive stages, so a directive line is read before an icon."""
+
+    @staticmethod
+    def pipeline_pre(source: str, names: list[str], packs: dict[str, str]) -> str:
+        """Run the selected pre stages with the icons table configured.
+
+        :param source: Markdown source text.
+        :param names: Selected extension names.
+        :param packs: The packs table.
+        :returns: The source after every selected pre stage.
+        """
+        return run_pre(source, names, {"icons": {"packs": packs}})
+
+    def test_button_text_keeps_its_directive_and_gets_the_icon(self, packs: dict[str, str]) -> None:
+        result = self.pipeline_pre("[button https://x.test :octicons-rocket-16: Go]", ["button", "icons"], packs)
+        assert result.startswith('<a class="mw-button"')
+        assert f'<span aria-hidden="true" class="mw-icon">{ROCKET}</span> Go</a>' in result
+
+    def test_button_directive_equals_in_process_text(self, packs: dict[str, str]) -> None:
+        source = "[button https://x.test :octicons-rocket-16: Go]"
+        names = ["button", "icons"]
+        in_process = markdown.Markdown(
+            extensions=["markwright.button", "markwright.icons"],
+            extension_configs={"markwright.icons": {"packs": packs}},
+        ).convert(source)
+        pipeline = markdown.Markdown().convert(self.pipeline_pre(source, names, packs))
+        assert pipeline == in_process
+
+    def test_tab_name_stays_literal_in_the_marker(self, packs: dict[str, str]) -> None:
+        source = "[tab :octicons-rocket-16: One]\nbody\n[/tab]\n"
+        result = self.pipeline_pre(source, ["tabs", "icons"], packs)
+        assert "<svg" not in result
+        assert ":octicons-rocket-16:" in result
+
+    def test_embed_line_with_a_shortcode_matches_in_process(self, packs: dict[str, str]) -> None:
+        source = "[youtube dQw4w9WgXcQ :octicons-rocket-16:]"
+        in_process = markdown.Markdown(
+            extensions=["markwright.youtube", "markwright.icons"],
+            extension_configs={"markwright.icons": {"packs": packs}},
+        ).convert(source)
+        pipeline = markdown.Markdown().convert(self.pipeline_pre(source, ["youtube", "icons"], packs))
+        assert pipeline == in_process
+
+    def test_embed_line_without_a_shortcode_is_still_expanded(self, packs: dict[str, str]) -> None:
+        result = self.pipeline_pre("[youtube dQw4w9WgXcQ]\n\n:octicons-rocket-16:", ["youtube", "icons"], packs)
+        assert "<iframe" in result
+        assert result.count("<svg") == 1
+
+    def test_converted_mermaid_diagram_keeps_its_shortcode(self, packs: dict[str, str]) -> None:
+        source = "```mermaid\ngraph LR\n  A[:octicons-rocket-16:] --> B\n```\n\nAfter :octicons-rocket-16:\n"
+        result = self.pipeline_pre(source, ["mermaid", "icons"], packs)
+        assert '<pre class="mermaid">graph LR\n  A[:octicons-rocket-16:] --&gt; B\n</pre>' in result
+        assert result.count("<svg") == 1
+
+    def test_mermaid_diagram_keeps_its_shortcode_in_a_list_item(self, packs: dict[str, str]) -> None:
+        source = "- item\n\n    ```mermaid\n    graph LR\n      A[:octicons-rocket-16:]\n    ```\n"
+        result = self.pipeline_pre(source, ["mermaid", "icons"], packs)
+        assert "<svg" not in result
+        assert "A[:octicons-rocket-16:]" in result
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "```mermaid\ngraph LR\n\n    A[:octicons-rocket-16:]\n  B[:octicons-rocket-16:]\n```\n",
+            "~~~mermaid\ngraph LR\n```\n  A[:octicons-rocket-16:]\n```\n  B[:octicons-rocket-16:]\n~~~\n",
+        ],
+        ids=["line-indented-like-code", "backtick-fence-in-the-text"],
+    )
+    def test_diagram_text_that_reads_as_code_keeps_its_shortcodes(self, packs: dict[str, str], source: str) -> None:
+        result = self.pipeline_pre(source, ["mermaid", "icons"], packs)
+        assert "<svg" not in result
+        assert result.count(":octicons-rocket-16:") == 2
+
+    def test_fence_line_in_a_diagram_changes_nothing_after_the_diagram(self, packs: dict[str, str]) -> None:
+        source = (
+            "~~~~mermaid\ngraph LR\n```\n~~~~\n\nAfter :octicons-rocket-16:\n\n```\ncode :octicons-rocket-16:\n```\n"
+        )
+        result = self.pipeline_pre(source, ["mermaid", "icons"], packs)
+        assert f'After <span aria-hidden="true" class="mw-icon">{ROCKET}</span>' in result
+        assert "```\ncode :octicons-rocket-16:\n```" in result
+
+    def test_icons_stage_is_idempotent(self, packs: dict[str, str]) -> None:
+        source = (
+            "[button https://x.test :octicons-rocket-16: Go]\n\n```mermaid\ngraph LR\n```\n\n:octicons-rocket-16:\n"
+        )
+        names = ["button", "mermaid", "icons"]
+        once = self.pipeline_pre(source, names, packs)
+        assert self.pipeline_pre(once, names, packs) == once
+
+
+# Sources where a <pre> tag appears but no raw <pre> block starts, or the tags sit in code or a comment. The
+# in-process render and mw pre agree on each: the shortcode between the tags is an icon in both.
+PRE_LOOKALIKE_SOURCES = {
+    "inline in a paragraph": "text <pre>:octicons-rocket-16:</pre> end\n",
+    "other tag with the same prefix": "<pre-x>:octicons-rocket-16:</pre-x> and <pre>z</pre>\n",
+    "between two code spans": "`<pre>` then :octicons-rocket-16: then `</pre>`\n",
+    "between two comments": "<!-- <pre> -->\n\n:octicons-rocket-16:\n\n<!-- </pre> -->\n",
+    "between two lines of one comment": "<!--\n<pre>\n-->\n\n:octicons-rocket-16:\n\n<!-- </pre> -->\n",
+    "between two fences": "```\n<pre>\n```\n\n:octicons-rocket-16:\n\n```\n</pre>\n```\n",
+}
+
+# A shortcode after the closing tag of a diagram stays prose on its line. The Python-Markdown stub splits an
+# inline SVG that follows a block, so these compare the number of icons, not the markup.
+TEXT_AFTER_DIAGRAM_SOURCES = {
+    "one-line diagram tag": '<pre class="mermaid">x</pre> :octicons-rocket-16:\n',
+    "diagram closing tag": '<pre class="mermaid">\nx\n</pre> tail :octicons-rocket-16:\n',
+    "two lines": '<pre class="mermaid">x</pre> :octicons-rocket-16:\n\nnext :octicons-rocket-16:\n',
+}
+
+# Raw <pre> blocks the author wrote, and mermaid-like tags that are not the diagram's exact tag. The icons stage
+# does not read the block structure, so it rewrites every shortcode outside code (a Roadmap Deferred entry in spec.md).
+UNSKIPPED_BLOCK_SOURCES = {
+    "closed block": "<pre>\n:octicons-rocket-16:\n</pre>\n",
+    "unclosed block with a fence after it": (
+        "<pre>\n:octicons-rocket-16:\n\n```\ncode\n```\n\nmore :octicons-rocket-16:\n"
+    ),
+    "text after the closing tag": "<pre>\n:octicons-rocket-16:\n</pre> tail :octicons-rocket-16:\n",
+    "upper case mermaid tag": '<PRE CLASS="MERMAID">\n:octicons-rocket-16:\n</PRE>\n',
+    "mermaid tag with another attribute": '<pre class="mermaid" id="x">\n:octicons-rocket-16:\n</pre>\n',
+}
+
+
+class TestIconsPreTags:
+    """Only the diagram the mermaid stage emitted is skipped; any other <pre> text is read as before."""
+
+    @pytest.mark.parametrize("source", PRE_LOOKALIKE_SOURCES.values(), ids=PRE_LOOKALIKE_SOURCES.keys())
+    def test_pipeline_matches_the_in_process_render(self, packs: dict[str, str], source: str) -> None:
+        extensions = ["pymdownx.superfences", "admonition"]
+        in_process = markdown.Markdown(
+            extensions=[*extensions, "markwright.icons"],
+            extension_configs={"markwright.icons": {"packs": packs}},
+        ).convert(source)
+        pre_output = run_pre(source, ["icons"], {"icons": {"packs": packs}})
+        pipeline = markdown.Markdown(extensions=extensions).convert(pre_output)
+
+        assert pipeline == in_process
+
+    @pytest.mark.parametrize("source", TEXT_AFTER_DIAGRAM_SOURCES.values(), ids=TEXT_AFTER_DIAGRAM_SOURCES.keys())
+    def test_text_after_a_diagram_tag_keeps_its_icon(self, packs: dict[str, str], source: str) -> None:
+        extensions = ["pymdownx.superfences"]
+        in_process = markdown.Markdown(
+            extensions=[*extensions, "markwright.icons"],
+            extension_configs={"markwright.icons": {"packs": packs}},
+        ).convert(source)
+        pre_output = run_pre(source, ["icons"], {"icons": {"packs": packs}})
+        pipeline = markdown.Markdown(extensions=extensions).convert(pre_output)
+
+        assert pipeline.count("<svg") == in_process.count("<svg")
+
+    @pytest.mark.parametrize("source", UNSKIPPED_BLOCK_SOURCES.values(), ids=UNSKIPPED_BLOCK_SOURCES.keys())
+    def test_every_shortcode_outside_code_is_rewritten(self, packs: dict[str, str], source: str) -> None:
+        icon = f'<span aria-hidden="true" class="mw-icon">{ROCKET}</span>'
+
+        result = run_pre(source, ["icons"], {"icons": {"packs": packs}})
+
+        assert result == source.replace(":octicons-rocket-16:", icon)
 
 
 class TestIconsInProcess:
