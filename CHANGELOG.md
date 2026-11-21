@@ -37,6 +37,7 @@ A document that uses none of the new directives or shortcodes renders as it did,
 - `disallowed_environments(source, config)`, a public function that lists the fence environments a document names outside `fence.allowed_environments` (#32).
 - A shared marker module for the fence, grid, annotate, and tabs marker comments, and a container-pairing scanner shared by grid and tabs (#30).
 - Docs pages for the six material extensions and `tabs`, each with the `mw-` HTML contract and a live demo, and a Host CSS and Script section on every extension page (#30).
+- A Material Mapping docs page that maps each Material for MkDocs reference feature to its in-process and Hugo providers, with the gaps.
 - Demo-site host assets that show how a host styles the output: CSS in `extra.css` (including grid columns, cards, and CSS-only tabs), scripts for mermaid, the lightbox, and annotation tooltips, and two small icon packs under `docs/icons/` with credits in `CREDITS.txt`.
   These are not part of the package.
 - The docs `mw list` and `mw config` samples, `config.md`, and the MkDocs integration guide now cover the six extensions, `tabs`, and the `icons` `packs` option.

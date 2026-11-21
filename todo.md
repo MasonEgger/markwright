@@ -163,7 +163,7 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 12: Material Mapping Docs Page
 
-- [ ] Step 29: The Material-to-extension mapping page (task)
-  - [ ] docs/material-mapping.md and mkdocs.yml nav
-  - [ ] Docs: spec.md moves Material mapping docs page to Shipped
-  - [ ] just docs-build --strict
+- [x] Step 29: The Material-to-extension mapping page (task)
+  - [x] docs/material-mapping.md and mkdocs.yml nav
+  - [x] Docs: spec.md moves Material mapping docs page to Shipped
+  - [x] just docs-build --strict

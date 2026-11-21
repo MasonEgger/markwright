@@ -66,6 +66,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - fenced-directives-20: `mw pre` leaves a directive line inside fenced code literal across all ten directive stages through `_fences.map_lines` (#20), converged (.ai-sessions/fenced-directives-20/)
 - review-fixes-29: the eight 0.4.0 adversarial-review fixes (annotate chaining, tab and indented-code detection, HTML-tag skipping, icons at priority 85, and the test-policy cleanup) (#29), converged (.ai-sessions/review-fixes-29/)
 - containers-30: block grids, cards, column counts, and the `tabs` extension on one shared open/close pairing scanner (#30), converged (.ai-sessions/containers-30/)
+- material-mapping: the Material mapping docs page, `docs/material-mapping.md`, listing what gives each Material reference feature in-process and under Hugo, with the gaps; docs-only
 
 **Upcoming:**
 - container postprocessor priority (no issue): the grid, annotate, and tabs postprocessors move from 30 to 27, below Python-Markdown's `raw_html` and above fence, so the stashed markers are restored first whatever order a host lists its extensions in; today a host that lists `md_in_html` after markwright gets no tab set and no grid, and the marker comments stay in the page; first in the plan, since it is the smallest change and Bartleby's extension order hits it
@@ -77,7 +78,6 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
   - at the release: the version bump in `pyproject.toml` and `uv.lock`, the `markdown` floor raised to `>=3.8.2`, the MkDocs bound settled (`<2` in `pyproject.toml`, or the sentence dropped from the two docs pages that state it), the CHANGELOG date and `[0.4.0]` compare link, and a check by hand that the tag equals the version, which the publish workflow does not make
   - right after the merge: publish the GitHub Release, which is what triggers the PyPI publish; the docs deploy on the merge, so until the Release the live docs describe fifteen extensions and PyPI delivers eight
   - same day: the Bartleby follow-up, since `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports move to the public `disallowed_environments`
-- Material mapping docs page: maps each mkdocs-material reference feature to the Python-Markdown or pymdown-extensions extension that provides it in-process and the Goldmark setting that provides it in Hugo, with the gaps; docs-only, done directly
 
 **Deferred:**
 - New embeds (Bluesky, Mastodon, Vimeo): possible later; each should support the `load` option when it lands
@@ -436,7 +436,7 @@ Both paths:
   The grid page leads with a block-grid demo and the tabs page with a tab-set demo.
 - It is also the worked host example: `docs/stylesheets/extra.css`, `docs/javascripts/` (a pinned mermaid.js from a CDN, the lightbox `<dialog>`, the annotation tooltips), and two small, credited, liberally licensed icon packs (`lucide` and `mw`) under `docs/icons/`.
   None of it ships in the package.
-- The reference pages are Configuration, Click-to-Load, the CLI reference, the Pipeline Guide, Renderer Requirements, the MkDocs and Hugo integration guides, and the Demo page.
+- The reference pages are Configuration, Click-to-Load, the CLI reference, the Pipeline Guide, Renderer Requirements, the MkDocs and Hugo integration guides, the Material Mapping page (each Material reference feature against its in-process and Hugo providers, with the gaps), and the Demo page.
 - `just docs-build` (strict) is the gate for it.
 
 ## Non-goals

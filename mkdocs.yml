@@ -96,4 +96,5 @@ nav:
   - Integrations:
       - MkDocs: integrations/mkdocs.md
       - Hugo: integrations/hugo.md
+      - Material Mapping: material-mapping.md
   - Demo: demo.md
