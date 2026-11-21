@@ -149,17 +149,17 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 11: Docs Catch-Up
 
-- [ ] Step 26: CLI, reference, and integration docs (task)
-  - [ ] docs/cli.md, renderer-requirements.md, pipeline.md, integrations/hugo.md, integrations/mkdocs.md, index.md, README.md
-  - [ ] just docs-build --strict
-- [ ] Step 27: Extension pages, demo, and config docs (task)
-  - [ ] docs/demo.md, eight ported pages, grid.md, annotate.md, config.md, embed pages
-  - [ ] just docs-build --strict and tests/test_docs_tokens.py
-- [ ] Step 28: CHANGELOG corrections (task)
-  - [ ] CHANGELOG.md Unreleased section corrected and per-item lines added
-  - [ ] Reminder: the CHANGELOG line for an indented directive that now stays inside its list item or block body is owed to Step 28 (from Step 8)
-  - [ ] Docs: spec.md closes both docs-catch-up Known gaps
-  - [ ] just check and just docs-build --strict
+- [x] Step 26: CLI, reference, and integration docs (task)
+  - [x] docs/cli.md, renderer-requirements.md, pipeline.md, integrations/hugo.md, integrations/mkdocs.md, index.md, README.md
+  - [x] just docs-build --strict
+- [x] Step 27: Extension pages, demo, and config docs (task)
+  - [x] docs/demo.md, eight ported pages, grid.md, annotate.md, config.md, embed pages
+  - [x] just docs-build --strict and tests/test_docs_tokens.py
+- [x] Step 28: CHANGELOG corrections (task)
+  - [x] CHANGELOG.md Unreleased section corrected and per-item lines added
+  - [x] Reminder: the CHANGELOG line for an indented directive that now stays inside its list item or block body is owed to Step 28 (from Step 8)
+  - [x] Docs: spec.md closes both docs-catch-up Known gaps
+  - [x] just check and just docs-build --strict
 
 ## Section 12: Material Mapping Docs Page
 

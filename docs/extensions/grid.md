@@ -89,7 +89,7 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 ## Grid Shortcut
 
 A `[grid ...]` line with no closer is the list shortcut.
-It classes the first `<ul>` or `<ol>` that follows it and is the 0.4.0 behavior.
+It classes the first `<ul>` or `<ol>` that follows it.
 The directive is on its own line, with a blank line before the list.
 
 [grid cards]
@@ -250,7 +250,7 @@ A block grid wraps its blocks, and each card wraps its own:
 ```
 
 The `mw-grid`, `mw-grid-cards`, `mw-grid-cols-N`, and `mw-card` classes are the public contract.
-The `mw-cards` class from 0.4.0 is renamed `mw-grid-cards`.
+The cards class is `mw-grid-cards`.
 
 ## Marker Contracts
 
@@ -281,7 +281,8 @@ A directive the extension cannot turn into markup stays literal and is reported 
 - a `[card]` whose nearest enclosing container is not a block grid.
 
 The pre stage attaches an inline `mw-grid-problem` marker to each literal directive, and the post stage composes one `--warn` line from the marker and removes the comment.
-An invalid `[grid ...]` opener and an opener or closer inside fenced or indented code also stay literal, with no report.
+An invalid `[grid ...]` is not an opener, so its own line stays literal with no report; its `[/grid]` is a stray closer and is reported, and a `[card]` under it is outside a grid and is reported once.
+An opener or closer inside fenced or indented code also stays literal, with no report.
 A shortcut marker is skipped, and `--warn` reports why, when its payload is invalid or no list follows it.
 
 ## Host CSS and Script

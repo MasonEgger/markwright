@@ -46,11 +46,24 @@ Height and width are optional trailing integers. They are distinguished from URL
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - At least one image URL is required (a single-image slideshow is valid, matching upstream `do-markdownit`)
 - Navigation arrows appear on left and right sides
 - Uses CSS scroll-snap for smooth slide transitions
 - No script injection required
+
+## HTML Contract
+
+```html
+<div class="slideshow" style="height: 270px; width: 480px;">
+  <div class="action left" onclick="(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft -= 480)()">&#8249;</div>
+  <div class="action right" onclick="(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft += 480)()">&#8250;</div>
+  <div class="slides">
+    <img src="https://picsum.photos/id/10/480/270" alt="Slide #1" />
+    <img src="https://picsum.photos/id/20/480/270" alt="Slide #2" />
+  </div>
+</div>
+```
 
 ## Host CSS and Script
 

@@ -77,6 +77,13 @@ markdown_extensions:
   - markwright.instagram
   - markwright.slideshow
   - markwright.image_compare
+  - markwright.button
+  - markwright.lightbox
+  - markwright.mermaid
+  - markwright.icons
+  - markwright.grid
+  - markwright.annotate
+  - markwright.tabs
 ```
 
 ### Standalone
@@ -98,6 +105,13 @@ md = markdown.Markdown(
         "markwright.instagram",
         "markwright.slideshow",
         "markwright.image_compare",
+        "markwright.button",
+        "markwright.lightbox",
+        "markwright.mermaid",
+        "markwright.icons",
+        "markwright.grid",
+        "markwright.annotate",
+        "markwright.tabs",
     ]
 )
 
@@ -126,9 +140,10 @@ For a toolchain that is not built on Python-Markdown, the `mw` command runs the 
 mw pre < in.md | your-renderer | mw post > out.html
 ```
 
-- `mw pre` expands the embeds and extracts fence directives into an `mw-fence` comment.
-- `mw post` applies the fence styling, resolves the highlights, and injects each embed script once.
+- `mw pre` expands the embed, button, lightbox, mermaid, and icon directives, and turns the fence, grid, annotate, and tab directives into marker comments.
+- `mw post` reads the markers back to apply the fence, grid, card, annotate, and tab markup, resolves the highlights, and injects each embed script once.
 - `mw render` runs the full pipeline in one shot for callers without their own renderer.
+  It loads no other extension, and its syntax highlighting needs Pygments.
 - `mw config` prints the resolved configuration and the source of each value.
 - `mw list` prints every extension and the stages it provides.
 

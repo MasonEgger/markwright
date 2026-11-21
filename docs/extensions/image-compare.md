@@ -45,10 +45,24 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - Exactly 2 image URLs are required (no more, no fewer)
 - The slider starts at 50% and uses a CSS custom property (`--value`) for positioning
 - No script injection required; uses an inline `oninput` handler
+
+## HTML Contract
+
+```html
+<div class="image-compare" style="--value:50%; height: 270px; width: 480px;">
+    <img class="image-left" src="https://picsum.photos/id/10/480/270" alt="Image left"/>
+    <img class="image-right" src="https://picsum.photos/id/20/480/270" alt="Image right"/>
+    <input type="range" class="control" min="0" max="100" value="50"
+      oninput="this.parentNode.style.setProperty('--value', `${this.value}%`)" />
+    <svg class="control-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="..."/></svg>
+</div>
+```
+
+The `<path>` data is shortened here.
 
 ## Host CSS and Script
 

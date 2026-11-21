@@ -73,9 +73,20 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line (not inline with other text)
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - The video ID is URL-encoded for safety
 - A fallback link is included inside the iframe for accessibility
+
+## HTML Contract
+
+```html
+<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" class="youtube" height="270" width="480" style="aspect-ratio: 16/9" frameborder="0" allowfullscreen>
+    <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">View YouTube video</a>
+</iframe>
+```
+
+This is the `eager` output.
+See [Load Mode](#load-mode) for the other modes.
 
 ## Host CSS and Script
 

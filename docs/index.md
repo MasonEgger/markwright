@@ -37,7 +37,9 @@ uv add --editable ../markwright
 ```
 
 !!! warning "MkDocs 2.0 Compatibility"
-    MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs. There is no migration path. This project pins **MkDocs 1.x** (`mkdocs>=1.6,<2`).
+    MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs.
+    There is no migration path.
+    This project's dev dependency is `mkdocs>=1.6` with no upper bound, and its lock file resolves to MkDocs 1.6.1.
 
 ## Usage
 
@@ -111,6 +113,8 @@ Each extension is a standalone Python-Markdown extension loaded by name (e.g., `
 5. **Icons** uses a pre stage (priority 5, after every directive stage) for `mw pre` and an InlineProcessor (priority 85) in-process, both resolving `:pack-name:` shortcodes against SVG directories you configure.
 
 6. **Grid and Annotate** follow the fence marker-comment pattern: a Preprocessor (priority 20, or 21 for grid, which runs ahead of Python-Markdown's `html_block`) swaps the directive for a versioned marker comment, and a Postprocessor (priority 27) reads it from the rendered HTML.
+
+7. **Tabs** follow the same marker-comment pattern: a Preprocessor (priority 21) swaps each `[tab NAME]` ... `[/tab]` block for a pair of marker comments, and a Postprocessor (priority 27) groups consecutive tabs into one `tabbed-set`.
 
 markwright ships no CSS, JavaScript, or icons. The extensions emit classes and markup, and the host site styles them.
 

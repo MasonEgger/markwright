@@ -96,8 +96,21 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - The CodePen embed script is injected once, even with multiple embeds on a page, and only when at least one embed is `eager`
+
+## HTML Contract
+
+```html
+<p class="codepen" data-height="256" data-theme-id="light" data-default-tab="result" data-user="MattCowley" data-slug-hash="vwPzeX" style="height: 256px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;">
+    <span>See the Pen <a href="https://codepen.io/MattCowley/pen/vwPzeX">vwPzeX by MattCowley</a> (<a href="https://codepen.io/MattCowley">@MattCowley</a>) on <a href='https://codepen.io'>CodePen</a>.</span>
+</p>
+
+<script async defer src="https://static.codepen.io/assets/embed/ei.js" type="text/javascript"></script>
+```
+
+This is the `eager` output.
+The `<script>` is appended once, at the end of the page.
 
 ## Host CSS and Script
 

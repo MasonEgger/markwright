@@ -46,4 +46,6 @@ The fence extension expects `pymdownx.superfences` and `pymdownx.highlight` to b
 Without them the fence preprocessor still extracts directives, but the code-block HTML may not match what the postprocessor rewrites.
 
 !!! warning "MkDocs 2.0 Compatibility"
-    MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs. There is no migration path. This project pins **MkDocs 1.x** (`mkdocs>=1.6,<2`).
+    MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs.
+    There is no migration path.
+    This project's dev dependency is `mkdocs>=1.6` with no upper bound, and its lock file resolves to MkDocs 1.6.1.

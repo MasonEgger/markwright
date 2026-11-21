@@ -94,6 +94,17 @@ This is how the code samples above print the raw `<^>` syntax.
 In text, backslashes before a marker are read in pairs: two of them print one backslash and leave the marker live, three print one backslash and a literal marker.
 A literal marker is written `&lt;&#94;&gt;` in the HTML, so running `mw post` again leaves it alone.
 
+## HTML Contract
+
+Prose and inline code get a `<mark>` element:
+
+```html
+<p>A <mark>word</mark> here and <code>a.<mark>b</mark></code></p>
+```
+
+Inside a fenced code block the `<mark>` wraps the highlighted text, and the post stage places it so it never crosses a syntax-highlighting `<span>`.
+`<mark>` is the whole contract.
+
 ## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.

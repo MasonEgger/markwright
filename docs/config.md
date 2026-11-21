@@ -62,9 +62,15 @@ Config validates every key and value with the same reader the extension uses, so
 The fence extension reads `allowed_environments`, a list restricting which `[environment ...]` directives are honored.
 Omitting it allows every environment; an empty list allows none and emits a warning.
 
+It also reads `label_class` and `secondary_label_class`, the CSS classes on the label `<div>` and the secondary label `<div>`.
+They default to `code-label` and `secondary-code-label`.
+Each is one or more space-separated class tokens of letters, digits, `-`, and `_`; an empty value, a non-string, or any other character is a `ConfigError`.
+
 ```toml
 [fence]
 allowed_environments = ["local", "staging", "production"]
+label_class = "code-label"
+secondary_label_class = "secondary-code-label"
 ```
 
 The embeds that contact a third party (`youtube`, `codepen`, `twitter`, `instagram`) read `load`, which decides when the embed reaches out.
@@ -150,13 +156,17 @@ allowed_environments = ["local", "staging", "production"]
 
 ### A Hugo Pipeline
 
-A Hugo site runs `mw pre | hugo | mw post` around its own renderer.
+A Hugo site runs `mw pre` on its content, then `hugo`, then `mw post` on the rendered pages.
 Both stages discover the same `markwright.toml` at the project root, so a single file configures the whole pipeline.
 With the fence `allowed_environments` set as above, `mw pre` honors an `[environment staging]` directive and rejects an unlisted one, exactly as the in-process `mw render` does.
 
 ```bash
-mw pre < content/post.md | hugo | mw post > public/post.html
+mw pre < content/post.md > content/post.md.tmp && mv content/post.md.tmp content/post.md
+hugo
+mw post < public/post/index.html > public/post/index.html.tmp && mv public/post/index.html.tmp public/post/index.html
 ```
+
+See the [Hugo guide](integrations/hugo.md) for the `hugo.toml` settings and a script that does this for every file.
 
 Because the options come from the config file both stages read, you set them once and both the pre and post stages agree.
 

@@ -97,10 +97,25 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - `x.com` URLs are automatically converted to `twitter.com`
 - Width is clamped to 250-550px (Twitter's supported range)
 - The Twitter widgets script is injected once per page, and only when at least one embed is `eager`
+
+## HTML Contract
+
+```html
+<div class="twitter">
+    <blockquote class="twitter-tweet" data-dnt="true" data-width="550" data-theme="light">
+        <a href="https://twitter.com/github/status/1234567890">View tweet by @github</a>
+    </blockquote>
+</div>
+
+<script async defer src="https://platform.twitter.com/widgets.js"></script>
+```
+
+This is the `eager` output.
+The `<script>` is appended once, at the end of the page.
 
 ## Host CSS and Script
 

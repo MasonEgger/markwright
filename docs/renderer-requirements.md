@@ -8,22 +8,40 @@ Each requirement maps to a feature, and a renderer that does not meet one disabl
 
 ### 1. Raw HTML Passthrough
 
-The pre stage expands embed directives into raw HTML and, with highlight active, wraps prose markers in `<mark>`.
+The pre stage expands embed, button, and lightbox directives into raw HTML, turns mermaid fences into a `<pre>` block, inlines icon SVG, and, with highlight active, wraps prose markers in `<mark>`.
 A renderer that strips raw HTML by default has to enable its passthrough option (`--unsafe` for cmark, `unsafe = true` for Hugo's Goldmark, and the equivalent elsewhere).
-Without passthrough, the expanded embeds and pre-stage highlights are dropped by the renderer before the post stage ever sees them.
+Without passthrough, the expanded HTML and pre-stage highlights are dropped by the renderer before the post stage ever sees them.
 
 ### 2. Comment Preservation
 
-The pre stage encodes fence directives as an `<!-- mw-fence:{JSON} -->` comment placed immediately before the fence.
-The post stage reads that comment to style the adjacent code block.
-A renderer that preserves HTML comments lets fence styling round-trip.
-A renderer that drops comments disables fence styling and breaks nothing else: the code block still renders, just without its label, environment tint, or line prefixes.
+The pre stage encodes the fence, grid, annotate, and tabs directives as HTML comments (listed under [Marker Comments](#marker-comments)) and the post stage reads them back.
+For a fence, the `<!-- mw-fence:{JSON} -->` comment sits immediately before the fence, and the post stage uses it to style the adjacent code block.
+A renderer that preserves HTML comments lets all of these round-trip.
+A renderer that drops comments disables those four features and breaks nothing else: a code block still renders, just without its label, environment tint, or line prefixes, and a grid, annotation, or tab directive does nothing.
 
 ### 3. Span-Based Syntax Highlighting
 
 In-code highlighting (`\<^>...\<^>` inside a fence) depends on the renderer wrapping syntax-highlighted tokens in tags, so the post stage can place `<mark>` without crossing a token boundary.
 Any Pygments- or Chroma-style highlighter qualifies.
 A renderer that emits plain, untagged code text still highlights, but the `<mark>` placement has fewer token boundaries to respect.
+
+## Marker Comments
+
+Four extensions carry data from the pre stage to the post stage in versioned HTML comments.
+Each is a public contract, read fail-soft, and each has its payload documented on its own page.
+
+| Marker | Extension | Role |
+|--------|-----------|------|
+| `mw-fence` | [Fence](extensions/fence.md) | Carries the fence directives to the code block that follows. |
+| `mw-grid` | [Grid](extensions/grid.md) | Classes the list that follows a `[grid]` or `[grid cards]` shortcut. |
+| `mw-grid-block`, `mw-grid-end` | [Grid](extensions/grid.md) | Open and close a block grid. |
+| `mw-card`, `mw-card-end` | [Grid](extensions/grid.md) | Open and close a card inside a block grid. |
+| `mw-annotate` | [Annotate](extensions/annotate.md) | Links the `(N)` markers in the block that follows to the numbered list after it. |
+| `mw-tab`, `mw-tab-end` | [Tabs](extensions/tabs.md) | Open and close one tab, grouped into sets. |
+| `mw-grid-problem`, `mw-tab-problem` | [Grid](extensions/grid.md), [Tabs](extensions/tabs.md) | Sit after a directive the pre stage left literal, so `mw post --warn` can report it. |
+
+The post stage removes every one of them from its output.
+The rest of this page describes `mw-fence` in detail; the others follow the same versioning policy.
 
 ## The `mw-fence` Marker Contract
 
@@ -75,11 +93,11 @@ If a marker or signature is absent, the matching feature is a no-op rather than 
 
 | Unmet Requirement | Feature That Stops | Behavior |
 |-------------------|--------------------|----------|
-| Raw HTML passthrough | Embeds, pre-stage prose highlight | The renderer drops the expanded HTML before post runs |
-| Comment preservation | Fence labels, environments, prefixes | Code blocks render unstyled; the skip is silent |
+| Raw HTML passthrough | Embeds, buttons, lightboxes, mermaid, icons, pre-stage prose highlight | The renderer drops the expanded HTML before post runs |
+| Comment preservation | Fence labels, environments, prefixes; grids, annotations, and tabs | Code blocks render unstyled and the other directives do nothing; the skip is silent |
 | Span-based highlighting | In-code highlight | Markers still wrap, with fewer token boundaries to respect |
 
 The comment-stripping case is special.
-Once a renderer drops the `mw-fence` comment, the post stage has no evidence the directive ever existed, so a stripped marker is silently absent rather than a detectable skip.
+Once a renderer drops a marker comment, the post stage has no evidence the directive ever existed, so a stripped marker is silently absent rather than a detectable skip.
 That is why `--warn` cannot report it: a post-only filter sees nothing to warn about.
 Embed script injection is unaffected, since it keys on the embed class signature in the HTML, not on any comment.

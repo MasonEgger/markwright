@@ -94,9 +94,24 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - Width is clamped to 326-550px (Instagram's supported range)
 - The Instagram embed script is injected once per page, and only when at least one embed is `eager`
+
+## HTML Contract
+
+```html
+<div class="instagram">
+    <blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS" data-instgrm-version="14">
+        <a href="https://instagram.com/p/CkQuv3_LRgS">View post</a>
+    </blockquote>
+</div>
+
+<script async defer src="https://www.instagram.com/embed.js" onload="window.instgrm && window.instgrm.Embeds.process()"></script>
+```
+
+This is the `eager` output.
+The `<script>` is appended once, at the end of the page.
 
 ## Host CSS and Script
 

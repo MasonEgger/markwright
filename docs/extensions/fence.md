@@ -223,6 +223,29 @@ SHOW TABLES;
 ```
 
 
+## HTML Contract
+
+A label is a `<div class="code-label">` before the highlighted block, and a secondary label is a `<div class="secondary-code-label">` inside its `<code>` element:
+
+```html
+<div class="code-label" title="app.py">app.py</div>
+
+<div class="language-python highlight"><pre><span></span><code><div class="secondary-code-label" title="Output">Output</div>...</code></pre></div>
+```
+
+An environment and a line prefix add classes to the `<pre>` and wrap each line in an `<ol><li data-prefix="...">`:
+
+```html
+<div class="code-label" title="deploy.sh">deploy.sh</div>
+
+<div class="language-bash highlight"><pre class="prefixed command environment-local"><span></span><code><ol><li data-prefix="$">ls
+</li></ol>
+</code></pre></div>
+```
+
+The `<pre>` class is `prefixed` plus the prefix type (`line_numbers`, `command`, `super_user`, or `custom_prefix`), and `environment-NAME` when an environment is set.
+`data-prefix` is `$`, `#`, the custom text, or the line number.
+
 ## Host CSS and Script
 
 markwright ships no CSS, JavaScript, or icons.

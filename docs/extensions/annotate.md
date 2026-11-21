@@ -60,9 +60,9 @@ debug = False  # (2)!
 | Marker | Result |
 |--------|--------|
 | `(N)` | Replaced by a link to list item N. |
-| `(N)!` | In a code comment, the whole comment is replaced by the link, so the comment text does not show. A comment that holds several markers, one of them with the `!`, is replaced by all their links in order. |
+| `(N)!` | In a code comment, the whole comment is replaced by the link, so the comment text does not show. A comment that holds several markers, one of them with the `!`, is replaced by all their links in order. Under Hugo this needs `noClasses = false`: the comment is found by its highlighter class, and a comment span with only inline styles keeps its `# ` and gets just the link. |
 
-A number outside `1` to the item count is left as written.
+A number outside `1` to the item count is left as written, except that it goes with the comment when a valid `!` marker replaces that comment, as `(9)` does in `# (1)! (9)`.
 Only text counts: a `(N)` inside an attribute, a `<script>`, or a `<style>` is never touched.
 
 ## How It Works
@@ -78,7 +78,7 @@ It then:
 4. Replaces each marker with `<a class="mw-annotation" href="#mw-annotation-B-N">N</a>`.
 
 A marker with an invalid payload, no following block, or no ordered list after the block is skipped, and `--warn` reports why.
-In-process, annotate's postprocessor (priority 30) runs ahead of fence's (25), so it still sees the fence marker as a comment.
+In-process, annotate's postprocessor (priority 27) runs ahead of fence's (25), so it still sees the fence marker as a comment.
 
 ## HTML Contract
 
@@ -93,6 +93,17 @@ In-process, annotate's postprocessor (priority 30) runs ahead of fence's (25), s
 ```
 
 The `mw-annotation` link class, the `mw-annotated` and `mw-annotations` classes, and the `mw-annotation-B-N` id scheme are the public contract.
+
+## Marker Contracts
+
+The `mw-annotate` marker is a versioned public contract, read fail-soft like the [fence](fence.md) marker.
+
+| Marker | Payload | Role |
+|--------|---------|------|
+| `mw-annotate` | `version` | Marks the block after it as annotated by the ordered list that follows the block. |
+
+A marker with an invalid payload, no following block, or no ordered list after the block is skipped and reported by `mw post --warn`.
+The post stage removes the comment from its output.
 
 ## Examples
 
@@ -191,7 +202,7 @@ To put markers in a list's own items, wrap the list in `<div markdown>`:
 
 The wrapper is for Python-Markdown.
 It merges any list into a list directly before it, bullet or numbered, so without the `</div>` the annotation items become more items of the annotated list and annotate finds no annotation list.
-The `markdown` attribute needs the `md_in_html` extension.
+The `markdown` attribute needs the `md_in_html` extension, which `mw render` does not load, so this form needs a Python-Markdown setup that does (this site's `mkdocs.yml` does).
 CommonMark renderers such as Hugo start a new list when the list type changes, so through `mw pre | hugo | mw post` the wrapper is not needed.
 
 The same merge applies to an annotation list followed directly by a bullet list: put a paragraph between them.
