@@ -206,13 +206,15 @@ def _read_toml(path: Path) -> dict[str, object]:
 
     :param path: The TOML file to read.
     :returns: The parsed top-level table.
-    :raises ConfigError: If the file is not valid TOML.
+    :raises ConfigError: If the file cannot be read, is not UTF-8, or is not valid TOML.
     """
     try:
         with path.open("rb") as handle:
             parsed: dict[str, object] = tomllib.load(handle)
     except tomllib.TOMLDecodeError as decode_error:
         raise ConfigError(f"could not parse {path}: {decode_error}") from decode_error
+    except (OSError, UnicodeDecodeError) as read_error:
+        raise ConfigError(f"could not read {path}: {read_error}") from read_error
     return parsed
 
 

@@ -156,6 +156,29 @@ class TestExplicitPath:
 class TestParsing:
     """Tests for TOML parse-error handling at the boundary."""
 
+    def test_non_utf8_config_file_raises_config_error(self, tmp_path: Path) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_bytes(b'warn = "\xff\xfe"\n')
+        with pytest.raises(ConfigError, match=r"markwright\.toml"):
+            load_config(config_path, tmp_path)
+
+    def test_non_utf8_discovered_config_file_raises_config_error(self, tmp_path: Path) -> None:
+        (tmp_path / "markwright.toml").write_bytes(b"\xff\xfe")
+        with pytest.raises(ConfigError, match=r"markwright\.toml"):
+            load_config(None, tmp_path)
+
+    def test_unreadable_config_file_raises_config_error(
+        self, write_file: Callable[[Path, str], Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config_path = write_file(tmp_path / "markwright.toml", "warn = true\n")
+
+        def deny(self: Path, *args: object, **kwargs: object) -> object:
+            raise PermissionError(13, "Permission denied", str(self))
+
+        monkeypatch.setattr("pathlib.Path.open", deny)
+        with pytest.raises(ConfigError, match=r"markwright\.toml.*Permission denied"):
+            load_config(config_path, tmp_path)
+
     def test_malformed_toml_raises_config_error(self, write_file: Callable[[Path, str], Path], tmp_path: Path) -> None:
         bad = write_file(tmp_path / "markwright.toml", "enable = [\n")
         with pytest.raises(ConfigError, match="parse"):

@@ -131,21 +131,21 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
   - [x] GREEN: highlight.py apply_html adds title and textarea to the skip list
   - [x] Docs: spec.md Highlight, Feature Status drops hardening from highlight
   - [x] just check
-- [ ] Step 23: Icons reports an unreadable or non-UTF-8 SVG
-  - [ ] RED: tests/test_icons.py (unreadable and non-UTF-8 SVG name the file)
-  - [ ] GREEN: icons.py turns OSError/UnicodeDecodeError into OptionError naming the file
-  - [ ] Docs: spec.md Icons, Feature Status drops hardening from icons
-  - [ ] just check
-- [ ] Step 24: CLI and config I/O never end in a traceback
-  - [ ] RED: tests/test_cli.py (non-UTF-8 stdin, closed stdout/broken pipe, UTF-8 regardless of locale), tests/test_config.py (unreadable config)
-  - [ ] GREEN: cli.py UTF-8 stdio and boundary error mapping; config.py and icons.read_options turn OSError/UnicodeDecodeError into ConfigError/OptionError
-  - [ ] Docs: spec.md The mw CLI, Config and the Host API, Component boundaries
-  - [ ] just check
-- [ ] Step 25: `mw pre` passes front matter through
-  - [ ] RED: tests/test_cli.py (YAML and TOML front matter untouched)
-  - [ ] GREEN: cli.py front matter pass-through
-  - [ ] Docs: spec.md The mw CLI, Component boundaries, Feature Status clears hardening
-  - [ ] just check
+- [x] Step 23: Icons reports an unreadable or non-UTF-8 SVG
+  - [x] RED: tests/test_icons.py (unreadable and non-UTF-8 SVG name the file)
+  - [x] GREEN: icons.py turns OSError/UnicodeDecodeError into OptionError naming the file
+  - [x] Docs: spec.md Icons, Feature Status drops hardening from icons
+  - [x] just check
+- [x] Step 24: CLI and config I/O never end in a traceback
+  - [x] RED: tests/test_cli.py (non-UTF-8 stdin, closed stdout/broken pipe, UTF-8 regardless of locale), tests/test_config.py (unreadable config)
+  - [x] GREEN: cli.py UTF-8 stdio and boundary error mapping; config.py and icons.read_options turn OSError/UnicodeDecodeError into ConfigError/OptionError
+  - [x] Docs: spec.md The mw CLI, Config and the Host API, Component boundaries
+  - [x] just check
+- [x] Step 25: `mw pre` passes front matter through
+  - [x] RED: tests/test_cli.py (YAML and TOML front matter untouched)
+  - [x] GREEN: cli.py front matter pass-through
+  - [x] Docs: spec.md The mw CLI, Component boundaries, Feature Status clears hardening
+  - [x] just check
 
 ## Section 11: Docs Catch-Up
 

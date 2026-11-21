@@ -27,6 +27,7 @@ Reads Markdown source and writes Markdown with the source-stage transforms appli
 It expands the embed, `[button ...]`, and `[lightbox ...]` directives into raw HTML, turns `mermaid` fences into `<pre class="mermaid">` blocks, and resolves `:pack-name:` icon shortcodes to inline SVG.
 It extracts fence, `[grid]`, and `[annotate]` directives into marker comments (`<!-- mw-fence:{JSON} -->` and its siblings) that the post stage reads back later.
 With the highlight extension active, it also wraps prose `\<^>...\<^>` runs in `<mark>`, leaving in-code markers for the post stage.
+A leading YAML (`---`) or TOML (`+++`) front matter block passes through untouched.
 
 The output is meant to feed your renderer.
 Because the expanded embeds and the `<mark>` wrappers are raw HTML, your renderer must pass raw HTML through.
@@ -160,10 +161,9 @@ Prints the installed package version and exits.
 ## Exit Codes
 
 - `0` on success, including a run with no extensions selected (which warns on stderr).
-- `2` on a usage error: an unknown subcommand, an unknown name passed to `--exclude`, or a config problem (a missing or malformed file, an unknown extension or option, or a bad value).
-  A config problem prints one `mw: error:` line on stderr; argparse reports its own usage errors.
+- `2` on a usage error: an unknown subcommand, an unknown name passed to `--exclude`, or a config problem (a missing, unreadable, non-UTF-8, or malformed file, an unknown extension or option, or a bad value).
+  A config problem, input that is not UTF-8, a closed stdout, a broken pipe, or an icon file that cannot be read prints one `mw: error:` line on stderr; argparse reports its own usage errors.
   A `ConfigWarning` escalated with `python -W error` also exits `2` with an `mw: error:` line.
-- A nonzero code (`1`) if an I/O error propagates, since the tool fails loud rather than swallowing it.
 
 ## The Canonical Pipeline
 

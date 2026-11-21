@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import markdown
 import pytest
@@ -11,9 +11,6 @@ import pytest
 from markwright import ConfigError, ConfigWarning, OptionError, config_from_mapping
 from markwright.icons import IconsExtension, expand_source
 from markwright.registry import run_pre
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 ROCKET = '<svg viewBox="0 0 16 16"><path d="M1 1"/></svg>'
 ARROW_UP = '<svg viewBox="0 0 24 24"> <path d="m5 12 7-7"/> </svg>'
@@ -327,6 +324,22 @@ class TestIconsOptions:
     def test_missing_directory_raises(self, tmp_path: Path) -> None:
         with pytest.raises(OptionError, match="directory for 'octicons' not found"):
             expand_source(":a-b:", {"packs": {"octicons": str(tmp_path / "nope")}})
+
+    def test_non_utf8_svg_raises_naming_the_file(self, packs: dict[str, str]) -> None:
+        bad_file = Path(packs["octicons"]) / "broken-16.svg"
+        bad_file.write_bytes(b"<svg>\xff\xfe</svg>")
+        with pytest.raises(OptionError, match=r"broken-16\.svg"):
+            expand_source(":octicons-broken-16:", {"packs": packs})
+
+    def test_unreadable_svg_raises_naming_the_file(self, packs: dict[str, str]) -> None:
+        # A directory named like an SVG makes the read fail with an OSError whatever the user or filesystem
+        (Path(packs["octicons"]) / "locked-16.svg").mkdir()
+        with pytest.raises(OptionError, match=r"locked-16\.svg"):
+            expand_source(":octicons-locked-16:", {"packs": packs})
+
+    def test_readable_svg_still_inlines_beside_a_broken_one(self, packs: dict[str, str]) -> None:
+        (Path(packs["octicons"]) / "broken-16.svg").write_bytes(b"\xff\xfe")
+        assert "<svg" in expand_source(":octicons-rocket-16:", {"packs": packs})
 
     def test_config_reports_missing_directory(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigError, match=r"\[icons\] 'packs' directory for 'octicons' not found"):

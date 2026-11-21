@@ -106,13 +106,17 @@ def _load_icon(packs: Mapping[str, Path], pack: str, name: str) -> str | None:
     :param pack: The pack prefix the shortcode named.
     :param name: The icon name after the prefix.
     :returns: The SVG markup on one line, or ``None`` when no file matches.
+    :raises OptionError: If the matching file cannot be read or is not UTF-8.
     """
     directory = packs[pack]
     for svg_file in sorted(directory.rglob("*.svg")):
         relative_parts = svg_file.relative_to(directory).with_suffix("").parts
         if "-".join(relative_parts) != name:
             continue
-        text = svg_file.read_text(encoding="utf-8")
+        try:
+            text = svg_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as read_error:
+            raise OptionError(f"icon file {svg_file} could not be read: {read_error}") from read_error
         svg_start = text.find("<svg")
         svg_text = text[svg_start:] if svg_start >= 0 else text
         return " ".join(line.strip() for line in svg_text.strip().splitlines())
@@ -133,6 +137,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param text: Raw Markdown source.
     :param options: The icons option table, or ``None`` for no packs.
     :returns: Source with each resolvable shortcode wrapped in an ``mw-icon`` span.
+    :raises OptionError: If an option is invalid, or the SVG file a shortcode names cannot be read or is not UTF-8.
     """
     packs = read_options(options).packs
     pattern = re.compile(_shortcode_pattern(packs))

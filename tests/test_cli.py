@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import os
 import subprocess
 import sys
 import warnings
@@ -277,6 +278,172 @@ class TestCliPre:
         captured = capsys.readouterr()
         assert exit_code == 2
         assert "bogus" in captured.err
+
+
+class TestCliStdio:
+    """Tests for UTF-8 stdio and the I/O error boundary."""
+
+    def test_non_utf8_stdin_is_one_error_line_and_exit_2(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b"\xff\xfe"), encoding="utf-8"))
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.err.startswith("mw: error: ")
+        assert len(captured.err.strip().splitlines()) == 1
+        assert "Traceback" not in captured.err
+
+    def test_reads_and_writes_utf_8_under_an_ascii_locale(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        raw_out = io.BytesIO()
+        monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO("caf\u00e9\n".encode()), encoding="ascii"))
+        monkeypatch.setattr("sys.stdout", io.TextIOWrapper(raw_out, encoding="ascii"))
+        exit_code = main(["pre"])
+        sys.stdout.flush()
+        assert exit_code == 0
+        assert raw_out.getvalue() == "caf\u00e9\n".encode()
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.parametrize(
+        "failure", [BrokenPipeError(32, "Broken pipe"), ValueError("I/O operation on closed file")]
+    )
+    def test_failed_stdout_is_one_error_line_and_exit_2(
+        self,
+        failure: Exception,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        class FailingStdout(io.StringIO):
+            def write(self, text: str) -> int:
+                raise failure
+
+        feed_stdin("body\n")
+        monkeypatch.setattr("sys.stdout", FailingStdout())
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.err.startswith("mw: error: ")
+        assert len(captured.err.strip().splitlines()) == 1
+
+    def test_broken_pipe_leaves_nothing_to_flush_at_exit(
+        self,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        read_descriptor, write_descriptor = os.pipe()
+        os.close(read_descriptor)
+        broken_stdout = open(write_descriptor, "w", encoding="utf-8")  # noqa: SIM115 -- closed below
+        feed_stdin("hi\n")
+        monkeypatch.setattr("sys.stdout", broken_stdout)
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.err.startswith("mw: error: ")
+        assert len(captured.err.strip().splitlines()) == 1
+        # The buffered bytes must not hit the dead pipe again at exit
+        broken_stdout.flush()
+        broken_stdout.close()
+
+    @pytest.mark.parametrize("stream", ["stdin", "stdout"])
+    def test_stream_closed_by_the_shell_is_one_error_line_and_exit_2(
+        self,
+        stream: str,
+        feed_stdin: Callable[[str], None],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        feed_stdin("hi\n")
+        # Python sets a stream to None when its descriptor is closed at startup
+        monkeypatch.setattr(f"sys.{stream}", None)
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.err.startswith(f"mw: error: cannot {'read' if stream == 'stdin' else 'write'} {stream}")
+        assert len(captured.err.strip().splitlines()) == 1
+
+    def test_non_utf8_config_file_is_one_error_line_and_exit_2(
+        self, tmp_path: Path, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_bytes(b"\xff\xfe")
+        feed_stdin("body\n")
+        exit_code = main(["pre", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.err.startswith("mw: error: ")
+
+    def test_unreadable_icon_svg_is_one_error_line_and_exit_2(
+        self, tmp_path: Path, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "bad.svg").write_bytes(b"\xff\xfe")
+        config_path = tmp_path / "markwright.toml"
+        config_path.write_text(f'[icons]\npacks = {{ p = "{pack_dir}" }}\n', encoding="utf-8")
+        feed_stdin("see :p-bad:\n")
+        exit_code = main(["pre", "--config", str(config_path)])
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert captured.err.startswith("mw: error: ")
+        assert "bad.svg" in captured.err
+
+
+class TestCliFrontMatter:
+    """Tests for mw pre passing a leading front matter block through untouched."""
+
+    YOUTUBE = "[youtube dQw4w9WgXcQ]"
+
+    @pytest.mark.parametrize("delimiter", ["---", "+++"])
+    def test_front_matter_is_untouched_and_the_body_is_expanded(
+        self, delimiter: str, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        front_matter = f'{delimiter}\ntitle: "{self.YOUTUBE}"\nnote: <^>kept<^>\n{delimiter}\n'
+        feed_stdin(f"{front_matter}\n{self.YOUTUBE}\n")
+        exit_code = main(["pre"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.out.startswith(front_matter + "\n")
+        assert "<iframe" in captured.out[len(front_matter) :]
+
+    def test_crlf_front_matter_is_untouched(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        front_matter = f"---\r\ntitle: {self.YOUTUBE}\r\n---\r\n"
+        feed_stdin(front_matter)
+        main(["pre"])
+        assert capsys.readouterr().out == front_matter
+
+    def test_document_without_front_matter_is_expanded_as_before(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin(f"title: x\n\n{self.YOUTUBE}\n")
+        main(["pre"])
+        assert "<iframe" in capsys.readouterr().out
+
+    def test_unclosed_opener_is_read_as_before(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin(f"---\n{self.YOUTUBE}\n")
+        main(["pre"])
+        assert "<iframe" in capsys.readouterr().out
+
+    def test_mismatched_closer_is_not_a_closer(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin(f"---\n{self.YOUTUBE}\n+++\n")
+        main(["pre"])
+        assert "<iframe" in capsys.readouterr().out
+
+    def test_front_matter_only_when_it_starts_the_document(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin(f"\n---\n{self.YOUTUBE}\n---\n")
+        main(["pre"])
+        assert "<iframe" in capsys.readouterr().out
 
 
 class TestCliRender:
