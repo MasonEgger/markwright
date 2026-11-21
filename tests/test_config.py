@@ -15,6 +15,7 @@ from markwright.config import (
     Config,
     ConfigError,
     config_from_mapping,
+    disallowed_environments,
     extension_configs,
     load_config,
     selected_extensions,
@@ -263,10 +264,104 @@ class TestConfigFromMapping:
             config_from_mapping(tomllib.loads(toml_text), MAPPING_SOURCE)
         assert str(mapping_error.value).startswith(f"{MAPPING_SOURCE}: ")
 
+    def test_a_table_that_is_not_a_mapping_is_an_error_naming_the_source(self) -> None:
+        with pytest.raises(ConfigError, match="not a mapping") as mapping_error:
+            config_from_mapping([1, 2], source="x")
+        assert str(mapping_error.value).startswith("x: ")
+
+    def test_none_reads_as_an_empty_table(self) -> None:
+        assert config_from_mapping(None, source="x") == Config()
+
+    def test_an_unknown_key_is_an_error_whatever_its_value(self) -> None:
+        with pytest.raises(ConfigError, match="unknown configuration key: 'bogus'"):
+            config_from_mapping({"bogus": None}, MAPPING_SOURCE)
+
+    def test_an_unknown_option_is_an_error_whatever_its_value(self) -> None:
+        with pytest.raises(ConfigError, match="unknown option 'bogus'"):
+            config_from_mapping({"fence": {"bogus": None}}, MAPPING_SOURCE)
+
     def test_source_map_uses_the_label(self) -> None:
         config = config_from_mapping({"warn": True, "fence": {}}, MAPPING_SOURCE)
         assert config.source_path is None
         assert config.sources == {"warn": MAPPING_SOURCE, "fence": MAPPING_SOURCE}
+
+
+def fence_config(allowed: list[str] | None = None, **selection: tuple[str, ...]) -> Config:
+    """Build a config with an optional fence allowlist and an enable or disable selection."""
+    table: dict[str, object] = {name: list(names) for name, names in selection.items()}
+    if allowed is not None:
+        table["fence"] = {"allowed_environments": allowed}
+    return config_from_mapping(table, MAPPING_SOURCE)
+
+
+def fenced(*content_lines: str, info: str = "") -> str:
+    """Build a fenced block whose body is the given lines."""
+    return "\n".join([f"```{info}", *content_lines, "```", ""])
+
+
+class TestDisallowedEnvironments:
+    """Tests the public report of fence environments a document names outside the allowlist."""
+
+    def test_reports_each_name_once_in_order_of_first_appearance(self) -> None:
+        source = (
+            fenced("[environment prod]", "x") + fenced("[environment dev]", "y") + fenced("[environment prod]", "z")
+        )
+        config = fence_config(["local"])
+        assert disallowed_environments(source, config) == ["prod", "dev"]
+
+    def test_allowed_names_are_not_reported(self) -> None:
+        source = fenced("[environment local]", "x") + fenced("[environment prod]", "y")
+        assert disallowed_environments(source, fence_config(["local"])) == ["prod"]
+
+    def test_two_environment_lines_in_a_row_both_report(self) -> None:
+        source = fenced("[environment prod]", "[environment dev]", "x")
+        assert disallowed_environments(source, fence_config(["local"])) == ["prod", "dev"]
+
+    def test_label_lines_are_skipped_and_only_leading_lines_count(self) -> None:
+        source = fenced("[label a.sh]", "[secondary_label b]", "[environment prod]", "code", "[environment late]")
+        assert disallowed_environments(source, fence_config(["local"])) == ["prod"]
+
+    def test_a_directive_inside_a_nested_fence_is_code(self) -> None:
+        source = "````md\n```\n[environment prod]\n```\n````\n"
+        assert disallowed_environments(source, fence_config(["local"])) == []
+
+    def test_a_name_keeps_its_padding_as_written(self) -> None:
+        source = fenced("[environment  padded ]", "x")
+        assert disallowed_environments(source, fence_config(["padded"])) == [" padded "]
+
+    def test_an_omitted_allowlist_reports_nothing_and_warns_nothing(self) -> None:
+        source = fenced("[environment prod]", "x")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert disallowed_environments(source, Config()) == []
+
+    def test_an_empty_allowlist_reports_every_name_without_warning(self) -> None:
+        source = fenced("[environment prod]", "x") + fenced("[environment dev]", "y")
+
+        # Building the config warns about the empty list; the call under test must not
+        with pytest.warns(ConfigWarning):
+            config = fence_config([])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert disallowed_environments(source, config) == ["prod", "dev"]
+
+    def test_an_unselected_fence_reports_nothing_without_warning(self) -> None:
+        source = fenced("[environment prod]", "x")
+        fence_disabled = fence_config(["local"], disable=("fence",))
+        nothing_enabled = fence_config(["local"], enable=())
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert disallowed_environments(source, fence_disabled) == []
+            assert disallowed_environments(source, nothing_enabled) == []
+
+    def test_a_mermaid_fence_is_skipped_when_mermaid_is_selected(self) -> None:
+        source = fenced("[environment prod]", "graph TD", info="mermaid")
+        assert disallowed_environments(source, fence_config(["local"])) == []
+
+    def test_a_mermaid_fence_is_scanned_when_mermaid_is_excluded(self) -> None:
+        source = fenced("[environment prod]", "graph TD", info="mermaid")
+        config = fence_config(["local"], disable=("mermaid",))
+        assert disallowed_environments(source, config) == ["prod"]
 
 
 class TestSelectedExtensions:
@@ -360,10 +455,12 @@ class TestPackageExports:
             "ConfigWarning",
             "OptionError",
             "config_from_mapping",
+            "disallowed_environments",
             "extension_configs",
             "selected_extensions",
         ]
         assert markwright.config_from_mapping is config_from_mapping
+        assert markwright.disallowed_environments is disallowed_environments
         assert markwright.Config is Config
 
 

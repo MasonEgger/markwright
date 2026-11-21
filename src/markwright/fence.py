@@ -38,12 +38,13 @@ from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, OptionError
-from markwright._fences import find_fenced_blocks
+from markwright._fences import FencedBlock, find_fenced_blocks
 from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
 from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
+from markwright.mermaid import MERMAID_CLASS
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
 
     from markdown import Markdown
 
@@ -140,6 +141,53 @@ def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: s
     return "<ol>" + "".join(wrapped_lines) + "</ol>\n"
 
 
+def _leading_directives(lines: list[str], block: FencedBlock) -> Iterator[tuple[str, str]]:
+    """Read a fence's leading directive lines, the one grammar the pre stage and the scan share.
+
+    A directive is a content line that is exactly ``[label ...]``, ``[secondary_label ...]`` or
+    ``[environment ...]``; the first other line ends the run. The value is everything after the
+    first space of the directive, as written.
+
+    :param lines: The document's source lines.
+    :param block: The fenced block whose content lines are read.
+    :returns: ``(directive, value)`` pairs in order, where ``directive`` is ``label``,
+        ``secondary_label``, or ``environment``.
+    """
+    for content_line in lines[block.opening + 1 : block.closing]:
+        stripped_line = content_line.strip()
+        if label_match := LABEL_RE.match(stripped_line):
+            yield "label", label_match.group(1)
+        elif secondary_match := SECONDARY_LABEL_RE.match(stripped_line):
+            yield "secondary_label", secondary_match.group(1)
+        elif environment_match := ENVIRONMENT_RE.match(stripped_line):
+            yield "environment", environment_match.group(1)
+        else:
+            return
+
+
+def environment_names(text: str, *, skip_mermaid: bool) -> list[str]:
+    """List the environment names a document's fence directives name.
+
+    Reads fences and directives by the rules the pre stage extracts them with, with one
+    difference: a disallowed ``[environment ...]`` line does not end the scan of its fence, so
+    every environment line among a fence's leading lines is listed. A directive inside a nested
+    fence's source is code and not listed.
+
+    :param text: The source text.
+    :param skip_mermaid: Skip ``mermaid`` fences, which the mermaid stage replaces before fence
+        reads them.
+    :returns: Every name in document order, repeats included, each as written.
+    """
+    lines = text.split("\n")
+    return [
+        value
+        for block in find_fenced_blocks(lines)
+        if not (skip_mermaid and block.info.strip() == MERMAID_CLASS)
+        for directive, value in _leading_directives(lines, block)
+        if directive == "environment"
+    ]
+
+
 def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> list[str]:
     """Extract fence directives and prefix flags, inserting the mw-fence marker comment.
 
@@ -164,21 +212,14 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
         if prefix_metadata:
             fence_line = block.indent + block.marker + cleaned_info
 
-        # Directives are the leading content lines; the first other line ends them
+        # Directives are the leading content lines; the first other line, or an environment
+        # outside the allowlist, ends them
         metadata: dict[str, str] = dict(prefix_metadata)
         content_index = block.opening + 1
-        while content_index < block.closing:
-            stripped_line = lines[content_index].strip()
-            if label_match := LABEL_RE.match(stripped_line):
-                metadata["label"] = label_match.group(1)
-            elif secondary_match := SECONDARY_LABEL_RE.match(stripped_line):
-                metadata["secondary_label"] = secondary_match.group(1)
-            elif (environment_match := ENVIRONMENT_RE.match(stripped_line)) and (
-                allowed_environments is None or environment_match.group(1) in allowed_environments
-            ):
-                metadata["environment"] = environment_match.group(1)
-            else:
+        for directive, value in _leading_directives(lines, block):
+            if directive == "environment" and allowed_environments is not None and value not in allowed_environments:
                 break
+            metadata[directive] = value
             content_index += 1
 
         if metadata:

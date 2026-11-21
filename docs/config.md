@@ -189,10 +189,17 @@ md = markdown.Markdown(
 
 - `config_from_mapping(table, source)` validates the table with the same rules as a config file and returns a `Config`.
   Every error message starts with the `source` label, and no file discovery happens.
+  A table that is not a mapping is a `ConfigError`, `None` reads as an empty table, and an unknown key is an error whatever its value, `None` included.
 - `selected_extensions(config)` applies `enable` and `disable` and returns extension names in registry order.
 - `extension_configs(config, names)` returns the per-extension option tables keyed `markwright.<name>`, ready for `markdown.Markdown`.
+- `disallowed_environments(source, config)` returns the fence environment names a document uses outside `fence.allowed_environments`, each once, in order of first appearance.
+  A name is everything after the first space of the `[environment NAME]` line, compared as written.
+  Every disallowed environment line among a fence's leading lines is reported, although `mw pre` stops reading directives at the first one, and a directive inside a nested fence's source is code.
+  A `mermaid` fence is skipped when `mermaid` is selected and scanned when it is excluded.
+  The list is empty when `allowed_environments` is omitted or `fence` is not selected, and an empty allowlist reports every name.
+  It emits no warning of its own, so printing the result is the host's decision.
 
-`mw render` builds its own `markdown.Markdown` from these same three functions, so a host and the CLI resolve a given table the same way.
+`mw render` builds its own `markdown.Markdown` from `selected_extensions` and `extension_configs`, so a host and the CLI resolve a given table the same way.
 
 When a config selects no extensions, `selected_extensions` returns an empty list and emits a `markwright.ConfigWarning` with the cause and the `source` label.
 It does not raise, since an empty selection is a legitimate way to switch markwright off.

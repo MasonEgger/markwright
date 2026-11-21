@@ -72,14 +72,13 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - containers fixes (#30): an invalid `[grid ...]` is not an opener; indentation pairs by column, and a less-indented line ends a container's block; a card needs a paired grid; tabs group by a sibling rule, number their sets in opening order, and render a backticked name as text in both paths; closer markers are validated; the shortcut and annotate markers are emitted as blocks, and a problem marker keeps a CRLF line end; the backslash escape for a literal directive line is documented and tested; and the sample CSS covers a list inside a `cards` block grid; written as `Planned (containers fixes)` sentences under Goals in Containers, Grid and Cards, and Tabs
 - block bodies (no issue): a directive line, a fence with its directives, and a `mermaid` fence work inside the body of an admonition, a details block, a content tab, a definition, or a footnote, in both paths; `_fences` reads those four-column bodies as content, so an embed that 0.3.0 expanded there expands again
 - pre-stage order (no issue): in `mw pre` the icons stage runs after the directive stages, and a `mermaid` fence in a list item renders as one block; the two land together, since icons after mermaid would otherwise rewrite a shortcode inside a diagram
-- public fence API (#32): `disallowed_environments(source, config)`, a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; the same item makes `config_from_mapping` raise `ConfigError` for a table that is not a mapping and check key names before it drops `None` values
 - hardening (no issue): no input a pipeline plausibly sends ends in a traceback (unreadable or non-UTF-8 files, closed streams); `mw` reads and writes UTF-8 whatever the locale; the label class options are validated as class tokens; a Chroma prefixed line gains no second newline; highlight skips `<title>` and `<textarea>`; a replaced prefix flag leaves no `prefix_value`; and `mw pre` passes a leading front matter block through untouched; written as `Planned (hardening)` sentences across Goals
 - docs catch-up (no issue): the docs gaps and the CHANGELOG corrections listed under Goals, Docs Site; docs-only, done after the code items so the CHANGELOG's Fixed list is final
 - 0.4.0 release: done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; it closes #16, #20, #29, and #30 and turns the Unreleased rows of Goals, Feature Status into Released 0.4.0
   - draft PR #35 of `containers-30` into `main` is open, so CI runs on every push; mark it ready for review when the plan items and the docs catch-up have landed
   - at the release: the version bump in `pyproject.toml` and `uv.lock`, the `markdown` floor raised to `>=3.8.2`, the MkDocs bound settled (`<2` in `pyproject.toml`, or the sentence dropped from the two docs pages that state it), the CHANGELOG date and `[0.4.0]` compare link, and a check by hand that the tag equals the version, which the publish workflow does not make
   - right after the merge: publish the GitHub Release, which is what triggers the PyPI publish; the docs deploy on the merge, so until the Release the live docs describe fifteen extensions and PyPI delivers eight
-  - same day: the Bartleby follow-up, since `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports wait on the public fence API
+  - same day: the Bartleby follow-up, since `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports move to the public `disallowed_environments`
 - Material mapping docs page: maps each mkdocs-material reference feature to the Python-Markdown or pymdown-extensions extension that provides it in-process and the Goldmark setting that provides it in Hugo, with the gaps; docs-only, done directly
 
 **Deferred:**
@@ -94,7 +93,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - Move the docs site to Bartleby: once Bartleby reaches parity and releases, before May 5, 2027; the docs keep loading markwright's own CSS and JavaScript samples through Bartleby's `extra_css` and `extra_js`, so the samples stay exercised
 - Full `mw pre` idempotence for a document with container problems: a line that already carries a problem marker is not read as a directive on a second pass, so a `[card]` outside a grid leaves its `[/card]` to gain a stray-closer report, and a `[grid]` left literal by a stray `[/grid]` is read as the list shortcut; a valid document is unaffected, revisit if a pipeline runs `mw pre` twice
 - pymdown-extensions 13.x: checked on 2026-11-16 by the plan review (markwright's suite passes on 13.0 and 13.1 with `mw render` byte-identical to 12.2, and Bartleby's suite gives the same result on 13.1 as on 12.2); re-check when a release past 13.1 appears
-- In-process diagnostics: a way for `mw render`, MkDocs, and a host that renders through Python-Markdown to collect what `mw post --warn` reports; today only the pipeline reports, and the public fence API gives a host the disallowed environment names; revisit when a host asks for the rest
+- In-process diagnostics: a way for `mw render`, MkDocs, and a host that renders through Python-Markdown to collect what `mw post --warn` reports; today only the pipeline reports, and `disallowed_environments` gives a host the disallowed environment names; revisit when a host asks for the rest
 - Problem report line numbers: a line map through `run_pre`, so a report names the source line even when an earlier stage added lines above it; the report already names the directive and the reason
 - Fence marker binding: bind an `mw-fence` marker only to a `<pre>` that follows it with nothing but whitespace between; every case that differs needs a fence the renderer failed to render, unchanged since 0.1.0
 - `[button]` argument checks: a style word followed by one token reads the style word as the URL; it needs an author mistake and is visibly wrong on the page
@@ -129,7 +128,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | Feature | Origin | State | Open Work | Docs | Code |
 |---------|--------|-------|-----------|------|------|
 | highlight | ported | Released 0.1.0 | hardening | `extensions/highlight.md` | `highlight.py` |
-| fence | ported | Released 0.1.0 | public fence API (#32), hardening | `extensions/fence.md` | `fence.py` |
+| fence | ported | Released 0.1.0 | hardening | `extensions/fence.md` | `fence.py` |
 | youtube | ported | Released 0.1.0 | none | `extensions/youtube.md` | `youtube.py` |
 | codepen | ported | Released 0.1.0 | none | `extensions/codepen.md` | `codepen.py` |
 | twitter | ported | Released 0.1.0 | none | `extensions/twitter.md` | `twitter.py` |
@@ -138,7 +137,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | image_compare | ported | Released 0.1.0 | none | `extensions/image-compare.md` | `image_compare.py` |
 | `mw` CLI | own | Released 0.1.0 | hardening | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
 | config | own | Released 0.2.0 | hardening | `config.md` | `config.py` |
-| host API | own | Released 0.3.0 | public fence API (#32) | `config.md` | `config.py`, `__init__.py` |
+| host API | own | Released 0.3.0 | none | `config.md` | `config.py`, `__init__.py` |
 | click-to-load | own | Released 0.3.0 | none | `click-to-load.md` | `_embed_load.py` |
 | button | own | Unreleased | none | `extensions/button.md` | `button.py` |
 | lightbox | own | Unreleased | none | `extensions/lightbox.md` | `lightbox.py` |
@@ -219,7 +218,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 - Options: `allowed_environments` (omitted allows every name; an empty list allows none and warns; an unlisted `[environment NAME]` line stays in the code as text), `label_class`, and `secondary_label_class`.
   Planned (hardening): `label_class` and `secondary_label_class` accept space-separated class tokens of letters, digits, `-`, and `_`; any other value is a `ConfigError`, or an `OptionError` in-process.
   Today the value goes into the `class` attribute unescaped.
-  Planned (public fence API): `fence.py` exposes the scan that lists the environment names a document's fence directives name, by the same rules the pre stage extracts them with; the host API function below is built on it.
+  `fence.py` exposes the scan (`environment_names`) that lists the environment names a document's fence directives name, by the same rules the pre stage extracts them with; the host API function below is built on it.
 - The `mw-fence` marker (version 1: `label`, `secondary_label`, `environment`, `prefix_type`, `prefix_value`, each present only when set) sits before the fence at the fence's indentation, followed by a blank line when the fence is indented.
   Planned (hardening): a `line_numbers` flag that replaces an earlier `command`, `super_user`, or `custom_prefix` drops `prefix_value`; today the earlier value stays in the marker.
   The fence itself is kept, so the renderer still highlights the code, and the post stage styles the first `<pre>` or `<code>` after the marker and before the next one, however far away, an inline code span included.
@@ -425,7 +424,7 @@ Both paths:
   `mw post` takes the config key `warn` as the default for its diagnostics; `--warn` turns them on and `--no-warn` turns them off, whatever the config says, and the last of the two on the command line wins.
   The pair exists on `mw post` only, `mw config` shows the resolved value and its source, and the diagnostics stay plain stderr lines that `PYTHONWARNINGS=error` does not escalate.
   Known gap (parser hygiene): a subcommand accepts an abbreviated long option, so `mw post --w` is read as `--warn`; `mw` with no subcommand prints its usage line on stdout; and `--config ""` falls back to discovery.
-  Known gap (in-process diagnostics): the in-process path collects no diagnostics, so `mw render`, MkDocs, and a host that renders through Python-Markdown never see what `mw post --warn` reports, and no path reports a disallowed environment; a host gets those names from `disallowed_environments` once the public fence API ships.
+  Known gap (in-process diagnostics): the in-process path collects no diagnostics, so `mw render`, MkDocs, and a host that renders through Python-Markdown never see what `mw post --warn` reports, and no path reports a disallowed environment; a host gets those names from `disallowed_environments`.
 - Exit codes: 0 on success, an empty selection included; 2 on a config error, with one `mw: error:` line, and on a usage error, with argparse's usage text; 1, with a traceback, if an I/O or decoding error propagates, an unreadable or non-UTF-8 config file included; 120 if stdout cannot be flushed at exit (a full device, or a closed pipe on a small output).
   Planned (hardening): a decode error, a closed stream, a broken pipe, and an unreadable or non-UTF-8 config file are each one `mw: error:` line and exit 2, so no input ends in a traceback.
 - An empty selection prints one `mw: warning:` line and exits 0; `mw pre` and `mw post` then pass input through unchanged, and `mw render` renders it as plain Markdown.
@@ -442,7 +441,6 @@ Both paths:
 - The keys are `enable` and `disable` (lists of extension names, mutually exclusive), `warn` (a boolean), and one options table per extension.
   A `None` value, which only a host's mapping can carry, counts as omitted.
   An unknown key, extension name, or option is an error.
-  Today the key of a `None` value is not checked, so an unknown key with a `None` value passes.
 - The options that exist: `fence.allowed_environments`, `fence.label_class`, `fence.secondary_label_class`, `load` on youtube, codepen, twitter, and instagram, and `icons.packs`.
 - Every setting follows the config law in Invariants and in `docs/config.md`, Config Rules.
   A `ConfigError` names the extension, the key, and the source; the Python-Markdown path raises `OptionError` (a `ValueError` subclass) for the same bad value.
@@ -450,14 +448,13 @@ Both paths:
   Planned (hardening): a config file that cannot be read or is not UTF-8 is a `ConfigError`; today it is a traceback and exit 1.
 - The host API, re-exported from the package root, lets a host tool carry a markwright table in its own config file: `config_from_mapping(table, source)` validates a parsed table with the same rules as a file, `selected_extensions(config)` applies `enable` and `disable` (an empty selection warns and returns an empty list), and `extension_configs(config, names)` builds the `markwright.<name>` option dicts for `markdown.Markdown`.
   `mw render` builds its own `Markdown` through `selected_extensions` and `extension_configs`.
-- The public names are `Config`, `ConfigError`, `ConfigWarning`, `OptionError`, and those three functions; `load_config` is not public, and Bartleby is the first consumer.
-  Known gap (public fence API, #32): Bartleby reports disallowed fence environments by importing `markwright._fences.find_fenced_blocks` and fence's private regexes and `read_options`, so a refactor of either breaks it.
-  Planned (public fence API): `disallowed_environments(source, config)` joins the public names and returns each environment name a fence directive names outside `fence.allowed_environments`, once each, in order of first appearance.
-  Planned (public fence API): it scans with fence's own rules (a directive counts only among a fence's leading lines, label and secondary-label lines are skipped, and a directive inside a nested fence's source is code), with two stated additions: a disallowed environment line does not end the scan of that fence, so each disallowed name among the leading lines is reported although fence stops reading directives at the first; and a `mermaid` fence is skipped when `mermaid` is selected, since that stage replaces the fence before fence reads it.
+- The public names are `Config`, `ConfigError`, `ConfigWarning`, `OptionError`, those three functions, and `disallowed_environments`; `load_config` is not public, and Bartleby is the first consumer.
+  `disallowed_environments(source, config)` returns each environment name a fence directive names outside `fence.allowed_environments`, once each, in order of first appearance.
+  It scans with fence's own rules (a directive counts only among a fence's leading lines, label and secondary-label lines are skipped, and a directive inside a nested fence's source is code), with two stated additions: a disallowed environment line does not end the scan of that fence, so each disallowed name among the leading lines is reported although fence stops reading directives at the first; and a `mermaid` fence is skipped when `mermaid` is selected, since that stage replaces the fence before fence reads it.
   A name is everything after the first space of the directive, compared as written.
-  Planned (public fence API): it returns an empty list when `allowed_environments` is omitted or when `fence` is not selected, emitting no warning, its own or from the option and selection readers it calls; with an empty allowlist it reports every name; whether to print the result stays the host's decision.
-  Planned (public fence API): the tests call it under `warnings.simplefilter("error")` with an empty allowlist and with an empty selection, and cover two environment lines one after the other, a `mermaid` fence with `mermaid` selected and excluded, and a name with padding.
-  Planned (public fence API): `config_from_mapping` raises `ConfigError` with the source label for a table that is not a mapping, reads `None` as an empty table, and checks key names before it drops `None` values, so an unknown key is an error whatever its value.
+  It returns an empty list when `allowed_environments` is omitted or when `fence` is not selected, emitting no warning, its own or from the option and selection readers it calls; with an empty allowlist it reports every name; whether to print the result stays the host's decision.
+  The tests call it under `warnings.simplefilter("error")` with an empty allowlist and with an empty selection, and cover two environment lines one after the other, a `mermaid` fence with `mermaid` selected and excluded, and a name with padding.
+  `config_from_mapping` raises `ConfigError` with the source label for a table that is not a mapping, reads `None` as an empty table, and checks key names before it drops `None` values, so an unknown key is an error whatever its value.
 
 ### Docs Site
 
@@ -505,8 +502,8 @@ Permanent; markwright does not do these:
 ## Component boundaries
 
 - **Two consumers over one set of pure stage functions.** Each extension module exposes `expand_source` (the `mw pre` source stage) and, where it has one, `apply_html` (the `mw post` HTML stage). The in-process Python-Markdown `Extension` classes and the `mw` CLI both delegate to these, so the logic is written once.
-- **`config.py`** owns discovery, parsing, validation, the resolved `Config` (a frozen pydantic model), and the public host API. It depends on `registry` (`EXTENSION_NAMES`, `OPTION_NAMES`, `REGISTRY`) and `_diagnostics` (`OptionError`), and nothing else; never on `cli`.
-  Planned (public fence API): `disallowed_environments` lives here with the other host API functions and calls the scan `fence.py` exposes, so `config` gains `fence` as a dependency and `fence` never imports `config`.
+- **`config.py`** owns discovery, parsing, validation, the resolved `Config` (a frozen pydantic model), and the public host API. It depends on `registry` (`EXTENSION_NAMES`, `OPTION_NAMES`, `REGISTRY`), `_diagnostics` (`ConfigWarning`, `OptionError`), and `fence` (the environment scan behind `disallowed_environments`), and nothing else; never on `cli`.
+  `disallowed_environments` lives here with the other host API functions and calls the scan `fence.py` exposes, so `config` imports `fence` and `fence` never imports `config`.
 - **`registry.py`** maps each extension name to a pydantic `StageSpec` (stage functions, priorities, the extension class, its option checker) and provides `run_pre`, `run_post`, and `describe`. Selection lives in `config.selected_extensions`; there is no `registry.select_extensions`.
 - **`_fences.py`** (CommonMark fenced-code scanning) and **`_html.py`** (offset-preserving tokenizing over the stdlib `html.parser`) own structured-text parsing. No stage hand-rolls Markdown-structure or HTML regex; single-line token grammars (embed directives, the marker comment) may stay regex.
   `_fences` also reads the body of a Python-Markdown block opener (an admonition, a details block, a content tab, a definition, a footnote definition) as that block's content, not as indented code.

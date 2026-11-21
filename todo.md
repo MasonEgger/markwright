@@ -108,16 +108,16 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 9: Public Fence API (#32)
 
-- [ ] Step 17: `disallowed_environments(source, config)`
-  - [ ] RED: tests/test_config.py or tests/test_fence.py (order, two additions, empty list no warning, empty allowlist, padding, nested fence)
-  - [ ] GREEN: fence.py public scan; config.py disallowed_environments; __init__.py export
-  - [ ] Docs: spec.md Config and the Host API and Component boundaries, docs/config.md, Feature Status drops public fence API (#32)
-  - [ ] just check
-- [ ] Step 18: `config_from_mapping` input hardening
-  - [ ] RED: tests/test_config.py (non-mapping ConfigError, None as empty, unknown key with None value)
-  - [ ] GREEN: config.py config_from_mapping checks before dropping None
-  - [ ] Docs: spec.md Config and the Host API
-  - [ ] just check
+- [x] Step 17: `disallowed_environments(source, config)`
+  - [x] RED: tests/test_config.py or tests/test_fence.py (order, two additions, empty list no warning, empty allowlist, padding, nested fence)
+  - [x] GREEN: fence.py public scan; config.py disallowed_environments; __init__.py export
+  - [x] Docs: spec.md Config and the Host API and Component boundaries, docs/config.md, Feature Status drops public fence API (#32)
+  - [x] just check
+- [x] Step 18: `config_from_mapping` input hardening
+  - [x] RED: tests/test_config.py (non-mapping ConfigError, None as empty, unknown key with None value)
+  - [x] GREEN: config.py config_from_mapping checks before dropping None
+  - [x] Docs: spec.md Config and the Host API
+  - [x] just check
 
 ## Section 10: Hardening
 

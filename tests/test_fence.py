@@ -7,7 +7,7 @@ import markdown
 import pytest
 
 from markwright import ConfigWarning, OptionError
-from markwright.fence import FenceExtension, apply_html, expand_source
+from markwright.fence import FenceExtension, apply_html, environment_names, expand_source
 
 
 def _stub_render(markdown_text: str) -> str:
@@ -629,3 +629,19 @@ class TestFenceScanner:
     def test_fence_holding_only_directives(self) -> None:
         result = expand_source("```\n[label a.sh]\n```\n")
         assert result == '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n```\n```\n'
+
+
+class TestEnvironmentNames:
+    """Tests the public scan that lists the environment names a document's fence directives name."""
+
+    def test_lists_names_in_document_order_with_repeats(self) -> None:
+        source = "```\n[environment a]\nx\n```\n\n```\n[environment b]\n[environment a]\ny\n```\n"
+        assert environment_names(source, skip_mermaid=False) == ["a", "b", "a"]
+
+    def test_a_directive_after_the_first_code_line_is_not_listed(self) -> None:
+        assert environment_names("```\n[label x]\ncode\n[environment late]\n```\n", skip_mermaid=False) == []
+
+    def test_mermaid_fences_are_skipped_on_request(self) -> None:
+        source = "```mermaid\n[environment a]\ngraph TD\n```\n"
+        assert environment_names(source, skip_mermaid=True) == []
+        assert environment_names(source, skip_mermaid=False) == ["a"]
