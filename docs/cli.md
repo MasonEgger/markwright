@@ -11,7 +11,7 @@ After `uv add markwright` (or `pip install markwright`), the `mw` command is on 
 
 ```
 mw pre    [--config PATH] [--exclude NAME ...]
-mw post   [--config PATH] [--exclude NAME ...] [--warn]
+mw post   [--config PATH] [--exclude NAME ...] [--warn | --no-warn]
 mw render [--config PATH] [--exclude NAME ...]
 mw config [--config PATH] [--exclude NAME ...]
 mw list
@@ -134,18 +134,23 @@ An empty `fence.allowed_environments` warns the same way.
 Warnings from other libraries keep Python's standard format, so `mw: warning:` always means markwright's own.
 See [Config Rules](config.md#config-rules).
 
-### `--warn` (`post` only)
+### `--warn` and `--no-warn` (`post` only)
 
-Writes advisory diagnostics to stderr for markers the post stage sees but cannot fully apply.
-It changes no output and does not change the exit code.
+`--warn` turns the diagnostics on and `--no-warn` turns them off, whatever the [`warn` config key](config.md) says.
+When both appear, the last one wins.
+With neither, the config key decides, and it defaults to off.
 
-It reports the three conditions a post-only filter can detect:
+The diagnostics are advisory lines on stderr for markers the post stage sees but cannot fully apply.
+They change no output and do not change the exit code.
+They are plain stderr lines, not Python warnings, so `PYTHONWARNINGS=error` does not escalate them.
+
+They report the three conditions a post-only filter can detect:
 
 - A malformed `mw-fence` JSON payload, which is skipped rather than executed.
 - A marker whose `version` this tool does not support.
 - A marker with no adjacent code block to style.
 
-Without `--warn`, each of these is a silent no-op.
+With the diagnostics off, each of these is a silent no-op.
 A renderer that strips the `mw-fence` comment outright is undetectable here, since the marker is simply gone; that case is covered by the [renderer requirements](renderer-requirements.md), not by runtime detection.
 
 ### `--version`

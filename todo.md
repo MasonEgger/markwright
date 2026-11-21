@@ -100,11 +100,11 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 8: Config `warn` Default (#33)
 
-- [ ] Step 15: `mw post` takes the config `warn` key as the diagnostics default
-  - [ ] RED: tests/test_cli.py (config warn, --warn/--no-warn last wins, post-only, PYTHONWARNINGS not escalated)
-  - [ ] GREEN: cli.py --no-warn and resolved warn default
-  - [ ] Docs: spec.md The mw CLI (warn default, correct the #33 Known gap), Feature Status drops warn default (#33) from the mw CLI row
-  - [ ] just check
+- [x] Step 15: `mw post` takes the config `warn` key as the diagnostics default
+  - [x] RED: tests/test_cli.py (config warn, --warn/--no-warn last wins, post-only, PYTHONWARNINGS not escalated)
+  - [x] GREEN: cli.py --no-warn and resolved warn default
+  - [x] Docs: spec.md The mw CLI (warn default, correct the #33 Known gap), Feature Status drops warn default (#33) from the mw CLI row
+  - [x] just check
 
 ## Section 9: Public Fence API (#32)
 

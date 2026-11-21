@@ -72,7 +72,6 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - containers fixes (#30): an invalid `[grid ...]` is not an opener; indentation pairs by column, and a less-indented line ends a container's block; a card needs a paired grid; tabs group by a sibling rule, number their sets in opening order, and render a backticked name as text in both paths; closer markers are validated; the shortcut and annotate markers are emitted as blocks, and a problem marker keeps a CRLF line end; the backslash escape for a literal directive line is documented and tested; and the sample CSS covers a list inside a `cards` block grid; written as `Planned (containers fixes)` sentences under Goals in Containers, Grid and Cards, and Tabs
 - block bodies (no issue): a directive line, a fence with its directives, and a `mermaid` fence work inside the body of an admonition, a details block, a content tab, a definition, or a footnote, in both paths; `_fences` reads those four-column bodies as content, so an embed that 0.3.0 expanded there expands again
 - pre-stage order (no issue): in `mw pre` the icons stage runs after the directive stages, and a `mermaid` fence in a list item renders as one block; the two land together, since icons after mermaid would otherwise rewrite a shortcode inside a diagram
-- config `warn` default (#33): `mw post` ignores `warn = true`; make it the default for the diagnostics, as `docs/config.md` says, and add `--no-warn` so the command line can still turn them off
 - public fence API (#32): `disallowed_environments(source, config)`, a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; the same item makes `config_from_mapping` raise `ConfigError` for a table that is not a mapping and check key names before it drops `None` values
 - hardening (no issue): no input a pipeline plausibly sends ends in a traceback (unreadable or non-UTF-8 files, closed streams); `mw` reads and writes UTF-8 whatever the locale; the label class options are validated as class tokens; a Chroma prefixed line gains no second newline; highlight skips `<title>` and `<textarea>`; a replaced prefix flag leaves no `prefix_value`; and `mw pre` passes a leading front matter block through untouched; written as `Planned (hardening)` sentences across Goals
 - docs catch-up (no issue): the docs gaps and the CHANGELOG corrections listed under Goals, Docs Site; docs-only, done after the code items so the CHANGELOG's Fixed list is final
@@ -137,7 +136,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | instagram | ported | Released 0.1.0 | none | `extensions/instagram.md` | `instagram.py` |
 | slideshow | ported | Released 0.1.0 | none | `extensions/slideshow.md` | `slideshow.py` |
 | image_compare | ported | Released 0.1.0 | none | `extensions/image-compare.md` | `image_compare.py` |
-| `mw` CLI | own | Released 0.1.0 | `warn` default (#33), hardening | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
+| `mw` CLI | own | Released 0.1.0 | hardening | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
 | config | own | Released 0.2.0 | hardening | `config.md` | `config.py` |
 | host API | own | Released 0.3.0 | public fence API (#32) | `config.md` | `config.py`, `__init__.py` |
 | click-to-load | own | Released 0.3.0 | none | `click-to-load.md` | `_embed_load.py` |
@@ -423,8 +422,7 @@ Both paths:
 - `mw config` prints the resolved configuration and the source of every value, `mw list` prints each extension and its stages and takes no flags, and `mw --version` prints the version.
 - Flags on `pre`, `post`, `render`, and `config`: `--config PATH` loads exactly that file, and `--exclude NAME` (repeatable, applied last) drops an extension.
   `--warn` (`post` only) writes advisory diagnostics to stderr without changing the output or the exit code.
-  Known gap (config `warn` default, #33): `mw post` does not read the config key `warn`, which `docs/config.md` calls the default for `--warn`; the key is validated and shown by `mw config` and does nothing else.
-  Planned (config `warn` default): `mw post` takes the config key `warn` as the default for its diagnostics; `--warn` turns them on and `--no-warn` turns them off, whatever the config says, and the last of the two on the command line wins.
+  `mw post` takes the config key `warn` as the default for its diagnostics; `--warn` turns them on and `--no-warn` turns them off, whatever the config says, and the last of the two on the command line wins.
   The pair exists on `mw post` only, `mw config` shows the resolved value and its source, and the diagnostics stay plain stderr lines that `PYTHONWARNINGS=error` does not escalate.
   Known gap (parser hygiene): a subcommand accepts an abbreviated long option, so `mw post --w` is read as `--warn`; `mw` with no subcommand prints its usage line on stdout; and `--config ""` falls back to discovery.
   Known gap (in-process diagnostics): the in-process path collects no diagnostics, so `mw render`, MkDocs, and a host that renders through Python-Markdown never see what `mw post --warn` reports, and no path reports a disallowed environment; a host gets those names from `disallowed_environments` once the public fence API ships.

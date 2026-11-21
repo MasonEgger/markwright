@@ -31,7 +31,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_selection_flags(pre_parser)
     post_parser = subparsers.add_parser("post", help="Post-process rendered HTML read from stdin.")
     _add_selection_flags(post_parser)
-    post_parser.add_argument("--warn", action="store_true", help="Report skipped markers to stderr.")
+    # Both flags write ``warn``; None means neither was given, so the config default applies and the last flag wins
+    post_parser.add_argument(
+        "--warn",
+        action="store_const",
+        const=True,
+        dest="warn",
+        default=None,
+        help="Report skipped markers to stderr (overrides the config 'warn' key).",
+    )
+    post_parser.add_argument(
+        "--no-warn",
+        action="store_const",
+        const=False,
+        dest="warn",
+        help="Do not report skipped markers (overrides the config 'warn' key).",
+    )
     render_parser = subparsers.add_parser("render", help="Render Markdown from stdin to final HTML.")
     _add_selection_flags(render_parser)
     config_parser = subparsers.add_parser("config", help="Print the resolved configuration and each value's source.")
@@ -95,11 +110,15 @@ def _run_pre(args: argparse.Namespace) -> None:
 def _run_post(args: argparse.Namespace) -> None:
     """Post-process HTML from stdin and write the result to stdout.
 
-    :param args: Parsed arguments carrying ``config``, ``exclude``, and ``warn``.
+    Diagnostics are on when ``--warn`` is the last of the two flags given, off when ``--no-warn``
+    is, and otherwise follow the config ``warn`` key. They are plain stderr lines, not Python warnings.
+
+    :param args: Parsed arguments carrying ``config``, ``exclude``, and ``warn`` (``None`` when no flag was given).
     :raises ConfigError: If the config is invalid.
     """
     resolved_config, names = _resolve(args)
-    marker_warnings: list[str] | None = [] if args.warn else None
+    warn = resolved_config.warn if args.warn is None else args.warn
+    marker_warnings: list[str] | None = [] if warn else None
     rendered_html = registry.run_post(sys.stdin.read(), names, marker_warnings, resolved_config.options)
     sys.stdout.write(rendered_html)
     if marker_warnings is not None:

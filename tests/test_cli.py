@@ -131,6 +131,80 @@ class TestCliPost:
         assert "<p>body</p>" in captured.out
         assert captured.err == ""
 
+    def test_post_config_warn_true_reports_malformed_marker(
+        self,
+        feed_stdin: Callable[[str], None],
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text("warn = true\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        feed_stdin("<!-- mw-fence:not json --><p>body</p>")
+        exit_code = main(["post"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "malformed mw-fence marker" in captured.err
+
+    def test_post_config_warn_false_is_silent(
+        self,
+        feed_stdin: Callable[[str], None],
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text("warn = false\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        feed_stdin("<!-- mw-fence:not json --><p>body</p>")
+        exit_code = main(["post"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.err == ""
+
+    @pytest.mark.parametrize(
+        ("config_text", "flags", "reports"),
+        [
+            ("warn = true\n", ["--no-warn"], False),
+            ("warn = false\n", ["--warn"], True),
+            ("", ["--warn"], True),
+            ("warn = true\n", ["--warn", "--no-warn"], False),
+            ("warn = false\n", ["--no-warn", "--warn"], True),
+        ],
+    )
+    def test_post_warn_flags_override_config_and_last_wins(
+        self,
+        feed_stdin: Callable[[str], None],
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        config_text: str,
+        flags: list[str],
+        reports: bool,
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text(config_text, encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        feed_stdin("<!-- mw-fence:not json --><p>body</p>")
+        exit_code = main(["post", *flags])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert ("malformed mw-fence marker" in captured.err) is reports
+
+    @pytest.mark.parametrize("command", ["pre", "render", "config"])
+    def test_no_warn_flag_exists_on_post_only(self, command: str, capsys: pytest.CaptureFixture[str]) -> None:
+        assert main([command, "--no-warn"]) == 2
+
+    def test_post_diagnostics_are_plain_stderr_that_a_warnings_error_filter_leaves_alone(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin("<!-- mw-fence:not json --><p>body</p>")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            exit_code = main(["post", "--warn"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert "malformed mw-fence marker" in captured.err
+        assert "<p>body</p>" in captured.out
+
     def test_post_unknown_exclude_name_returns_two_with_stderr(
         self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
