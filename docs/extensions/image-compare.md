@@ -2,6 +2,13 @@
 
 Creates side-by-side image comparisons with an interactive slider control.
 
+[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
+
+```
+[label Markdown]
+[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
+```
+
 ## Usage
 
 ```python
@@ -28,14 +35,6 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 ## Examples
 
-### Basic Comparison
-
-```
-[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
-```
-
-[compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
-
 ### Custom Dimensions
 
 ```
@@ -46,7 +45,27 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - Exactly 2 image URLs are required (no more, no fewer)
 - The slider starts at 50% and uses a CSS custom property (`--value`) for positioning
 - No script injection required; uses an inline `oninput` handler
+
+## HTML Contract
+
+```html
+<div class="image-compare" style="--value:50%; height: 270px; width: 480px;">
+    <img class="image-left" src="https://picsum.photos/id/10/480/270" alt="Image left"/>
+    <img class="image-right" src="https://picsum.photos/id/20/480/270" alt="Image right"/>
+    <input type="range" class="control" min="0" max="100" value="50"
+      oninput="this.parentNode.style.setProperty('--value', `${this.value}%`)" />
+    <svg class="control-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="..."/></svg>
+</div>
+```
+
+The `<path>` data is shortened here.
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+The hooks are the `image-compare` wrapper (do-markdownit's own shape), its `image-left` and `image-right` images, and the `control` range input with its `control-arrow`; the slider position rides a `--value` custom property that an inline `oninput` handler updates, so the comparison works with no host script.
+This site sizes and clips the two images and styles the slider in the `.image-compare` rules of [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css); without that CSS markwright emits only the structure, so the host CSS is what makes the overlay visible.

@@ -5,18 +5,16 @@ from __future__ import annotations
 
 import tomllib
 import warnings
+from collections.abc import Mapping
 
 # Path appears only in annotations, but pydantic resolves Config's field annotations at runtime
 from pathlib import Path  # noqa: TC003
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from markwright._diagnostics import ConfigWarning, OptionError
+from markwright.fence import environment_names
 from markwright.registry import EXTENSION_NAMES, OPTION_NAMES, REGISTRY
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 _TOP_LEVEL_KEYS: frozenset[str] = frozenset({"enable", "disable", "warn"})
 
@@ -69,19 +67,24 @@ def load_config(explicit_path: Path | None, start_dir: Path) -> Config:
     return _build_config(table, str(path)).model_copy(update={"source_path": path})
 
 
-def config_from_mapping(table: Mapping[str, object], source: str) -> Config:
+def config_from_mapping(table: object, source: str) -> Config:
     """Validate an already-parsed config table and resolve it into a :class:`Config`.
 
     For host tools that carry markwright config inside their own config file. The table
     gets the same validation as ``markwright.toml``; no file discovery happens here.
 
-    :param table: The markwright table, same shape as ``markwright.toml``.
+    :param table: The markwright table, same shape as ``markwright.toml``; ``None`` reads as an
+        empty table, and anything else that is not a mapping is an error.
     :param source: A label for error messages and the source map, for example
         ``"bartleby.yml: markwright"``.
     :returns: The resolved config, with ``source_path`` left as ``None``.
-    :raises ConfigError: On any unknown key, bad type, unknown extension name, or
-        ``enable`` and ``disable`` both set.
+    :raises ConfigError: On a table that is not a mapping, any unknown key, bad type, unknown
+        extension name, or ``enable`` and ``disable`` both set.
     """
+    if table is None:
+        table = {}
+    if not isinstance(table, Mapping):
+        raise ConfigError(f"{source}: the markwright table is not a mapping")
     return _build_config(table, source)
 
 
@@ -95,11 +98,7 @@ def selected_extensions(config: Config) -> list[str]:
     :param config: The resolved config.
     :returns: Extension names after ``enable`` and ``disable``, in registry order.
     """
-    names = [
-        name
-        for name in EXTENSION_NAMES
-        if (config.enable is None or name in config.enable) and name not in config.disable
-    ]
+    names = _selected_names(config)
 
     # Report an empty selection with the key and source that caused it
     if not names:
@@ -115,6 +114,28 @@ def selected_extensions(config: Config) -> list[str]:
     return names
 
 
+def disallowed_environments(source: str, config: Config) -> list[str]:
+    """List the fence environments a document names outside ``fence.allowed_environments``.
+
+    Scans the document by fence's own directive rules, so a host can report what the pre stage
+    leaves as text. A disallowed ``[environment ...]`` line does not end the scan of its fence,
+    and a ``mermaid`` fence is skipped when ``mermaid`` is selected. The result is empty when
+    ``allowed_environments`` is omitted or ``fence`` is not selected. An empty allowlist reports
+    every name. Nothing here warns; printing the result is the host's decision.
+
+    :param source: The Markdown source text.
+    :param config: The resolved config.
+    :returns: Each disallowed name once, in order of first appearance, as written.
+    """
+    selected = _selected_names(config)
+    allowed = config.options.get("fence", {}).get("allowed_environments")
+    if "fence" not in selected or not isinstance(allowed, list):
+        return []
+
+    names = environment_names(source, skip_mermaid="mermaid" in selected)
+    return list(dict.fromkeys(name for name in names if name not in allowed))
+
+
 def extension_configs(config: Config, names: list[str]) -> dict[str, dict[str, object]]:
     """Assemble the ``extension_configs`` argument for ``markdown.Markdown``.
 
@@ -124,6 +145,19 @@ def extension_configs(config: Config, names: list[str]) -> dict[str, dict[str, o
         with a non-empty option table.
     """
     return {f"markwright.{name}": config.options[name] for name in names if config.options.get(name)}
+
+
+def _selected_names(config: Config) -> list[str]:
+    """Apply ``enable`` and ``disable`` without warning.
+
+    :param config: The resolved config.
+    :returns: Extension names in registry order.
+    """
+    return [
+        name
+        for name in EXTENSION_NAMES
+        if (config.enable is None or name in config.enable) and name not in config.disable
+    ]
 
 
 def _load_explicit(path: Path) -> tuple[Path, dict[str, object]]:
@@ -172,13 +206,15 @@ def _read_toml(path: Path) -> dict[str, object]:
 
     :param path: The TOML file to read.
     :returns: The parsed top-level table.
-    :raises ConfigError: If the file is not valid TOML.
+    :raises ConfigError: If the file cannot be read, is not UTF-8, or is not valid TOML.
     """
     try:
         with path.open("rb") as handle:
             parsed: dict[str, object] = tomllib.load(handle)
     except tomllib.TOMLDecodeError as decode_error:
         raise ConfigError(f"could not parse {path}: {decode_error}") from decode_error
+    except (OSError, UnicodeDecodeError) as read_error:
+        raise ConfigError(f"could not read {path}: {read_error}") from read_error
     return parsed
 
 
@@ -205,13 +241,13 @@ def _build_config(table: Mapping[str, object], source: str) -> Config:
     :returns: The resolved config, with ``source_path`` unset.
     :raises ConfigError: If any key, type, or extension name is invalid.
     """
-    # A key set to None (a YAML key with no value, from a host) counts as omitted
-    table = {key: value for key, value in table.items() if value is not None}
-
-    # Every top-level key is a setting or an extension's option table
+    # Every top-level key is a setting or an extension's option table, whatever its value
     for key in table:
         if key not in _TOP_LEVEL_KEYS and key not in EXTENSION_NAMES:
             raise ConfigError(f"{source}: unknown configuration key: {key!r}")
+
+    # A key set to None (a YAML key with no value, from a host) counts as omitted
+    table = {key: value for key, value in table.items() if value is not None}
 
     # Selection: enable and disable are mutually exclusive lists of extension names
     enable = _selection_list(table, "enable", source)
@@ -268,10 +304,10 @@ def _extension_options(table: Mapping[str, object], source: str) -> dict[str, di
         extension_table = table[name]
         if not isinstance(extension_table, dict):
             raise ConfigError(f"{source}: '{name}' must be a table of options")
-        extension_table = {key: value for key, value in extension_table.items() if value is not None}
         for key in extension_table:
             if key not in OPTION_NAMES[name]:
                 raise ConfigError(f"{source}: [{name}] unknown option {key!r}")
+        extension_table = {key: value for key, value in extension_table.items() if value is not None}
 
         # The extension's own reader validates values, so config and every render path agree;
         # only its named OptionError is a config problem, anything else is a bug and propagates

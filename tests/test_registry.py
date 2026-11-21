@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from markwright.registry import EXTENSION_NAMES, OPTION_NAMES, describe, run_post, run_pre
+from markwright.registry import EXTENSION_NAMES, OPTION_NAMES, REGISTRY, describe, run_post, run_pre
 
 
 class TestRunPre:
@@ -50,6 +50,7 @@ class TestOptionNames:
         assert OPTION_NAMES["fence"] == {"label_class", "secondary_label_class", "allowed_environments"}
         assert OPTION_NAMES["youtube"] == {"load"}
         assert OPTION_NAMES["slideshow"] == frozenset()
+        assert OPTION_NAMES["icons"] == {"packs"}
         assert set(OPTION_NAMES) == set(EXTENSION_NAMES)
 
 
@@ -63,3 +64,28 @@ class TestDescribe:
         assert described["fence"] == ["pre", "post"]
         assert described["highlight"] == ["pre", "post"]
         assert described["codepen"] == ["pre", "post"]
+        for name in ("button", "lightbox", "mermaid", "icons"):
+            assert described[name] == ["pre"]
+        for name in ("grid", "annotate", "tabs"):
+            assert described[name] == ["pre", "post"]
+
+
+class TestTabsRegistration:
+    """The tabs extension is registered on by default with the container stage priorities."""
+
+    def test_tabs_is_registered_with_container_priorities(self) -> None:
+        assert "tabs" in EXTENSION_NAMES
+        spec = REGISTRY["tabs"]
+        assert spec.pre_priority == 21
+        assert spec.post_priority == 27
+
+    def test_tabs_takes_no_options(self) -> None:
+        assert OPTION_NAMES["tabs"] == frozenset()
+
+    def test_run_pre_and_run_post_include_tabs_by_default(self) -> None:
+        source = "[tab Python]\n\ncode\n\n[/tab]\n\n[tab Shell]\n\nmore\n\n[/tab]"
+        expanded = run_pre(source, list(EXTENSION_NAMES))
+        assert "mw-tab:" in expanded
+        final = run_post(expanded, list(EXTENSION_NAMES))
+        assert '<div class="tabbed-set tabbed-alternate mw-tabs" data-tabs="1:2">' in final
+        assert "mw-tab:" not in final

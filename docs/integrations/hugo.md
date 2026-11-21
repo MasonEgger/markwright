@@ -4,7 +4,8 @@ Hugo renders Markdown with Goldmark, not Python-Markdown, so the markwright exte
 Instead, the `mw` CLI brackets Hugo: the pre stage runs on your content before Hugo builds, and the post stage runs on Hugo's output HTML.
 This is the same pre/render/post model described in the [Pipeline Guide](../pipeline.md), with Hugo as the renderer in the middle.
 
-This page mirrors the project's own end-to-end integration test, so the configuration and commands below are exactly what is exercised in CI.
+The `hugo.toml` settings below are the ones the project's end-to-end integration test builds with, and CI runs that test against a pinned Hugo.
+The test pipes each file through `mw` and a temporary site; the commands below do the same three steps in place.
 
 ## How It Fits Together
 
@@ -16,9 +17,9 @@ flowchart LR
     D --> E[public/**/index.html]
 ```
 
-The pre stage expands the embed directives and extracts the fence directives into `mw-fence` comments.
+The pre stage expands the embed, button, lightbox, mermaid, and icon directives into raw HTML, resolves prose highlights, and turns the fence, grid, card, annotate, and tab directives into marker comments.
 Hugo's Goldmark renderer turns the Markdown into HTML, passing the raw HTML and the comments through.
-The post stage applies the fence labels and prefixes, resolves the in-code highlights, and injects the embed scripts.
+The post stage reads the marker comments back to apply the fence labels and prefixes, the grid, card, and tab markup, and the annotation links, resolves the in-code highlights, and injects the embed scripts.
 
 ## Prerequisites
 
@@ -27,7 +28,10 @@ The post stage applies the fence labels and prefixes, resolves the in-code highl
 
 ## Hugo Configuration
 
-Two settings in `hugo.toml` are required. Without them Hugo silently strips what markwright produces, with no error.
+Two settings in `hugo.toml` are required.
+Without `unsafe = true`, Hugo replaces each raw-HTML node with `<!-- raw HTML omitted -->` and logs a `Raw HTML omitted` warning.
+It drops each marker comment with no placeholder and no warning.
+The build still succeeds, so the page comes out without markwright's output, and a page whose only markwright output is marker comments gives no sign of it.
 
 ```toml
 [markup.goldmark.renderer]
@@ -103,4 +107,6 @@ After the full pipeline:
 - The prose `\<^>highlighted\<^>` becomes `<mark>highlighted</mark>`.
 - The command fence renders with its `deploy.sh` label and a `$` prompt on each line, and the `command` info string is highlighted as Bash.
 
-The `mw-fence` comment that carried the fence directives is consumed by the post stage and does not appear in the final HTML.
+The other extensions follow the same path: a `[grid]` ... `[/grid]` block, `[tab NAME]` ... `[/tab]` blocks, a `[button ...]` line, a `mermaid` fence, and `:pack-name:` icon shortcodes each go through `mw pre`, Hugo, and `mw post` the same way.
+
+The marker comments that carried the fence, grid, annotate, and tab directives are consumed by the post stage and do not appear in the final HTML.

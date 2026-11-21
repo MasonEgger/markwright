@@ -28,7 +28,7 @@ A missing path, or a `pyproject.toml` with no `[tool.markwright]` table, is an e
 
 Three layers resolve each run, highest priority first:
 
-1. A CLI flag (`--exclude`).
+1. A CLI flag (`--exclude`, and `--warn` or `--no-warn` on `mw post`).
 2. The project config file (`markwright.toml`, else `[tool.markwright]`).
 3. The built-in default (all extensions on, no per-extension options, `warn` off).
 
@@ -47,7 +47,7 @@ Both are lists of extension names, and they are mutually exclusive: setting both
 - `disable = ["codepen"]` runs every extension except that one.
 - Neither key runs every extension (the default).
 
-The valid names are `fence`, `highlight`, `youtube`, `codepen`, `twitter`, `instagram`, `slideshow`, and `image_compare`.
+The valid names are `fence`, `highlight`, `youtube`, `codepen`, `twitter`, `instagram`, `slideshow`, `image_compare`, `button`, `lightbox`, `mermaid`, `icons`, `grid`, `annotate`, and `tabs`.
 An unknown name is an error.
 
 ### `warn`
@@ -62,9 +62,15 @@ Config validates every key and value with the same reader the extension uses, so
 The fence extension reads `allowed_environments`, a list restricting which `[environment ...]` directives are honored.
 Omitting it allows every environment; an empty list allows none and emits a warning.
 
+It also reads `label_class` and `secondary_label_class`, the CSS classes on the label `<div>` and the secondary label `<div>`.
+They default to `code-label` and `secondary-code-label`.
+Each is one or more space-separated class tokens of letters, digits, `-`, and `_`; an empty value, a non-string, or any other character is a `ConfigError`.
+
 ```toml
 [fence]
 allowed_environments = ["local", "staging", "production"]
+label_class = "code-label"
+secondary_label_class = "secondary-code-label"
 ```
 
 The embeds that contact a third party (`youtube`, `codepen`, `twitter`, `instagram`) read `load`, which decides when the embed reaches out.
@@ -85,6 +91,20 @@ load = "click"
 
 Config validation checks `load`: an unsupported value, or `load` on an extension that does not take it, is an error.
 See [Click-to-Load](click-to-load.md) for the preview markup and a host script.
+
+The `icons` extension reads `packs`, a table that maps a shortcode prefix to a directory of SVG files.
+markwright ships no icons, so with `packs` omitted the extension does nothing and `:pack-name:` shortcodes pass through unchanged.
+
+```toml
+[icons.packs]
+lucide = "docs/icons/lucide"
+mw = "docs/icons/mw"
+```
+
+An empty `packs` table is a no-op and emits a `ConfigWarning`.
+A `packs` value that is not a table, a path that is not a string, or a directory that does not exist is a `ConfigError`.
+Relative directories resolve against the directory you run from.
+See [Icons](extensions/icons.md).
 
 An unknown top-level key, or a table named for an extension that does not exist, is an error.
 This catches typos rather than ignoring them.
@@ -136,13 +156,17 @@ allowed_environments = ["local", "staging", "production"]
 
 ### A Hugo Pipeline
 
-A Hugo site runs `mw pre | hugo | mw post` around its own renderer.
+A Hugo site runs `mw pre` on its content, then `hugo`, then `mw post` on the rendered pages.
 Both stages discover the same `markwright.toml` at the project root, so a single file configures the whole pipeline.
 With the fence `allowed_environments` set as above, `mw pre` honors an `[environment staging]` directive and rejects an unlisted one, exactly as the in-process `mw render` does.
 
 ```bash
-mw pre < content/post.md | hugo | mw post > public/post.html
+mw pre < content/post.md > content/post.md.tmp && mv content/post.md.tmp content/post.md
+hugo
+mw post < public/post/index.html > public/post/index.html.tmp && mv public/post/index.html.tmp public/post/index.html
 ```
+
+See the [Hugo guide](integrations/hugo.md) for the `hugo.toml` settings and a script that does this for every file.
 
 Because the options come from the config file both stages read, you set them once and both the pre and post stages agree.
 
@@ -175,10 +199,17 @@ md = markdown.Markdown(
 
 - `config_from_mapping(table, source)` validates the table with the same rules as a config file and returns a `Config`.
   Every error message starts with the `source` label, and no file discovery happens.
+  A table that is not a mapping is a `ConfigError`, `None` reads as an empty table, and an unknown key is an error whatever its value, `None` included.
 - `selected_extensions(config)` applies `enable` and `disable` and returns extension names in registry order.
 - `extension_configs(config, names)` returns the per-extension option tables keyed `markwright.<name>`, ready for `markdown.Markdown`.
+- `disallowed_environments(source, config)` returns the fence environment names a document uses outside `fence.allowed_environments`, each once, in order of first appearance.
+  A name is everything after the first space of the `[environment NAME]` line, compared as written.
+  Every disallowed environment line among a fence's leading lines is reported, although `mw pre` stops reading directives at the first one, and a directive inside a nested fence's source is code.
+  A `mermaid` fence is skipped when `mermaid` is selected and scanned when it is excluded.
+  The list is empty when `allowed_environments` is omitted or `fence` is not selected, and an empty allowlist reports every name.
+  It emits no warning of its own, so printing the result is the host's decision.
 
-`mw render` builds its own `markdown.Markdown` from these same three functions, so a host and the CLI resolve a given table the same way.
+`mw render` builds its own `markdown.Markdown` from `selected_extensions` and `extension_configs`, so a host and the CLI resolve a given table the same way.
 
 When a config selects no extensions, `selected_extensions` returns an empty list and emits a `markwright.ConfigWarning` with the cause and the `source` label.
 It does not raise, since an empty selection is a legitimate way to switch markwright off.

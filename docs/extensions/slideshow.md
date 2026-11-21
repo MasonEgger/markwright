@@ -2,6 +2,13 @@
 
 Creates image slideshows with left/right navigation arrows and scroll-snap behavior.
 
+[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
+
+```
+[label Markdown]
+[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
+```
+
 ## Usage
 
 ```python
@@ -29,14 +36,6 @@ Height and width are optional trailing integers. They are distinguished from URL
 
 ## Examples
 
-### Basic Slideshow
-
-```
-[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
-```
-
-[slideshow https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270 https://picsum.photos/id/30/480/270]
-
 ### Custom Dimensions
 
 ```
@@ -47,8 +46,27 @@ Height and width are optional trailing integers. They are distinguished from URL
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - At least one image URL is required (a single-image slideshow is valid, matching upstream `do-markdownit`)
 - Navigation arrows appear on left and right sides
 - Uses CSS scroll-snap for smooth slide transitions
 - No script injection required
+
+## HTML Contract
+
+```html
+<div class="slideshow" style="height: 270px; width: 480px;">
+  <div class="action left" onclick="(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft -= 480)()">&#8249;</div>
+  <div class="action right" onclick="(() => this.parentNode.getElementsByClassName('slides')[0].scrollLeft += 480)()">&#8250;</div>
+  <div class="slides">
+    <img src="https://picsum.photos/id/10/480/270" alt="Slide #1" />
+    <img src="https://picsum.photos/id/20/480/270" alt="Slide #2" />
+  </div>
+</div>
+```
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+The hooks are the `slideshow` wrapper (do-markdownit's own shape), its `slides` track of `<img>` slides, and the `action left` and `action right` arrows whose inline `onclick` scrolls the track, so paging works with no host script.
+This site lays out the track with CSS scroll-snap and styles the arrows in the `.slideshow` rules of [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css); without that CSS the slides stack rather than scroll.

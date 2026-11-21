@@ -2,6 +2,13 @@
 
 Embeds YouTube videos as responsive iframes with automatic aspect ratio calculation.
 
+[youtube dQw4w9WgXcQ]
+
+```
+[label Markdown]
+[youtube dQw4w9WgXcQ]
+```
+
 ## Usage
 
 ```python
@@ -30,14 +37,6 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 The aspect ratio is calculated automatically from the dimensions.
 
 ## Examples
-
-### Default Dimensions (480x270)
-
-```
-[youtube dQw4w9WgXcQ]
-```
-
-[youtube dQw4w9WgXcQ]
 
 ### Custom Dimensions
 
@@ -74,6 +73,26 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line (not inline with other text)
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - The video ID is URL-encoded for safety
 - A fallback link is included inside the iframe for accessibility
+
+## HTML Contract
+
+```html
+<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" class="youtube" height="270" width="480" style="aspect-ratio: 16/9" frameborder="0" allowfullscreen>
+    <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">View YouTube video</a>
+</iframe>
+```
+
+This is the `eager` output.
+See [Load Mode](#load-mode) for the other modes.
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+In `eager` and `lazy` modes the embed is an `<iframe class="youtube">` that loads YouTube's own player, so the host needs no code; `lazy` only adds `loading="lazy"`.
+This site sizes the frame with the `iframe.youtube` rule in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css): capped at the content width, centered, no border.
+
+In `click` mode the embed is the `mw-embed` preview instead, whose hooks a host script swaps for the live iframe.
+[Click-to-Load](../click-to-load.md) is the contract for that markup and carries a worked host script.

@@ -175,3 +175,36 @@ class TestSlideshowExpandSource:
     def test_no_embed_passes_through(self) -> None:
         source = "just some text\nmore text"
         assert expand_source(source) == source
+
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[slideshow https://a.jpg https://b.jpg]\n```"
+        assert expand_source(source) == source
+
+
+class TestSlideshowSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render_slideshow("para\n\n    [slideshow https://a.png https://b.png]\n")
+        assert "<pre><code>[slideshow https://a.png https://b.png]" in result
+        assert 'class="slideshow"' not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="slideshow"' in render_slideshow("- item\n\n    [slideshow https://a.png https://b.png]\n")
+
+
+class TestSlideshowKeepsIndentation:
+    """A multi-line expansion starts every line at the directive's indentation."""
+
+    def test_expand_source_indents_every_non_blank_line(self) -> None:
+        result = expand_source("!!! note\n\n    [slideshow /a.png /b.png]")
+
+        expansion_lines = result.split("\n")[2:]
+        assert all(line.startswith("    ") for line in expansion_lines if line)
+
+    def test_in_process_slideshow_stays_inside_an_admonition(self) -> None:
+        md = markdown.Markdown(extensions=["admonition", "markwright.slideshow"])
+
+        html = md.convert("!!! note\n\n    [slideshow /a.png /b.png]\n\n    after\n")
+
+        assert html.index('class="slideshow"') < html.index("<p>after</p>")

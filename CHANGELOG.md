@@ -3,6 +3,65 @@
 All notable changes to markwright are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Six new extensions that cover the Material for MkDocs authoring features (#16), a `tabs` extension plus block grids and cards on the `grid` extension (#30), and the docs-site pieces that demonstrate them.
+A document that uses none of the new directives or shortcodes renders as it did, apart from the changes listed under Upgrading from 0.3.0 and Fixed.
+
+### Upgrading from 0.3.0
+
+- The new extensions are on by default in `mw`, so `mw list` and `mw config` show 15 extensions instead of 8.
+  A document that happens to contain a standalone `[button ...]`, `[lightbox ...]`, `[grid]`, `[grid cards]`, `[grid N]`, `[grid cards N]`, `[card]`, `[tab NAME]`, `[/grid]`, `[/card]`, `[/tab]`, or `[annotate]` line, or a `mermaid` fence, now renders differently; use `disable` or `--exclude` to turn one off.
+- `selected_extensions` with no `enable` list now returns fifteen names where 0.3.0 returned eight, so a host tool that passes its result to Python-Markdown loads the seven new extensions unless it sets `disable` or `enable`.
+- A `[grid]` or `[annotate]` line with no list or block after it is removed from the output; it used to stay as text.
+- An existing `warn = true` in a config file now makes `mw post` print its diagnostics, since `mw post` reads that key as the default for `--warn` (#33).
+- A highlight pair no longer spans a line break: a `<^>` marker pairs with the next marker on the same line, in the in-process render and in `mw pre` alike, so a pair that crossed a line end stops highlighting and an opener with no closer on its line stays literal (#34).
+- A directive line indented under a list item, or in the body of an admonition, details block, content tab, definition, or footnote, now expands at its own indentation, so the expansion stays inside the item or body (an embed under a list item no longer ends the list in-process).
+  A directive at column 0 renders as before.
+- `config_from_mapping` is stricter: a table that is not a mapping is a `ConfigError`, and an unknown key is an error whatever its value, `None` included.
+- `fence.label_class` and `fence.secondary_label_class` must be space-separated class tokens of letters, digits, `-`, and `_`; an empty value or one with other characters is a config error.
+- `icons` does nothing until you configure `packs`, so `:name:` text is untouched by default.
+- If your `mkdocs.yml` has a `pymdownx.superfences` `custom_fences` entry named `mermaid` and you load `markwright.mermaid`, the entry goes inert because markwright replaces the fence first; remove it.
+
+### Added
+
+- `markwright.button`: `[button URL TEXT]` and `[button primary URL TEXT]` become `<a class="mw-button">` links.
+- `markwright.lightbox`: `[lightbox URL ALT]` becomes an `<a class="mw-lightbox">` wrapping an `<img>`.
+- `markwright.mermaid`: a `mermaid` fence becomes `<pre class="mermaid">` for a host script to draw.
+- `markwright.icons`: `:pack-name:` shortcodes become inline SVG wrapped in `<span class="mw-icon">`, read from directories named by the new `packs` option.
+  markwright ships no icons.
+- `markwright.grid`: `[grid]` and `[grid cards]` add `mw-grid` and `mw-grid-cards` classes to the next list; a paired `[grid]` ... `[/grid]` wraps any Markdown blocks as grid cells, `[card]` ... `[/card]` wraps one card inside a block grid, and `[grid N]` sets a 1-to-6 column count as `mw-grid-cols-N`.
+  Carried through versioned `mw-grid`, `mw-grid-block`, `mw-grid-end`, `mw-card`, and `mw-card-end` marker comments, with an `mw-grid-problem` marker for a container left literal (#30).
+- `markwright.annotate`: `[annotate]` links `(N)` markers in a block to the items of the ordered list after it, through a versioned `mw-annotate` marker comment.
+- `markwright.tabs`: consecutive `[tab NAME]` ... `[/tab]` blocks become one `tabbed` set with the `mw-tabs` class, `mw-tab-S-T` ids, and `mw-tab-S` radio names, through versioned `mw-tab` and `mw-tab-end` marker comments, with an `mw-tab-problem` marker for a tab left literal (#30).
+- `disallowed_environments(source, config)`, a public function that lists the fence environments a document names outside `fence.allowed_environments` (#32).
+- A shared marker module for the fence, grid, annotate, and tabs marker comments, and a container-pairing scanner shared by grid and tabs (#30).
+- Docs pages for the six material extensions and `tabs`, each with the `mw-` HTML contract and a live demo, and a Host CSS and Script section on every extension page (#30).
+- A Material Mapping docs page that maps each Material for MkDocs reference feature to its in-process and Hugo providers, with the gaps.
+- Demo-site host assets that show how a host styles the output: CSS in `extra.css` (including grid columns, cards, and CSS-only tabs), scripts for mermaid, the lightbox, and annotation tooltips, and two small icon packs under `docs/icons/` with credits in `CREDITS.txt`.
+  These are not part of the package.
+- The docs `mw list` and `mw config` samples, `config.md`, and the MkDocs integration guide now cover the six extensions, `tabs`, and the `icons` `packs` option.
+
+### Changed
+
+- The docs site no longer carries a `custom_fences` mermaid entry; `markwright.mermaid` replaces it.
+
+### Fixed
+
+- `mw pre` expanded directive lines inside fenced code blocks, so the code showed an iframe or a marker comment instead of the directive.
+  The six embeds, `button`, `lightbox`, `grid`, and `annotate` now leave a directive literal inside a fence, matching the in-process render (#20).
+- `mw pre` now reads a tab as four columns when scanning fences, so a tab-indented fence inside a list item is code to every pre stage, matching the in-process render (#29).
+  `mw pre` and the in-process render both leave a directive line inside a top-level indented code block literal.
+  Before this, both expanded the embed, button, or lightbox out of the code block, and `grid` and `annotate` wrote their marker into it (#29).
+- `mw pre` wrapped a `<^>` pair inside a top-level indented code block in `<mark>`.
+  It now leaves the pair as written, as it does inside a fence, and `mw post` marks it.
+- A fence with `line_numbers` after a `command`, `super_user`, or `custom_prefix` flag no longer carries the earlier flag's prefix value in its marker.
+- Highlight no longer wraps markers inside `<title>` and `<textarea>`, where the browser shows the tag as text.
+- `mw pre` passes a leading YAML (`---`) or TOML (`+++`) front matter block through untouched.
+- `mw` reads and writes UTF-8 whatever the locale.
+  For `mw pre`, `mw post`, and `mw render`, a decode error, a closed stream, a broken pipe, and an unreadable icon file are each one `mw: error:` line and exit 2 instead of a traceback.
+  An unreadable or non-UTF-8 config file is the same for `mw config` and for those three.
+
 ## [0.3.0] - 2026-10-11
 
 Two opt-in features (a config API for host tools and click-to-load embeds), one rule for every config list, a round of correctness fixes, and Python 3.15 support.

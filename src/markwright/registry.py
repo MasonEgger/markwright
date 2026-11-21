@@ -10,7 +10,23 @@ from functools import partial
 from markdown.extensions import Extension  # noqa: TC002
 from pydantic import BaseModel, ConfigDict
 
-from markwright import codepen, fence, highlight, image_compare, instagram, slideshow, twitter, youtube
+from markwright import (
+    annotate,
+    button,
+    codepen,
+    fence,
+    grid,
+    highlight,
+    icons,
+    image_compare,
+    instagram,
+    lightbox,
+    mermaid,
+    slideshow,
+    tabs,
+    twitter,
+    youtube,
+)
 from markwright._embed_load import load_mode
 
 PreFn = Callable[[str, Mapping[str, object] | None], str]
@@ -89,6 +105,36 @@ REGISTRY: dict[str, StageSpec] = {
         pre_priority=10,
         post_priority=25,
         extension=highlight.HighlightExtension,
+    ),
+    "button": StageSpec(pre=button.expand_source, pre_priority=20, extension=button.ButtonExtension),
+    "lightbox": StageSpec(pre=lightbox.expand_source, pre_priority=20, extension=lightbox.LightboxExtension),
+    "mermaid": StageSpec(pre=mermaid.expand_source, pre_priority=45, extension=mermaid.MermaidExtension),
+    "icons": StageSpec(
+        pre=icons.expand_source,
+        pre_priority=5,
+        extension=icons.IconsExtension,
+        check_options=icons.read_options,
+    ),
+    "grid": StageSpec(
+        pre=grid.expand_source,
+        post=grid.apply_html,
+        pre_priority=21,
+        post_priority=27,
+        extension=grid.GridExtension,
+    ),
+    "annotate": StageSpec(
+        pre=annotate.expand_source,
+        post=annotate.apply_html,
+        pre_priority=20,
+        post_priority=27,
+        extension=annotate.AnnotateExtension,
+    ),
+    "tabs": StageSpec(
+        pre=tabs.expand_source,
+        post=tabs.apply_html,
+        pre_priority=21,
+        post_priority=27,
+        extension=tabs.TabsExtension,
     ),
 }
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import warnings
 from importlib.metadata import version
@@ -13,7 +14,7 @@ from typing import TextIO
 import markdown
 
 from markwright import config, registry
-from markwright._diagnostics import ConfigWarning
+from markwright._diagnostics import ConfigWarning, OptionError
 from markwright._embed_load import LOAD_EAGER
 from markwright.config import Config, ConfigError
 
@@ -31,7 +32,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_selection_flags(pre_parser)
     post_parser = subparsers.add_parser("post", help="Post-process rendered HTML read from stdin.")
     _add_selection_flags(post_parser)
-    post_parser.add_argument("--warn", action="store_true", help="Report skipped markers to stderr.")
+    # Both flags write ``warn``; None means neither was given, so the config default applies and the last flag wins
+    post_parser.add_argument(
+        "--warn",
+        action="store_const",
+        const=True,
+        dest="warn",
+        default=None,
+        help="Report skipped markers to stderr (overrides the config 'warn' key).",
+    )
+    post_parser.add_argument(
+        "--no-warn",
+        action="store_const",
+        const=False,
+        dest="warn",
+        help="Do not report skipped markers (overrides the config 'warn' key).",
+    )
     render_parser = subparsers.add_parser("render", help="Render Markdown from stdin to final HTML.")
     _add_selection_flags(render_parser)
     config_parser = subparsers.add_parser("config", help="Print the resolved configuration and each value's source.")
@@ -82,26 +98,114 @@ def _resolve(args: argparse.Namespace) -> tuple[Config, list[str]]:
     return resolved_config, names
 
 
+class _StreamError(Exception):
+    """Raised when stdin cannot be read or stdout cannot be written; ``main`` reports it as ``mw: error:``."""
+
+
+def _use_utf8_stdio() -> None:
+    """Switch stdin and stdout to UTF-8 whatever the locale or ``PYTHONIOENCODING`` says.
+
+    A stream without ``reconfigure`` (a test stand-in, for example) is left as it is.
+    """
+    for stream in (sys.stdin, sys.stdout):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
+
+
+def _read_stdin() -> str:
+    """Read all of stdin.
+
+    :returns: The decoded text.
+    :raises _StreamError: If stdin is not UTF-8, is closed, or cannot be read.
+    """
+    # Python sets a stream to None when its descriptor is closed at startup
+    if sys.stdin is None:
+        raise _StreamError("cannot read stdin: stdin is closed")
+    try:
+        return sys.stdin.read()
+    except (UnicodeDecodeError, OSError, ValueError) as read_error:
+        raise _StreamError(f"cannot read stdin: {read_error}") from read_error
+
+
+def _write_stdout(text: str) -> None:
+    """Write text to stdout and flush it, so a broken pipe surfaces here.
+
+    :param text: The text to write.
+    :raises _StreamError: If stdout is closed, the pipe is broken, or the write fails.
+    """
+    if sys.stdout is None:
+        raise _StreamError("cannot write stdout: stdout is closed")
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except (OSError, ValueError) as write_error:
+        _discard_stdout()
+        raise _StreamError(f"cannot write stdout: {write_error}") from write_error
+
+
+def _discard_stdout() -> None:
+    """Point stdout's descriptor at the null device, so the buffered bytes a failed flush left behind
+    cannot fail again when the interpreter flushes at exit (the Python docs' note on SIGPIPE).
+
+    A stream with no descriptor, or one already closed, is left as it is.
+    """
+    try:
+        stdout_descriptor = sys.stdout.fileno()
+    except (OSError, ValueError):
+        return
+    os.dup2(os.open(os.devnull, os.O_WRONLY), stdout_descriptor)
+
+
+def _split_front_matter(text: str) -> tuple[str, str]:
+    """Split a leading front matter block off a document.
+
+    The block starts on the first line, which is exactly ``---`` (YAML) or ``+++`` (TOML), and ends at
+    the next line that is exactly the same delimiter. An opener with no closer is not front matter.
+
+    :param text: The whole document.
+    :returns: The front matter through its closing line (empty when there is none) and the rest.
+    """
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].rstrip("\r\n") not in ("---", "+++"):
+        return "", text
+    delimiter = lines[0].rstrip("\r\n")
+    for line_number, line in enumerate(lines[1:], start=2):
+        if line.rstrip("\r\n") == delimiter:
+            return "".join(lines[:line_number]), "".join(lines[line_number:])
+    return "", text
+
+
 def _run_pre(args: argparse.Namespace) -> None:
     """Expand source directives from stdin and write the result to stdout.
 
+    A leading YAML or TOML front matter block is written back untouched; only the rest is expanded.
+
     :param args: Parsed arguments carrying ``config`` and ``exclude``.
     :raises ConfigError: If the config is invalid.
+    :raises OptionError: If an icon file cannot be read or is not UTF-8.
+    :raises _StreamError: If stdin cannot be read or stdout cannot be written.
     """
     resolved_config, names = _resolve(args)
-    sys.stdout.write(registry.run_pre(sys.stdin.read(), names, resolved_config.options))
+    front_matter, body = _split_front_matter(_read_stdin())
+    _write_stdout(front_matter + registry.run_pre(body, names, resolved_config.options))
 
 
 def _run_post(args: argparse.Namespace) -> None:
     """Post-process HTML from stdin and write the result to stdout.
 
-    :param args: Parsed arguments carrying ``config``, ``exclude``, and ``warn``.
+    Diagnostics are on when ``--warn`` is the last of the two flags given, off when ``--no-warn``
+    is, and otherwise follow the config ``warn`` key. They are plain stderr lines, not Python warnings.
+
+    :param args: Parsed arguments carrying ``config``, ``exclude``, and ``warn`` (``None`` when no flag was given).
     :raises ConfigError: If the config is invalid.
+    :raises _StreamError: If stdin cannot be read or stdout cannot be written.
     """
     resolved_config, names = _resolve(args)
-    marker_warnings: list[str] | None = [] if args.warn else None
-    rendered_html = registry.run_post(sys.stdin.read(), names, marker_warnings, resolved_config.options)
-    sys.stdout.write(rendered_html)
+    warn = resolved_config.warn if args.warn is None else args.warn
+    marker_warnings: list[str] | None = [] if warn else None
+    rendered_html = registry.run_post(_read_stdin(), names, marker_warnings, resolved_config.options)
+    _write_stdout(rendered_html)
     if marker_warnings is not None:
         for marker_warning in marker_warnings:
             print(marker_warning, file=sys.stderr)
@@ -116,6 +220,7 @@ def _run_render(args: argparse.Namespace) -> None:
 
     :param args: Parsed arguments carrying ``config`` and ``exclude``.
     :raises ConfigError: If the config is invalid.
+    :raises _StreamError: If stdin cannot be read or stdout cannot be written.
     """
     resolved_config, names = _resolve(args)
     instance = markdown.Markdown(
@@ -126,7 +231,7 @@ def _run_render(args: argparse.Namespace) -> None:
             **config.extension_configs(resolved_config, names),
         },
     )
-    sys.stdout.write(instance.convert(sys.stdin.read()))
+    _write_stdout(instance.convert(_read_stdin()))
 
 
 def _run_config(args: argparse.Namespace) -> None:
@@ -205,13 +310,15 @@ def _show_warning(
 def main(argv: list[str] | None = None) -> int:
     """Parse ``argv`` and dispatch to the selected subcommand.
 
-    The CLI is the boundary where exceptions become exit codes: a :class:`ConfigError`, or a
-    :class:`ConfigWarning` escalated to an error (``python -W error``), prints one
-    ``mw: error:`` line and exits ``2``.
+    The CLI is the boundary where exceptions become exit codes: a :class:`ConfigError`, an
+    :class:`OptionError`, a :class:`ConfigWarning` escalated to an error (``python -W error``), or a
+    stdin or stdout failure (input that is not UTF-8, a closed stream, a broken pipe) prints one
+    ``mw: error:`` line and exits ``2``. stdin and stdout are UTF-8 whatever the locale says.
 
     :param argv: Argument vector, or ``None`` to read from ``sys.argv``.
     :returns: Process exit code (``0`` success, ``2`` usage error).
     """
+    _use_utf8_stdio()
     parser = build_parser()
     try:
         args = parser.parse_args(argv)
@@ -237,7 +344,7 @@ def main(argv: list[str] | None = None) -> int:
                 case _:
                     parser.print_usage()
                     return 2
-        except (ConfigError, ConfigWarning) as usage_error:
+        except (ConfigError, OptionError, ConfigWarning, _StreamError) as usage_error:
             print(f"mw: error: {usage_error}", file=sys.stderr)
             return 2
     return 0

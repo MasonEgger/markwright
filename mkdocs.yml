@@ -1,5 +1,5 @@
 site_name: markwright
-site_description: Python-Markdown extensions ported from DigitalOcean's do-markdownit
+site_description: Python-Markdown extensions and a pipeline CLI for author-friendly Markdown, inspired by DigitalOcean's do-markdownit
 repo_url: https://github.com/MasonEgger/markwright
 repo_name: MasonEgger/markwright
 
@@ -25,17 +25,14 @@ theme:
     - toc.follow
 
 markdown_extensions:
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.superfences
   - pymdownx.highlight:
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - admonition
   - pymdownx.details
   - attr_list
+  - md_in_html
   - toc:
       permalink: true
   - markwright.highlight
@@ -52,9 +49,25 @@ markdown_extensions:
   - markwright.instagram
   - markwright.slideshow
   - markwright.image_compare
+  - markwright.button
+  - markwright.lightbox
+  - markwright.mermaid
+  - markwright.grid
+  - markwright.tabs
+  - markwright.annotate
+  - markwright.icons:
+      packs:
+        lucide: docs/icons/lucide
+        mw: docs/icons/mw
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - path: javascripts/mermaid.js
+    type: module
+  - javascripts/lightbox.js
+  - javascripts/annotate.js
 
 nav:
   - Home: index.md
@@ -73,7 +86,15 @@ nav:
       - Instagram: extensions/instagram.md
       - Slideshow: extensions/slideshow.md
       - Image Compare: extensions/image-compare.md
+      - Button: extensions/button.md
+      - Lightbox: extensions/lightbox.md
+      - Mermaid: extensions/mermaid.md
+      - Icons: extensions/icons.md
+      - Grid: extensions/grid.md
+      - Tabs: extensions/tabs.md
+      - Annotate: extensions/annotate.md
   - Integrations:
       - MkDocs: integrations/mkdocs.md
       - Hugo: integrations/hugo.md
+      - Material Mapping: material-mapping.md
   - Demo: demo.md

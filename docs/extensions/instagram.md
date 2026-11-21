@@ -2,6 +2,13 @@
 
 Embeds Instagram posts with optional caption display, alignment, and width.
 
+[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
+
+```
+[label Markdown]
+[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
+```
+
 ## Usage
 
 ```python
@@ -53,14 +60,6 @@ All of these resolve to the same post, and the embed permalink is canonicalized 
 
 [instagram https://www.instagram.com/p/CkQuv3_LRgS]
 
-### With Caption
-
-```
-[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
-```
-
-[instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
-
 ### Left-Aligned with Custom Width
 
 ```
@@ -95,6 +94,30 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - Width is clamped to 326-550px (Instagram's supported range)
 - The Instagram embed script is injected once per page, and only when at least one embed is `eager`
+
+## HTML Contract
+
+```html
+<div class="instagram">
+    <blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/p/CkQuv3_LRgS" data-instgrm-version="14">
+        <a href="https://instagram.com/p/CkQuv3_LRgS">View post</a>
+    </blockquote>
+</div>
+
+<script async defer src="https://www.instagram.com/embed.js" onload="window.instgrm && window.instgrm.Embeds.process()"></script>
+```
+
+This is the `eager` output.
+The `<script>` is appended once, at the end of the page.
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+In `eager` mode the embed is a `<div class="instagram">` around a `<blockquote class="instagram-media">` (do-markdownit's own shape), and markwright injects Instagram's embed `<script>` once per page, so the host needs no code: the embed script renders the post.
+This site's only Instagram rule in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css) is a `.instagram` margin for spacing.
+
+In `click` mode the embed is the `mw-embed` preview instead, whose hooks a host script swaps for the live post.
+[Click-to-Load](../click-to-load.md) is the contract for that markup and carries a worked host script.

@@ -21,15 +21,15 @@ flowchart LR
     D --> E[final HTML]
 ```
 
-The pre stage expands the embed directives and extracts fence directives into an `mw-fence` comment.
+The pre stage expands the embed, button, lightbox, mermaid, and icon directives into raw HTML, resolves prose highlights, and turns the fence, grid, card, annotate, and tab directives into marker comments (see [Renderer Requirements](renderer-requirements.md#marker-comments)).
 Your renderer turns Markdown into HTML, passing the raw HTML and the comments through.
-The post stage applies highlight, fence labels and prefixes, and one-time embed scripts.
+The post stage reads the marker comments back to apply fence labels and prefixes, grid, card, and tab markup, and annotation links, and it resolves the remaining highlight markers and injects one-time embed scripts.
 
 ## When to Run Only Post
 
 You do not always need both stages.
 
-Run **both stages** when your source contains pre-stage syntax: embed directives like `[youtube ID]`, or fence directives like `[label deploy.sh]`.
+Run **both stages** when your source contains pre-stage syntax: embed, button, and lightbox directives like `[youtube ID]`, `mermaid` fences and icon shortcodes, or directives that leave a marker for the post stage, like `[label deploy.sh]`, `[grid]`, `[annotate]`, and `[tab NAME]`.
 The pre stage has to expand those before your renderer sees them.
 
 Run **only the post stage** when your HTML already carries the embed markup and any highlight markers, and you want the post-stage styling and script injection.
@@ -58,7 +58,7 @@ mw pre --exclude twitter --exclude instagram < in.md \
   | mw post --exclude twitter --exclude instagram > out.html
 ```
 
-If your source has no embed or fence directives and you only want highlight styling, restrict the run to that extension.
+If your source has no other directives and you only want highlight styling, restrict the run to that extension.
 Set it once in a config file both stages discover:
 
 ```toml

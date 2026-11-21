@@ -12,6 +12,7 @@ from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
 
 from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, LOAD_LAZY, load_mode, wrap_preview
+from markwright._fences import map_directive_lines
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -84,7 +85,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :raises OptionError: If ``load`` is not a supported value.
     """
     load = load_mode(options, LOAD_MODES)
-    return "\n".join(_render_match(line, load) or line for line in text.split("\n"))
+    return map_directive_lines(text, lambda line: _render_match(line, load))
 
 
 class YouTubePreprocessor(Preprocessor):
@@ -104,14 +105,12 @@ class YouTubePreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with YouTube embeds replaced by HTML.
         """
-        output: list[str] = []
-        for line in lines:
+
+        def render(line: str) -> str | None:
             iframe_html = _render_match(line, self.load)
-            if iframe_html is not None:
-                output.append(self.md.htmlStash.store(iframe_html))
-            else:
-                output.append(line)
-        return output
+            return None if iframe_html is None else self.md.htmlStash.store(iframe_html)
+
+        return map_directive_lines("\n".join(lines), render).split("\n")
 
 
 class YouTubeExtension(Extension):

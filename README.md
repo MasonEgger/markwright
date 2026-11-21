@@ -3,8 +3,8 @@
 markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions plus a companion command-line tool, `mw`, for author-friendly markdown: highlighted text, labeled code fences, and a set of media embeds.
 Use the extensions in any tool built on Python-Markdown (including [MkDocs](https://www.mkdocs.org/), Flask, or a plain script), or the `mw` pipeline in toolchains that are not, like Hugo.
 
-The author-facing syntax and HTML output are derived from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit), so rendered pages match what DigitalOcean produces.
-markwright ports those extensions to Python-Markdown and adds its own pieces on top, most notably the `mw` CLI, which runs the same extensions as pre and post filters around any renderer.
+Part of markwright is a port: the highlight, fence, and media embed extensions reproduce the syntax and HTML output of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit).
+Everything else is markwright's own: buttons, lightboxes, Mermaid diagrams, icons, grids and cards, annotations, tabs, click-to-load embeds, a config system, and the `mw` CLI, which runs the same extensions as pre and post filters around any renderer.
 
 Full documentation and a live demo: https://masonegger.github.io/markwright/
 
@@ -20,6 +20,16 @@ Each extension is standalone and can be loaded on its own or alongside the other
 - **Instagram** embeds a post with caption and alignment options.
 - **Slideshow** builds an image slideshow with navigation arrows.
 - **Image Compare** renders two images with a draggable before/after slider.
+- **Button** turns `[button URL TEXT]` into a link styled as a button.
+- **Lightbox** turns `[lightbox URL ALT]` into an image link a host script can open in an overlay.
+- **Mermaid** turns a `mermaid` code fence into a `<pre class="mermaid">` block a host script draws.
+- **Icons** replaces `:pack-name:` shortcodes with inline SVG from directories you configure.
+- **Grid** classes the list after `[grid]` or `[grid cards]`, wraps the blocks between `[grid]` and `[/grid]` as grid cells with `[card]` ... `[/card]` cards inside, and sets a 1-to-6 column count with `[grid N]`.
+- **Annotate** links `(N)` markers in a code block to the items of the numbered list after it.
+- **Tabs** groups consecutive `[tab NAME]` ... `[/tab]` blocks into one tabbed set.
+
+The seven material-style extensions (Button, Lightbox, Mermaid, Icons, Grid, Annotate, Tabs) emit plain `mw-` classes and markup.
+markwright ships no CSS, JavaScript, or icons; the host site supplies them, and the docs site is a worked example.
 
 The embeds that contact a third party (YouTube, CodePen, Twitter, Instagram) take a `load` option.
 `load = "click"` renders an inert preview so nothing reaches the provider until the reader asks; see [Click-to-Load](https://masonegger.github.io/markwright/click-to-load/).
@@ -67,6 +77,13 @@ markdown_extensions:
   - markwright.instagram
   - markwright.slideshow
   - markwright.image_compare
+  - markwright.button
+  - markwright.lightbox
+  - markwright.mermaid
+  - markwright.icons
+  - markwright.grid
+  - markwright.annotate
+  - markwright.tabs
 ```
 
 ### Standalone
@@ -88,6 +105,13 @@ md = markdown.Markdown(
         "markwright.instagram",
         "markwright.slideshow",
         "markwright.image_compare",
+        "markwright.button",
+        "markwright.lightbox",
+        "markwright.mermaid",
+        "markwright.icons",
+        "markwright.grid",
+        "markwright.annotate",
+        "markwright.tabs",
     ]
 )
 
@@ -116,9 +140,10 @@ For a toolchain that is not built on Python-Markdown, the `mw` command runs the 
 mw pre < in.md | your-renderer | mw post > out.html
 ```
 
-- `mw pre` expands the embeds and extracts fence directives into an `mw-fence` comment.
-- `mw post` applies the fence styling, resolves the highlights, and injects each embed script once.
+- `mw pre` expands the embed, button, lightbox, mermaid, and icon directives, and turns the fence, grid, annotate, and tab directives into marker comments.
+- `mw post` reads the markers back to apply the fence, grid, card, annotate, and tab markup, resolves the highlights, and injects each embed script once.
 - `mw render` runs the full pipeline in one shot for callers without their own renderer.
+  It loads no other extension, and its syntax highlighting needs Pygments.
 - `mw config` prints the resolved configuration and the source of each value.
 - `mw list` prints every extension and the stages it provides.
 
@@ -173,5 +198,6 @@ Coverage is reported on every run.
 
 markwright is released under the [MIT License](LICENSE).
 
-It is a port of [`do-markdownit`](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0.
+Part of it is a port of [`do-markdownit`](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0.
+Those portions remain subject to that license, a copy of which is included as [LICENSE-Apache-2.0](LICENSE-Apache-2.0).
 See the [NOTICE](NOTICE) file for attribution details.

@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
 
+from markwright._fences import map_directive_lines
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -69,7 +71,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: The text with standalone compare embeds replaced by HTML.
     """
-    return "\n".join(_render_match(line) or line for line in text.split("\n"))
+    return map_directive_lines(text, _render_match)
 
 
 class ImageComparePreprocessor(Preprocessor):
@@ -84,18 +86,16 @@ class ImageComparePreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with image compare embeds replaced by HTML.
         """
-        output: list[str] = []
-        for line in lines:
+
+        def render(line: str) -> str | None:
             # Stash the raw HTML so Markdown does not parse its contents. The
             # oninput handler contains a JS backtick template literal that
             # would otherwise be turned into an inline <code> span, and the
             # block-level <div> would be wrapped in an invalid <p>.
             compare_html = _render_match(line)
-            if compare_html is not None:
-                output.append(self.md.htmlStash.store(compare_html))
-            else:
-                output.append(line)
-        return output
+            return None if compare_html is None else self.md.htmlStash.store(compare_html)
+
+        return map_directive_lines("\n".join(lines), render).split("\n")
 
 
 class ImageCompareExtension(Extension):
