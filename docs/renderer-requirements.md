@@ -55,7 +55,7 @@ The fence itself is left intact, so your renderer still syntax-highlights the re
 There is no placeholder and no rewritten language token.
 The post stage associates a marker with the first code block that follows it, before the next marker.
 For an indented fence (up to three spaces, or inside a list item), the comment carries the fence's indentation and is followed by a blank line, so it stays inside the list item and renders as its own block.
-This comment is the only cross-tool surface, so its shape is a versioned contract.
+This comment is a cross-tool surface, so its shape is a versioned contract.
 
 ### v1 Payload
 

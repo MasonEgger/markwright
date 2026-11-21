@@ -3,7 +3,7 @@
 
 # Fence directives travel from the pre stage to the post stage as an HTML comment
 # placed immediately before the fence: ``<!-- mw-fence:{JSON} -->``. This comment is
-# the only cross-tool contract, so its payload is versioned. The v1 schema is::
+# a cross-tool contract, so its payload is versioned. The v1 schema is::
 #
 #     {
 #       "version": 1,             # integer, the only required field
