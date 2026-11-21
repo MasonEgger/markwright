@@ -72,7 +72,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - containers fixes (#30): an invalid `[grid ...]` is not an opener; indentation pairs by column, and a less-indented line ends a container's block; a card needs a paired grid; tabs group by a sibling rule, number their sets in opening order, and render a backticked name as text in both paths; closer markers are validated; the shortcut and annotate markers are emitted as blocks, and a problem marker keeps a CRLF line end; the backslash escape for a literal directive line is documented and tested; and the sample CSS covers a list inside a `cards` block grid; written as `Planned (containers fixes)` sentences under Goals in Containers, Grid and Cards, and Tabs
 - block bodies (no issue): a directive line, a fence with its directives, and a `mermaid` fence work inside the body of an admonition, a details block, a content tab, a definition, or a footnote, in both paths; `_fences` reads those four-column bodies as content, so an embed that 0.3.0 expanded there expands again
 - pre-stage order (no issue): in `mw pre` the icons stage runs after the directive stages, and a `mermaid` fence in a list item renders as one block; the two land together, since icons after mermaid would otherwise rewrite a shortcode inside a diagram
-- hardening (no issue): no input a pipeline plausibly sends ends in a traceback (unreadable or non-UTF-8 files, closed streams); `mw` reads and writes UTF-8 whatever the locale; the label class options are validated as class tokens; a Chroma prefixed line gains no second newline; highlight skips `<title>` and `<textarea>`; a replaced prefix flag leaves no `prefix_value`; and `mw pre` passes a leading front matter block through untouched; written as `Planned (hardening)` sentences across Goals
+- hardening (no issue): no input a pipeline plausibly sends ends in a traceback (unreadable or non-UTF-8 files, closed streams); `mw` reads and writes UTF-8 whatever the locale; and `mw pre` passes a leading front matter block through untouched; written as `Planned (hardening)` sentences across Goals
 - docs catch-up (no issue): the docs gaps and the CHANGELOG corrections listed under Goals, Docs Site; docs-only, done after the code items so the CHANGELOG's Fixed list is final
 - 0.4.0 release: done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; it closes #16, #20, #29, and #30 and turns the Unreleased rows of Goals, Feature Status into Released 0.4.0
   - draft PR #35 of `containers-30` into `main` is open, so CI runs on every push; mark it ready for review when the plan items and the docs catch-up have landed
@@ -127,8 +127,8 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 
 | Feature | Origin | State | Open Work | Docs | Code |
 |---------|--------|-------|-----------|------|------|
-| highlight | ported | Released 0.1.0 | hardening | `extensions/highlight.md` | `highlight.py` |
-| fence | ported | Released 0.1.0 | hardening | `extensions/fence.md` | `fence.py` |
+| highlight | ported | Released 0.1.0 | none | `extensions/highlight.md` | `highlight.py` |
+| fence | ported | Released 0.1.0 | none | `extensions/fence.md` | `fence.py` |
 | youtube | ported | Released 0.1.0 | none | `extensions/youtube.md` | `youtube.py` |
 | codepen | ported | Released 0.1.0 | none | `extensions/codepen.md` | `codepen.py` |
 | twitter | ported | Released 0.1.0 | none | `extensions/twitter.md` | `twitter.py` |
@@ -202,9 +202,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
   In prose `mw pre` reads the backslashes before a marker in pairs: an odd run escapes the marker, and `mw pre` then adds one backslash and writes the marker's `<` as `&lt;`, so Python-Markdown and a CommonMark renderer both hand `mw post` the escaped form; an even run leaves the marker live, as the in-process path already reads it.
   Known gap (literal backslash before a highlight): in code, where a backslash is not an escape character, a highlight that starts directly after a literal backslash cannot be written (`C:\<^>Users<^>\me`).
 - The pre stage wraps prose markers only, outside fenced code, indented code, and inline code spans.
-  The post stage reads the escaped `&lt;^&gt;` form from text tokens only (never an attribute, a `<script>`, or a `<style>`) and wraps each text run between a pair on its own, so a `<mark>` never crosses a syntax-highlight `<span>`.
-  Planned (hardening): the post stage also skips `<title>` and `<textarea>`, whose content a browser shows as characters.
-  Today a pair in a page's `<title>` is wrapped, and the browser tab shows the `<mark>` tags as text.
+  The post stage reads the escaped `&lt;^&gt;` form from text tokens only (never an attribute, a `<script>`, a `<style>`, a `<title>`, or a `<textarea>`, whose content a browser shows as characters) and wraps each text run between a pair on its own, so a `<mark>` never crosses a syntax-highlight `<span>`.
 - It takes no options.
 
 ### Fence
@@ -216,14 +214,13 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 - Directives work in every closed fence `_fences` finds (indented up to three columns, or inside a list item); a fence behind a block quote marker is not found, and an unclosed fence is read as prose, so its directives stay text.
   Known gap (fence in a tight list): in-process, an indented fence with a directive or prefix flag directly under a tight list item's text ends the list at that item; put a blank line before the fence.
 - Options: `allowed_environments` (omitted allows every name; an empty list allows none and warns; an unlisted `[environment NAME]` line stays in the code as text), `label_class`, and `secondary_label_class`.
-  Planned (hardening): `label_class` and `secondary_label_class` accept space-separated class tokens of letters, digits, `-`, and `_`; any other value is a `ConfigError`, or an `OptionError` in-process.
-  Today the value goes into the `class` attribute unescaped.
+  `label_class` and `secondary_label_class` accept space-separated class tokens of letters, digits, `-`, and `_`; any other value is a `ConfigError`, or an `OptionError` in-process.
   `fence.py` exposes the scan (`environment_names`) that lists the environment names a document's fence directives name, by the same rules the pre stage extracts them with; the host API function below is built on it.
 - The `mw-fence` marker (version 1: `label`, `secondary_label`, `environment`, `prefix_type`, `prefix_value`, each present only when set) sits before the fence at the fence's indentation, followed by a blank line when the fence is indented.
-  Planned (hardening): a `line_numbers` flag that replaces an earlier `command`, `super_user`, or `custom_prefix` drops `prefix_value`; today the earlier value stays in the marker.
+  A `line_numbers` flag that replaces an earlier `command`, `super_user`, or `custom_prefix` drops `prefix_value`.
   The fence itself is kept, so the renderer still highlights the code, and the post stage styles the first `<pre>` or `<code>` after the marker and before the next one, however far away, an inline code span included.
 - Line prefixes handle two renderers: Pygments emits flat newline-delimited lines, and Chroma (Hugo) wraps each line in `<span class="line">` when `noClasses = false`.
-  Planned (hardening): a Chroma line that already ends with a newline gains no second one, and the Chroma test asserts the whole `<li>`; today each prefixed line under Chroma ends with two.
+  A Chroma line that already ends with a newline gains no second one.
   Known gap (line prefixes and wrapping spans): a span the highlighter wraps around a whole line is cut by the prefix wrap, so under Pygments with `hl_lines` or `line_spans`, and under Chroma with Hugo's default `noClasses = true`, the span closes in the next `<li>` and one empty prefixed line is added.
   Known gap (line-number tables): with `linenums` under Pygments or `lineNos = true` under Hugo the marker binds to the gutter `<pre>`, so the classes, and under Hugo the label and the prefixes, land on the line numbers.
 

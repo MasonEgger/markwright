@@ -178,6 +178,20 @@ class TestEnvironmentAllowedList:
                 extensions=["markwright.fence"], extension_configs={"markwright.fence": {"label_class": 3}}
             )
 
+    @pytest.mark.parametrize("bad_value", ['a"b', "a<b", "a.b", "", "  ", "a  b ;"])
+    def test_label_class_that_is_not_class_tokens_raises(self, bad_value: str) -> None:
+        with pytest.raises(OptionError, match="label_class"):
+            apply_html("", None, {"label_class": bad_value})
+
+    def test_secondary_label_class_that_is_not_class_tokens_raises(self) -> None:
+        with pytest.raises(OptionError, match="secondary_label_class"):
+            apply_html("", None, {"secondary_label_class": "bad>"})
+
+    def test_space_separated_class_tokens_are_accepted(self) -> None:
+        marked = '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n<pre><code>x\n</code></pre>'
+        result = apply_html(marked, None, {"label_class": "my-label a_b c1"})
+        assert '<div class="my-label a_b c1" title="a.sh">a.sh</div>' in result
+
     def test_non_list_allowed_environments_raises(self) -> None:
         with pytest.raises(OptionError, match="allowed_environments"):
             markdown.Markdown(
@@ -359,6 +373,12 @@ class TestFenceExpandSource:
             result = expand_source(source, {"allowed_environments": []})
         assert '"environment"' not in result
 
+    @pytest.mark.parametrize("earlier_flag", ["command", "super_user", "custom_prefix(>)"])
+    def test_line_numbers_after_a_prefix_flag_drops_prefix_value(self, earlier_flag: str) -> None:
+        result = expand_source(f"```{earlier_flag},line_numbers\ncode\n```")
+        assert '"prefix_type": "line_numbers"' in result
+        assert "prefix_value" not in result
+
     def test_options_non_list_environment_value_raises(self) -> None:
         with pytest.raises(OptionError, match="allowed_environments"):
             expand_source("text", {"allowed_environments": [1]})
@@ -519,6 +539,11 @@ class TestFenceChromaPrefix:
         # The line span stays intact inside the single <li> (no cross-<li> split).
         assert '<li data-prefix="$"><span class="line"><span class="cl">./deploy.sh --prod' in result
         assert "</li><li" not in result
+        # The newline Chroma put inside the span is the only one; the wrap adds none.
+        assert (
+            '<ol><li data-prefix="$"><span class="line"><span class="cl">./deploy.sh --prod\n</span></span></li></ol>\n'
+            in result
+        )
 
     def test_multi_line_chroma_one_prefix_per_line(self) -> None:
         html_input = (

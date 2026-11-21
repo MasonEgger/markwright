@@ -35,23 +35,31 @@ _LITERAL_CARET = "&#94;"
 # are captured so their parity decides whether the marker is an escape.
 _PROSE_MARKER_RE = re.compile(r"(\\*)<\^>")
 
+# Elements whose text is not markup a browser renders, so the post stage leaves it alone
+_SKIPPED_TEXT_ELEMENTS = RAW_TEXT_ELEMENTS | {"title", "textarea"}
+
 
 def _text_token_spans(rendered_html: str) -> list[tuple[int, int]]:
     """Return the spans of rendered text, the only place an escaped marker can be.
 
-    Tag attributes and the contents of ``<script>`` and ``<style>`` are excluded, so a marker
-    inside, say, a ``title`` attribute is never touched.
+    Tag attributes and the contents of ``<script>``, ``<style>``, ``<title>``, and ``<textarea>``
+    are excluded (a browser shows the last two as characters), so a marker inside, say, a ``title``
+    attribute is never touched.
 
     :param rendered_html: Rendered HTML content.
     :returns: ``(start, end)`` spans of text tokens in source order.
     """
-    tokens = tokenize(rendered_html)
-    return [
-        (token.start, token.end)
-        for previous_token, token in zip([None, *tokens], tokens, strict=False)
-        if token.kind == "text"
-        and not (previous_token and previous_token.kind == "start" and previous_token.tag in RAW_TEXT_ELEMENTS)
-    ]
+    spans: list[tuple[int, int]] = []
+    skipped_element: str | None = None
+    for token in tokenize(rendered_html):
+        if skipped_element is None:
+            if token.kind == "start" and token.tag in _SKIPPED_TEXT_ELEMENTS:
+                skipped_element = token.tag
+            elif token.kind == "text":
+                spans.append((token.start, token.end))
+        elif token.kind == "end" and token.tag == skipped_element:
+            skipped_element = None
+    return spans
 
 
 def _visible_text(rendered_html: str) -> tuple[str, list[int]]:

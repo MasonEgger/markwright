@@ -121,16 +121,16 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 10: Hardening
 
-- [ ] Step 21: Fence hardening: class tokens, dropped `prefix_value`, Chroma newline
-  - [ ] RED: tests/test_config.py (class tokens), tests/test_fence.py (dropped prefix_value, Chroma newline)
-  - [ ] GREEN: fence.py and config.py class-token validation; drop prefix_value; no second Chroma newline
-  - [ ] Docs: spec.md Fence
-  - [ ] just check
-- [ ] Step 22: Highlight skips `<title>` and `<textarea>`
-  - [ ] RED: tests/test_highlight.py (title and textarea not wrapped)
-  - [ ] GREEN: highlight.py apply_html adds title and textarea to the skip list
-  - [ ] Docs: spec.md Highlight, Feature Status drops hardening from highlight
-  - [ ] just check
+- [x] Step 21: Fence hardening: class tokens, dropped `prefix_value`, Chroma newline
+  - [x] RED: tests/test_config.py (class tokens), tests/test_fence.py (dropped prefix_value, Chroma newline)
+  - [x] GREEN: fence.py and config.py class-token validation; drop prefix_value; no second Chroma newline
+  - [x] Docs: spec.md Fence
+  - [x] just check
+- [x] Step 22: Highlight skips `<title>` and `<textarea>`
+  - [x] RED: tests/test_highlight.py (title and textarea not wrapped)
+  - [x] GREEN: highlight.py apply_html adds title and textarea to the skip list
+  - [x] Docs: spec.md Highlight, Feature Status drops hardening from highlight
+  - [x] just check
 - [ ] Step 23: Icons reports an unreadable or non-UTF-8 SVG
   - [ ] RED: tests/test_icons.py (unreadable and non-UTF-8 SVG name the file)
   - [ ] GREEN: icons.py turns OSError/UnicodeDecodeError into OptionError naming the file

@@ -60,6 +60,7 @@ LABEL_RE = re.compile(r"^\[label (.+)\]$")
 SECONDARY_LABEL_RE = re.compile(r"^\[secondary_label (.+)\]$")
 ENVIRONMENT_RE = re.compile(r"^\[environment (.+)\]$")
 CUSTOM_PREFIX_RE = re.compile(r"^custom_prefix\((.+)\)$")
+CLASS_TOKENS_RE = re.compile(r"[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*")
 
 
 def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
@@ -77,6 +78,8 @@ def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
         stripped_part = part.strip()
         if stripped_part == "line_numbers":
             prefix_metadata["prefix_type"] = "line_numbers"
+            # line_numbers wins over an earlier flag, so its value goes too
+            prefix_metadata.pop("prefix_value", None)
         elif stripped_part == "command":
             prefix_metadata["prefix_type"] = "command"
             prefix_metadata["prefix_value"] = "$"
@@ -119,6 +122,7 @@ def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: s
 
     # Collect Chroma's top-level line spans, if there are any
     code_lines: list[str] = []
+    is_chroma = True
     span_depth = 0
     line_span: HtmlToken | None = None
     for token in code_tokens:
@@ -132,12 +136,15 @@ def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: s
                 code_lines.append(code_content[line_span.start : token.end])
                 line_span = None
     if not code_lines:
+        is_chroma = False
         code_lines = code_content.removesuffix("\n").split("\n")
 
+    # A Chroma line span already holds its own newline; a flat line has none
+    line_ending = "" if is_chroma else "\n"
     wrapped_lines: list[str] = []
     for line_index, line_text in enumerate(code_lines):
         current_prefix = str(line_index + 1) if prefix_type == "line_numbers" else prefix_value
-        wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}\n</li>')
+        wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}{line_ending}</li>')
     return "<ol>" + "".join(wrapped_lines) + "</ol>\n"
 
 
@@ -273,7 +280,8 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
 
     :param options: The fence option table (config table or extension configs), or ``None``.
     :returns: The validated options.
-    :raises OptionError: If ``allowed_environments`` is not a list of names, or a label class is not a string.
+    :raises OptionError: If ``allowed_environments`` is not a list of names, or a label class is not
+        a string of class tokens.
     """
     table = options or {}
 
@@ -304,6 +312,8 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
             value = default
         if not isinstance(value, str):
             raise OptionError(f"'{key}' must be a string")
+        if not CLASS_TOKENS_RE.fullmatch(value):
+            raise OptionError(f"'{key}' must be space-separated class tokens of letters, digits, '-', and '_'")
         label_classes[key] = value
 
     return FenceOptions(

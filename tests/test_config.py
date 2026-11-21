@@ -56,6 +56,8 @@ INVALID_TOML = [
     ("[fence]\ntypo_option = 1\n", r"\[fence\] unknown option 'typo_option'"),
     ("[youtube]\nallowed_environments = []\n", r"\[youtube\] unknown option 'allowed_environments'"),
     ("[fence]\nlabel_class = 3\n", r"\[fence\] 'label_class' must be a string"),
+    ('[fence]\nlabel_class = "a\\"b"\n', r"\[fence\] 'label_class' must be space-separated class tokens"),
+    ('[fence]\nsecondary_label_class = "x.y"\n', r"\[fence\] 'secondary_label_class' must be space-separated"),
 ]
 
 

@@ -385,6 +385,18 @@ class TestHighlightPostStageScope:
         rendered = "<script>var a = '&lt;^&gt;b&lt;^&gt;';</script>"
         assert apply_html(rendered) == rendered
 
+    def test_marker_in_a_title_is_untouched(self) -> None:
+        rendered = "<head><title>a &amp; &lt;^&gt;b&lt;^&gt;</title></head>"
+        assert apply_html(rendered) == rendered
+
+    def test_marker_in_a_textarea_is_untouched(self) -> None:
+        rendered = "<textarea>&lt;^&gt;b&lt;^&gt; &amp; c</textarea>"
+        assert apply_html(rendered) == rendered
+
+    def test_marker_in_body_text_beside_a_title_is_still_wrapped(self) -> None:
+        rendered = "<title>t</title><p>&lt;^&gt;b&lt;^&gt;</p>"
+        assert apply_html(rendered) == "<title>t</title><p><mark>b</mark></p>"
+
     def test_markers_on_different_lines_do_not_pair(self) -> None:
         rendered = "<code>&lt;^&gt;a\nb&lt;^&gt;</code>"
         assert apply_html(rendered) == rendered
