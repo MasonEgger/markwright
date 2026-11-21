@@ -47,6 +47,10 @@ _BODY_OFFSET = 4
 # An inline code span: a backtick run, content, and a closing run of exactly the same length
 _INLINE_CODE_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`).+?(?<!`)(?P=ticks)(?!`)")
 
+# An inline code span as Python-Markdown and CommonMark read it inside a paragraph: like the pattern above, but
+# the content may hold a line end, never a blank line, because a blank line ends the paragraph
+_PARAGRAPH_CODE_SPAN_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)(?P=ticks)(?!`)", re.DOTALL)
+
 # An HTML tag or comment, in the shape of Python-Markdown's inline HTML_RE. The letter after "<" keeps
 # "a < b" prose. It also covers autolinks and automail ("<https://x>"), which start with a letter too and
 # must not be rewritten for the same reason. Like Python-Markdown's, neither body admits "<" or ">", so a
@@ -396,11 +400,26 @@ def _read_emitted_blocks(lines: list[str], opener: str) -> tuple[frozenset[int],
     return code_lines, block_ends
 
 
+def find_inline_code_spans(prose: str) -> list[tuple[int, int]]:
+    """Find the inline code spans of a run of prose, where a span may hold a line end.
+
+    A span is a backtick run, content, and a closing run of exactly the same length. Unlike the spans
+    :func:`map_prose` skips, the content may cross a line end, as a paragraph's code span does, but never a
+    blank line, which ends the paragraph.
+
+    :param prose: A run of prose, such as the one :func:`map_prose` hands a transform with
+        ``skip_inline_code`` off.
+    :returns: ``(start, end)`` offsets of each span, backticks included, in source order.
+    """
+    return [span_match.span() for span_match in _PARAGRAPH_CODE_SPAN_RE.finditer(prose)]
+
+
 def map_prose(
     text: str,
     transform: Callable[[str], str],
     *,
     skip_html: bool = False,
+    skip_inline_code: bool = True,
     skip_blocks_opened_by: str | None = None,
 ) -> str:
     """Apply a transform to the prose of Markdown source, skipping code.
@@ -414,6 +433,10 @@ def map_prose(
     because a highlight pair may span inline HTML (``<^>a <b>c</b><^>``), so highlight must see the
     tags as prose, while a single-token shortcode never spans a tag.
 
+    With ``skip_inline_code`` off, inline code spans are not cut out: ``transform`` sees each whole run of
+    prose lines, blank lines included, and finds the spans itself with :func:`find_inline_code_spans`.
+    Highlight needs this because a pair may hold a code span.
+
     With ``skip_blocks_opened_by``, a block that one stage emitted passes through unchanged too: it starts at
     a line outside code whose first text is that exact open tag, at any indentation, and ends right after the
     first ``</pre>`` that follows it, whatever the lines between them look like. A fence line or an indented
@@ -424,6 +447,7 @@ def map_prose(
     :param text: Raw Markdown source.
     :param transform: A function applied to each prose run.
     :param skip_html: Also skip HTML tags, comments, and autolinks.
+    :param skip_inline_code: Skip inline code spans; ``False`` leaves them inside the runs.
     :param skip_blocks_opened_by: The open tag of the blocks to skip, or ``None`` to skip none.
     :returns: The source with every prose run transformed.
     """
@@ -433,7 +457,12 @@ def map_prose(
         _, code_lines = _code_regions(tuple(lines))
     else:
         code_lines, block_ends = _read_emitted_blocks(lines, skip_blocks_opened_by)
-    skipped_span_re = _SKIPPED_SPAN_RE if skip_html else _INLINE_CODE_RE
+    if skip_html:
+        skipped_span_re = _SKIPPED_SPAN_RE
+    elif skip_inline_code:
+        skipped_span_re = _INLINE_CODE_RE
+    else:
+        skipped_span_re = None
 
     # Cut the source into prose and skipped pieces. The newline between two lines is prose only when the text
     # on both sides of it is, so a prose run never starts or ends with a newline.
@@ -461,6 +490,10 @@ def map_prose(
             continue
 
         # Within prose, inline code spans and HTML (when asked) are skipped as well
+        if skipped_span_re is None:
+            output.append(transform(run))
+            continue
+
         cursor = 0
         for skipped_span in skipped_span_re.finditer(run):
             output.append(transform(run[cursor : skipped_span.start()]))

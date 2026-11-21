@@ -10,8 +10,9 @@ from xml.etree import ElementTree
 from markdown.extensions import Extension
 from markdown.inlinepatterns import InlineProcessor
 from markdown.postprocessors import Postprocessor
+from markdown.util import HTML_PLACEHOLDER_RE
 
-from markwright._fences import map_prose
+from markwright._fences import find_inline_code_spans, map_prose
 from markwright._html import RAW_TEXT_ELEMENTS, apply_edits, tokenize
 
 if TYPE_CHECKING:
@@ -22,7 +23,8 @@ if TYPE_CHECKING:
 # A backslash before a marker (``\<^>``) escapes it. The in-process InlineProcessor shares this guard
 # so the escape survives as a literal marker no matter which stage resolves it.
 _ESCAPE_GUARD = r"(?<!\\)"
-_HIGHLIGHT_PATTERN = rf"{_ESCAPE_GUARD}<\^>(.*?){_ESCAPE_GUARD}<\^>"
+_MARKER_PATTERN = rf"{_ESCAPE_GUARD}<\^>"
+_MARKER_RE = re.compile(_MARKER_PATTERN)
 # Markers are HTML-escaped to ``&lt;^&gt;`` inside code.
 _ESCAPED_MARKER_RE = re.compile(r"&lt;\^&gt;")
 # A revealed literal marker writes the caret as a character reference, so a second ``mw post`` does not
@@ -134,27 +136,38 @@ def apply_html(
 def _wrap_prose_markers(prose: str) -> str:
     """Wrap prose markers in ``<mark>`` and write each escaped marker in a form both renderers hand back.
 
-    The backslashes before a marker are read in pairs: an even run leaves the marker live, an odd run
-    escapes it. For an escape one backslash is added and the marker's ``<`` is written ``&lt;``, so
-    Python-Markdown and a CommonMark renderer both render a backslash and a literal marker, which
-    :func:`apply_html` then reveals. A live marker pairs with the next live marker on the same line.
+    Inline code spans stay as they are and so do the markers inside them, which :func:`apply_html` resolves
+    after rendering. The backslashes before a marker outside a span are read in pairs: an even run leaves the
+    marker live, an odd run escapes it. For an escape one backslash is added and the marker's ``<`` is written
+    ``&lt;``, so Python-Markdown and a CommonMark renderer both render a backslash and a literal marker, which
+    :func:`apply_html` then reveals. A live marker pairs with the next live marker on the same line, and a
+    pair wraps everything between them, code spans included. A code span that holds a line end does not
+    end the line, as in-process, where the span is already a placeholder when highlight runs.
 
-    :param prose: A run of prose from outside code.
+    :param prose: A run of prose lines from outside code, code spans included.
     :returns: The prose with live pairs wrapped and escapes rewritten.
     """
+    code_spans = find_inline_code_spans(prose)
     edits: list[tuple[int, int, str]] = []
     live_markers: list[tuple[int, int]] = []
     for marker_match in _PROSE_MARKER_RE.finditer(prose):
         marker_start = marker_match.end(1)
+        if any(span_start <= marker_start < span_end for span_start, span_end in code_spans):
+            continue
         if len(marker_match.group(1)) % 2:
             edits.append((marker_start, marker_start + 1, "\\&lt;"))
         else:
             live_markers.append((marker_start, marker_match.end()))
 
+    line_ends = [
+        line_end
+        for line_end, character in enumerate(prose)
+        if character == "\n" and not any(span_start <= line_end < span_end for span_start, span_end in code_spans)
+    ]
     marker_index = 0
     while marker_index + 1 < len(live_markers):
         (open_start, open_end), (close_start, close_end) = live_markers[marker_index], live_markers[marker_index + 1]
-        if "\n" in prose[open_end:close_start]:
+        if any(open_end <= line_end < close_start for line_end in line_ends):
             marker_index += 1
             continue
         edits.extend([(open_start, open_end, "<mark>"), (close_start, close_end, "</mark>")])
@@ -166,8 +179,9 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     """Wrap prose highlight markers in ``<mark>`` outside code.
 
     The source-stage transform for ``mw pre``. Fenced code blocks (found by the shared CommonMark
-    scanner the fence stage uses) and inline code spans are left untouched: their markers are
-    HTML-escaped during rendering and resolved by :func:`apply_html` in the post stage. In prose an
+    scanner the fence stage uses) are left untouched, and so are the markers inside inline code spans: they
+    are HTML-escaped during rendering and resolved by :func:`apply_html` in the post stage. A prose pair
+    sits on one line and wraps everything between its markers in one ``<mark>``, code spans included. In prose an
     odd run of backslashes before a marker escapes it and is rewritten as ``mw post`` expects (see
     :func:`_wrap_prose_markers`); an even run leaves the marker live.
 
@@ -175,28 +189,43 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: Source with unescaped prose ``<^>...<^>`` markers wrapped in ``<mark>``.
     """
-    return map_prose(text, _wrap_prose_markers)
+    return map_prose(text, _wrap_prose_markers, skip_inline_code=False)
 
 
 class HighlightInlineProcessor(InlineProcessor):
-    """Inline processor that converts ``<^>text<^>`` to ``<mark>text</mark>``.
+    """Inline processor that converts ``<^>text<^>`` to ``<mark>text</mark>`` on one line.
 
-    :param pattern: Regex pattern for matching highlight markers.
+    The pattern matches an opener alone. The closer is the next marker on the opener's own line, so
+    a pair never holds a line end; an opener with no closer there, or whose text holds the placeholder
+    of a stashed block, is declined and stays literal, and matching resumes just after it.
+
+    :param pattern: Regex pattern for matching a highlight opener.
     :param md: The Markdown instance.
     """
 
     # Python-Markdown names this hook, and its stubs type it as the older Pattern.handleMatch(m), so the
     # InlineProcessor signature it is called with at runtime needs the override ignore
-    def handleMatch(self, match: re.Match[str], data: str) -> tuple[ElementTree.Element, int, int]:  # type: ignore[override]  # noqa: N802
-        """Create a ``<mark>`` element from the matched text.
+    def handleMatch(  # type: ignore[override]  # noqa: N802
+        self, match: re.Match[str], data: str
+    ) -> tuple[ElementTree.Element | None, int | None, int | None]:
+        """Create a ``<mark>`` element from an opener and the next marker on its line.
 
-        :param match: The regex match object.
+        :param match: The regex match object for the opener.
         :param data: The full source string being processed.
-        :returns: A tuple of (element, start, end).
+        :returns: A tuple of (element, start, end), or ``(None, None, None)`` to decline the opener.
         """
+        line_end = data.find("\n", match.end())
+        closer_match = _MARKER_RE.search(data, match.end(), len(data) if line_end == -1 else line_end)
+        if closer_match is None:
+            return None, None, None
+
+        marked_text = data[match.end() : closer_match.start()]
+        if HTML_PLACEHOLDER_RE.search(marked_text):
+            return None, None, None
+
         mark_element = ElementTree.Element("mark")
-        mark_element.text = match.group(1)
-        return mark_element, match.start(0), match.end(0)
+        mark_element.text = marked_text
+        return mark_element, match.start(0), closer_match.end()
 
 
 class HighlightPostprocessor(Postprocessor):
@@ -229,7 +258,7 @@ class HighlightExtension(Extension):
         :param md: The Markdown instance to extend.
         """
         md.inlinePatterns.register(
-            HighlightInlineProcessor(_HIGHLIGHT_PATTERN, md),
+            HighlightInlineProcessor(_MARKER_PATTERN, md),
             "do_highlight_inline",
             175,
         )

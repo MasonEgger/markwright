@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import itertools
 import re
 from typing import TYPE_CHECKING
 
@@ -292,6 +293,115 @@ class TestRoundTripHighlightEscape:
         assert "<mark>" not in literal
         assert "&lt;&#94;&gt;x" in literal
         assert "<mark>x</mark>" in live
+
+
+# The block starts of both renderers (Python-Markdown and CommonMark), as a line prefix. A raw HTML block start
+# (`<div>`, `<!-- `) is left out because it is not highlight pairing: `mw pre` rewrites the text content of an HTML
+# block and the in-process path leaves it alone (spec.md, Roadmap Deferred, mw pre parity).
+_PAIRING_BLOCK_STARTS = (
+    "",
+    "- ",
+    "* ",
+    "+ ",
+    "1. ",
+    "1) ",
+    "- [ ] ",
+    "> ",
+    "# ",
+    "    ",
+    "\t",
+    "    - ",
+    "```",
+    "~~~",
+    "[x]: ",
+    "| ",
+    ": ",
+    "!!! ",
+    "??? ",
+    "=== ",
+    "---",
+)
+_INDENTED_STARTS = frozenset({"    ", "\t", "    - "})
+
+# The text of each line, with the pair opening on the first line and closing on the last
+_PAIRING_TWO_LINE_TEXTS = (
+    ("a <^>b", "c<^> d"),
+    ("a <^>b<^> c", "d <^>e<^> f"),
+    ("a <^>b `x<^>y` c<^> d", "e <^>f<^> g"),
+)
+_PAIRING_THREE_LINE_TEXTS = (
+    ("a <^>b", "x", "c<^> d"),
+    ("a <^>b<^> c", "x <^>y<^> z", "c<^> d"),
+)
+# A code span that holds a line end, in one paragraph: the continuation lines start no block, since a block
+# start inside a code span has no single reading in the two renderers and nobody types one
+_PAIRING_CODE_SPAN_TEXTS = (
+    ("a <^>b `x", "y` c<^> d"),
+    ("a <^>b `x", "y", "z` c<^> d"),
+)
+_PAIRING_CODE_SPAN_STARTS = ("", "- ", "* ", "+ ", "1. ", "> ", "- [ ] ", "1) ")
+
+
+def _is_supported_pairing_document(starts: tuple[str, ...], lines: list[str]) -> bool:
+    """Report whether a generated document stays inside what the two renderers read alike.
+
+    Left out: indented text straight after a heading line, which CommonMark reads as indented code and
+    ``_fences`` reads as prose (code needs a blank line before it there), and a backtick fence opener that
+    holds a backtick, which CommonMark does not read as a fence.
+    """
+    follows_heading = any(
+        previous == "# " and start in _INDENTED_STARTS for previous, start in zip(starts, starts[1:], strict=False)
+    )
+    backtick_in_fence_opener = any(line.startswith("```") and "`" in line[3:] for line in lines)
+    return not follows_heading and not backtick_in_fence_opener
+
+
+def _pairing_documents() -> list[str]:
+    """Generate the two-line and three-line documents that join each pair of block starts with each text."""
+    documents: list[str] = []
+    for (first_text, second_text), first_start, second_start in itertools.product(
+        _PAIRING_TWO_LINE_TEXTS, _PAIRING_BLOCK_STARTS, _PAIRING_BLOCK_STARTS
+    ):
+        lines = [f"{first_start}{first_text}", f"{second_start}{second_text}"]
+        if _is_supported_pairing_document((first_start, second_start), lines):
+            documents.append("\n".join(lines) + "\n")
+    for (first_text, middle_text, last_text), middle_start, last_start in itertools.product(
+        _PAIRING_THREE_LINE_TEXTS, _PAIRING_BLOCK_STARTS, _PAIRING_BLOCK_STARTS
+    ):
+        lines = [first_text, f"{middle_start}{middle_text}", f"{last_start}{last_text}"]
+        if _is_supported_pairing_document(("", middle_start, last_start), lines):
+            documents.append("\n".join(lines) + "\n")
+    for code_span_lines, first_start in itertools.product(_PAIRING_CODE_SPAN_TEXTS, _PAIRING_CODE_SPAN_STARTS):
+        documents.append(f"{first_start}{code_span_lines[0]}\n" + "\n".join(code_span_lines[1:]) + "\n")
+    return documents
+
+
+class TestRoundTripHighlightPairing:
+    """A prose pair never holds a line end, so every path highlights the same text whatever block starts a line."""
+
+    def test_pipeline_equals_in_process_render_over_generated_documents(self) -> None:
+        names = ["highlight"]
+        documents = _pairing_documents()
+
+        differing = [
+            document
+            for document in documents
+            if _normalize(registry.run_post(stub_render(registry.run_pre(document, names)), names))
+            != _normalize(in_process_render(document, names))
+        ]
+
+        assert differing == []
+        # The corpus must reach a highlight, or equality proves nothing
+        assert any("<mark>" in in_process_render(document, names) for document in documents)
+
+    def test_a_pair_around_a_code_span_is_one_mark_in_both_paths(self) -> None:
+        names = ["highlight"]
+        document = "a <^>b `x<^>y` c<^> d\n"
+
+        pipeline = registry.run_post(stub_render(registry.run_pre(document, names)), names)
+
+        assert pipeline == in_process_render(document, names)
+        assert pipeline.count("<mark>") == 1
 
 
 class TestRoundTripIdempotency:

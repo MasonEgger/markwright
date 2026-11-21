@@ -73,6 +73,18 @@ Both \<^>first\<^> and \<^>second\<^> are highlighted.
 
 Result: Both <^>first<^> and <^>second<^> are highlighted.
 
+## Pairing
+
+In text, a marker pairs with the next marker on the same line, so a highlight never holds a line end.
+A marker with no partner on its line stays as written.
+A pair may hold an inline code span, which the highlight covers whole; a marker inside the code span is not part of the pair.
+
+```
+Set \<^>the `timeout` value\<^> first.
+```
+
+Result: Set <^>the `timeout` value<^> first.
+
 ## Escaping
 
 Prefix a marker with a backslash (`\<^>`) to show it literally instead of applying a highlight.

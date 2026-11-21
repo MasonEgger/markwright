@@ -6,6 +6,8 @@ from __future__ import annotations
 import re
 
 import markdown
+from markdown.extensions import Extension
+from markdown.preprocessors import Preprocessor
 
 from markwright import registry
 from markwright.highlight import apply_html, expand_source
@@ -40,6 +42,20 @@ def _stub_render(markdown_text: str) -> str:
     return instance.convert(markdown_text)
 
 
+class _StashPreprocessor(Preprocessor):
+    """Replace ``[raw]`` with the placeholder of a stashed block, as a preprocessor that stashes HTML does."""
+
+    def run(self, lines: list[str]) -> list[str]:
+        return [line.replace("[raw]", self.md.htmlStash.store("<b>raw</b>")) for line in lines]
+
+
+class _StashAtToken(Extension):
+    """Register :class:`_StashPreprocessor` below ``normalize_whitespace``, which strips placeholder markers."""
+
+    def extendMarkdown(self, md: markdown.Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
+        md.preprocessors.register(_StashPreprocessor(md), "stash_at_token", 10)
+
+
 class TestInlineHighlight:
     """Test <^>...<^> in regular inline text."""
 
@@ -57,6 +73,41 @@ class TestInlineHighlight:
         assert "<mark>middle</mark>" in result
         assert "Before" in result
         assert "after" in result
+
+
+class TestInlineSameLinePairing:
+    """In prose a marker pairs with the next prose marker on the same line, never across a line end."""
+
+    def test_markers_on_two_lines_of_a_paragraph_do_not_pair(self) -> None:
+        result = _render("e <^>f\ng<^> h")
+        assert "<mark>" not in result
+        assert result.count("&lt;^&gt;") == 2
+
+    def test_pair_around_a_code_span_marks_the_code_span(self) -> None:
+        assert _render("a <^>b `x` c<^> d") == "<p>a <mark>b <code>x</code> c</mark> d</p>"
+
+    def test_opener_without_a_same_line_closer_stays_literal_and_a_later_pair_matches(self) -> None:
+        result = _render("a <^>b\nc <^>d<^> e")
+        assert "<mark>d</mark>" in result
+        assert result.count("&lt;^&gt;") == 1
+
+    def test_an_opener_pairs_with_the_next_marker_on_its_line(self) -> None:
+        assert _render("a <^>b <^>c<^> d") == "<p>a <mark>b </mark>c&lt;^&gt; d</p>"
+
+    def test_pair_whose_text_holds_a_stashed_block_placeholder_is_declined(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.highlight", _StashAtToken()])
+        result = md.convert("a <^>b [raw] c<^> d")
+        # The inline processor declines the pair, so the stashed block never sits inside one <mark>; the post
+        # stage then pairs the two literal markers and wraps each text run around the restored block
+        assert result == "<p>a <mark>b </mark><b><mark>raw</mark></b><mark> c</mark> d</p>"
+
+    def test_marker_on_either_side_of_a_code_block_does_not_wrap_it(self) -> None:
+        result = _render_with_superfences("a <^>b\n\n```\ncode\n```\n\nc<^> d")
+        assert "<mark>" not in result
+
+    def test_marker_before_a_list_item_does_not_pair_with_one_in_it(self) -> None:
+        result = _render("a <^>b\n- c<^> d")
+        assert "<mark>" not in result
 
 
 class TestInlineCodeHighlight:
@@ -248,6 +299,30 @@ class TestHighlightExpandSource:
 
     def test_marker_without_a_closer_on_its_line_stays_literal(self) -> None:
         assert expand_source("a <^>b\nc<^> d <^>e<^>") == "a <^>b\nc<mark> d </mark>e<^>"
+
+    def test_pair_around_a_code_span_is_wrapped_in_one_mark(self) -> None:
+        assert expand_source("a <^>b `x` c<^> d") == "a <mark>b `x` c</mark> d"
+
+    def test_marker_inside_a_code_span_stays_literal(self) -> None:
+        assert expand_source("a <^>b `x<^>y` c<^> d") == "a <mark>b `x<^>y` c</mark> d"
+
+    def test_marker_inside_a_code_span_does_not_close_a_prose_pair(self) -> None:
+        source = "a <^>b `x<^>y` c"
+        assert expand_source(source) == source
+
+    def test_pair_around_a_code_span_that_holds_a_line_end_is_wrapped(self) -> None:
+        assert expand_source("a <^>b `x\ny` c<^> d") == "a <mark>b `x\ny` c</mark> d"
+
+    def test_code_span_is_not_followed_across_a_blank_line(self) -> None:
+        assert expand_source("`a <^>b<^> c\n\nd`") == "`a <mark>b</mark> c\n\nd`"
+
+    def test_markers_on_two_lines_do_not_pair(self) -> None:
+        source = "e <^>f\ng<^> h"
+        assert expand_source(source) == source
+
+    def test_escape_inside_a_code_span_is_untouched(self) -> None:
+        source = r"a `\<^>x` b"
+        assert expand_source(source) == source
 
     def test_running_the_pre_stage_twice_is_stable(self) -> None:
         once = expand_source(r"a \<^>x\<^> <^>y<^> b")

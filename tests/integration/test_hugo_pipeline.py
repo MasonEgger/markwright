@@ -3,11 +3,16 @@
 
 from __future__ import annotations
 
+import itertools
+import re
 import shutil
 import subprocess
 from typing import TYPE_CHECKING
 
+import markdown
 import pytest
+
+from markwright import registry
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -425,3 +430,81 @@ def test_container_problems_survive_hugo(tmp_path: Path) -> None:
     # mw post --warn names each problem once on stderr.
     assert completed.stderr.count("Leaving [card] on line 1 literal") == 1
     assert completed.stderr.count("Leaving [tab] on line 7 literal") == 1
+
+
+# The block starts a CommonMark renderer reads, as a line prefix, and the lines they join. Left out: a raw HTML
+# block start (`<div>`, `<!-- `), whose text content `mw pre` rewrites and the in-process path leaves alone
+# (spec.md, Roadmap Deferred, mw pre parity), and a fence start, since an unclosed fence is code to Goldmark and prose
+# to `_fences` and Python-Markdown. A code span that holds a line end is read with continuation lines that
+# start no block.
+_PAIRING_BLOCK_STARTS = ("", "- ", "* ", "+ ", "1. ", "1) ", "- [ ] ", "> ", "# ", "    ", "\t", "    - ", "---")
+_PAIRING_TWO_LINE_TEXTS = (
+    ("a <^>b", "c<^> d"),
+    ("a <^>b<^> c", "d <^>e<^> f"),
+    ("a <^>b `x<^>y` c<^> d", "e <^>f<^> g"),
+)
+_PAIRING_THREE_LINE_TEXTS = (("a <^>b", "x", "c<^> d"), ("a <^>b<^> c", "x <^>y<^> z", "c<^> d"))
+_PAIRING_CODE_SPAN_DOCUMENTS = ("a <^>b `x\ny` c<^> d\n", "a <^>b `x\ny\nz` c<^> d\n")
+_MARK_RE = re.compile(r"<mark>(.*?)</mark>", re.DOTALL)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _pairing_documents() -> list[str]:
+    """Generate the two-line and three-line documents that join each pair of block starts with each text.
+
+    Indented text straight after a heading line is left out: CommonMark reads it as indented code, which
+    ``_fences`` reads as prose, since it needs a blank line before it there.
+    """
+    indented = {"    ", "\t", "    - "}
+    documents = list(_PAIRING_CODE_SPAN_DOCUMENTS)
+    for (first_text, second_text), first_start, second_start in itertools.product(
+        _PAIRING_TWO_LINE_TEXTS, _PAIRING_BLOCK_STARTS, _PAIRING_BLOCK_STARTS
+    ):
+        if not (first_start == "# " and second_start in indented):
+            documents.append(f"{first_start}{first_text}\n{second_start}{second_text}\n")
+    for (first_text, middle_text, last_text), middle_start, last_start in itertools.product(
+        _PAIRING_THREE_LINE_TEXTS, _PAIRING_BLOCK_STARTS, _PAIRING_BLOCK_STARTS
+    ):
+        if not (middle_start == "# " and last_start in indented):
+            documents.append(f"{first_text}\n{middle_start}{middle_text}\n{last_start}{last_text}\n")
+    return documents
+
+
+def _marked_text(html: str) -> list[str]:
+    """Return the text of each ``<mark>``, tags removed and whitespace collapsed.
+
+    Goldmark renders a line end inside a code span as a space and Python-Markdown keeps it, so whitespace is
+    not compared.
+    """
+    return [" ".join(_TAG_RE.sub("", marked).split()) for marked in _MARK_RE.findall(html)]
+
+
+@requires_tools
+def test_highlight_pairing_matches_in_process_over_generated_documents_through_hugo(tmp_path: Path) -> None:
+    assert HUGO is not None
+    names = ["highlight"]
+    documents = _pairing_documents()
+    site = tmp_path / "site"
+    (site / "content").mkdir(parents=True)
+    (site / "layouts" / "_default").mkdir(parents=True)
+    (site / "hugo.toml").write_text(HUGO_CONFIG)
+    (site / "layouts" / "_default" / "single.html").write_text(SINGLE_LAYOUT)
+    for document_number, document in enumerate(documents):
+        page = '+++\ntitle = "Page"\n+++\n\n' + registry.run_pre(document, names)
+        (site / "content" / f"page-{document_number}.md").write_text(page)
+    subprocess.run([HUGO, "--quiet"], cwd=site, check=True)
+
+    in_process = markdown.Markdown(extensions=["markwright.highlight"])
+    differing = []
+    highlighted_documents = 0
+    for document_number, document in enumerate(documents):
+        built = (site / "public" / f"page-{document_number}" / "index.html").read_text()
+        pipeline_marks = _marked_text(registry.run_post(built, names))
+        in_process_marks = _marked_text(in_process.reset().convert(document))
+        highlighted_documents += bool(in_process_marks)
+        if pipeline_marks != in_process_marks:
+            differing.append((document, in_process_marks, pipeline_marks))
+
+    assert differing == []
+    # The corpus must reach a highlight, or equality proves nothing
+    assert highlighted_documents

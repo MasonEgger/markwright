@@ -78,17 +78,17 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 6: Highlight Same-Line Pairing (#34)
 
-- [ ] Step 12: In-process prose pairing on the same line only
-  - [ ] RED: tests/test_highlight.py (no cross-line pair, same-line with code span, literal opener, declined stash span, old cross-block cases gone)
-  - [ ] GREEN: highlight.py InlineProcessor same-line matching
-  - [ ] Docs: spec.md Highlight (in-process sentence, rewrite the #34 Known gap)
-  - [ ] just check
-- [ ] Step 13: `mw pre` wraps a same-line pair in one `<mark>`, with differential tests
-  - [ ] RED: tests/test_highlight.py, tests/test_roundtrip.py differential corpus
-  - [ ] GREEN: highlight.py expand_source same-line pair, code spans included
-  - [ ] Docs: spec.md Highlight, keep the Decision, Feature Status drops same-line pairing (#34)
-  - [ ] just check
-  - [ ] Reminder: the CHANGELOG line for the pairs that stop highlighting is owed to Step 28
+- [x] Step 12: In-process prose pairing on the same line only
+  - [x] RED: tests/test_highlight.py (no cross-line pair, same-line with code span, literal opener, declined stash span, old cross-block cases gone)
+  - [x] GREEN: highlight.py InlineProcessor same-line matching
+  - [x] Docs: spec.md Highlight (in-process sentence, rewrite the #34 Known gap)
+  - [x] just check
+- [x] Step 13: `mw pre` wraps a same-line pair in one `<mark>`, with differential tests
+  - [x] RED: tests/test_highlight.py, tests/test_roundtrip.py differential corpus
+  - [x] GREEN: highlight.py expand_source same-line pair, code spans included
+  - [x] Docs: spec.md Highlight, keep the Decision, Feature Status drops same-line pairing (#34)
+  - [x] just check
+  - [x] Reminder: the CHANGELOG line for the pairs that stop highlighting is owed to Step 28
 
 ## Section 7: Annotate Overlap
 

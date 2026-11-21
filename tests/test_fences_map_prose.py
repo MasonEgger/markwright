@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from markwright._fences import map_prose
+from markwright._fences import find_inline_code_spans, map_prose
 
 
 class TestMapProse:
@@ -159,3 +159,29 @@ class TestMapProseSkipBlocksOpenedBy:
     def test_an_opener_inside_a_fence_is_code(self) -> None:
         source = f"```\n{self.OPENER}\n```\n\nb\n\n```\n</pre>\n```"
         assert "\nB\n" in self.skip(source)
+
+
+class TestMapProseKeepingInlineCode:
+    def test_transform_sees_the_code_span_inside_the_run(self) -> None:
+        assert map_prose("say `x` now", str.upper, skip_inline_code=False) == "SAY `X` NOW"
+
+    def test_a_fenced_block_is_still_skipped(self) -> None:
+        source = "a `x`\n```\ncode\n```\nb"
+        assert map_prose(source, str.upper, skip_inline_code=False) == "A `X`\n```\ncode\n```\nB"
+
+
+class TestFindInlineCodeSpans:
+    def test_finds_a_span_with_its_backticks(self) -> None:
+        assert find_inline_code_spans("a `x` b ``y`` c") == [(2, 5), (8, 13)]
+
+    def test_a_span_may_hold_a_line_end(self) -> None:
+        assert find_inline_code_spans("a `x\ny` b") == [(2, 7)]
+
+    def test_a_span_does_not_cross_a_blank_line(self) -> None:
+        assert find_inline_code_spans("a `x\n\ny` b") == []
+
+    def test_a_span_does_not_cross_a_whitespace_only_line(self) -> None:
+        assert find_inline_code_spans("a `x\n  \ny` b") == []
+
+    def test_a_run_with_no_closer_of_the_same_length_is_not_a_span(self) -> None:
+        assert find_inline_code_spans("a ``x` b") == []

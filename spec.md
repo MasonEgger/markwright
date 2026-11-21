@@ -72,7 +72,6 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - containers fixes (#30): an invalid `[grid ...]` is not an opener; indentation pairs by column, and a less-indented line ends a container's block; a card needs a paired grid; tabs group by a sibling rule, number their sets in opening order, and render a backticked name as text in both paths; closer markers are validated; the shortcut and annotate markers are emitted as blocks, and a problem marker keeps a CRLF line end; the backslash escape for a literal directive line is documented and tested; and the sample CSS covers a list inside a `cards` block grid; written as `Planned (containers fixes)` sentences under Goals in Containers, Grid and Cards, and Tabs
 - block bodies (no issue): a directive line, a fence with its directives, and a `mermaid` fence work inside the body of an admonition, a details block, a content tab, a definition, or a footnote, in both paths; `_fences` reads those four-column bodies as content, so an embed that 0.3.0 expanded there expands again
 - pre-stage order (no issue): in `mw pre` the icons stage runs after the directive stages, and a `mermaid` fence in a list item renders as one block; the two land together, since icons after mermaid would otherwise rewrite a shortcode inside a diagram
-- highlight same-line pairing (#34): a prose pair never holds a line end, in either path; the in-process path stops pairing across a soft line break, which departs from `do-markdownit`, and `mw pre` wraps a same-line pair in one `<mark>`, code spans included; decided on 2026-11-16, after the plan review found that no paragraph-end test brings the two renderers together
 - annotate overlap (no issue): a comment that holds a plain marker and a `!` marker is replaced by the links for every marker in it, and `_html.apply_edits` refuses overlapping spans; today that comment renders as broken HTML in both paths
 - config `warn` default (#33): `mw post` ignores `warn = true`; make it the default for the diagnostics, as `docs/config.md` says, and add `--no-warn` so the command line can still turn them off
 - public fence API (#32): `disallowed_environments(source, config)`, a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; the same item makes `config_from_mapping` raise `ConfigError` for a table that is not a mapping and check key names before it drops `None` values
@@ -131,7 +130,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 
 | Feature | Origin | State | Open Work | Docs | Code |
 |---------|--------|-------|-----------|------|------|
-| highlight | ported | Released 0.1.0 | same-line pairing (#34), hardening | `extensions/highlight.md` | `highlight.py` |
+| highlight | ported | Released 0.1.0 | hardening | `extensions/highlight.md` | `highlight.py` |
 | fence | ported | Released 0.1.0 | public fence API (#32), hardening | `extensions/fence.md` | `fence.py` |
 | youtube | ported | Released 0.1.0 | none | `extensions/youtube.md` | `youtube.py` |
 | codepen | ported | Released 0.1.0 | none | `extensions/codepen.md` | `codepen.py` |
@@ -192,16 +191,12 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 
 - `<^>text<^>` becomes `<mark>text</mark>` in prose, in inline code, and in fenced code, the places `pymdownx.mark` cannot reach.
 - In code, inline or fenced, a marker pairs with the next marker on the same line, a line can hold several pairs, and a pair never spans lines.
-- In prose the in-process path pairs a marker with the next prose marker in the same paragraph, so a pair may hold a soft or hard line break and an inline code span: ``a <^>b `x` c<^> d`` marks `b` through `c`, code span included.
-  In-process, a marker inside a code span never opens or closes a prose pair.
-  Known gap (highlight same-line pairing, #34): the two paths pair differently in prose.
-  `mw pre` pairs only inside one prose run, the text between two code spans on one line, so `e <^>f` followed on the next line by `g<^> h` is highlighted in-process and stays literal through the pipeline.
-  A pair around a code span is left for `mw post`, which wraps it in three pieces, and in `mw post` a marker inside a code span closes a prose pair (``a <^>b `x<^>y` c<^> d``).
-  The in-process path also pairs across a line that Python-Markdown reads as paragraph text and CommonMark reads as a new block (`a <^>b` followed by `- c<^> d`), and it wraps a code block in `<mark>` when a marker sits on either side of it.
-  Planned (highlight same-line pairing): in prose a marker pairs with the next prose marker on the same line, in both paths, so a pair never holds a line end; a pair may still hold an inline code span.
-  Planned (highlight same-line pairing): the in-process inline processor matches an opener alone and searches for its closer on the same line; with no closer there the opener stays literal and matching resumes just after it, and a pair whose text holds a stashed block's placeholder is declined the same way.
-  Planned (highlight same-line pairing): `mw pre` wraps everything between a same-line pair in one `<mark>`, code spans included; a marker inside a code span stays literal in `mw pre` and never closes a prose pair in `mw post`, and a code span is followed across a line end, never across a blank line, when deciding what is inside one.
-  Planned (highlight same-line pairing): the tests are differential: over a corpus of two-line and three-line documents generated from the block starts of both renderers, the in-process render, the stub pipeline, and the Hugo pipeline highlight the same text.
+- In prose a marker pairs with the next prose marker on the same line, in both paths, so a pair never holds a line end; a pair may hold an inline code span: ``a <^>b `x` c<^> d`` marks `b` through `c`, code span included.
+  A marker inside a code span never opens or closes a prose pair, in-process or in `mw pre`, which leaves it literal; `mw post` then reads it as an in-code marker.
+  In-process the inline processor matches an opener alone and searches for its closer on the same line; with no closer there the opener stays literal and matching resumes just after it, and a pair whose text holds a stashed block's placeholder is declined the same way.
+  `mw pre` wraps everything between a same-line pair in one `<mark>`, code spans included; a code span is followed across a line end, never across a blank line, when deciding what is inside one, so a span that holds a line end does not end the line, as in-process, where the span is already a placeholder when highlight runs.
+  The tests are differential: over a corpus of two-line and three-line documents generated from the block starts of both renderers, the in-process render, the stub pipeline (`tests/test_roundtrip.py`), and the Hugo pipeline (`tests/integration/`) highlight the same text.
+  Known gap (highlight same-line pairing, #34): a prose opener with no prose closer on its line pairs in `mw post`, in both paths, with a marker inside a code span on the same line (``a <^>b `x<^>y` c``), since the post stage reads the rendered text; the pair is wrapped in pieces.
   Decision (2026-11-16): prose pairing departs from `do-markdownit`, which pairs across a soft line break; a pair that crosses a line end has no single meaning under Python-Markdown and CommonMark, and the plan review measured a paragraph-end test at 294 path differences over 1,133 generated documents against none for the same-line rule; the CHANGELOG's upgrade notes name the pairs that stop highlighting.
   Known gap (highlight across inline constructs): a pair that starts inside emphasis or a link and ends outside it (`*a <^>b* c<^>`) loses the emphasis in-process and mis-nests the `<mark>` through the pipeline.
 - `\<^>` renders a literal marker in all three contexts and in both paths.
