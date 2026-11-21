@@ -159,10 +159,36 @@ class TestCode:
         result = apply_html(MARKER + "\n" + code + "\n" + ONE_NOTE)
         assert "x " + LINK_1 + "\ny</code>" in result
 
-    def test_two_markers_in_one_comment_collapse_to_the_first_link(self) -> None:
+    def test_comment_with_a_plain_and_a_bang_marker_is_replaced_by_both_links(self) -> None:
+        code = '<pre><code>x <span class="c1"># (1) and (2)!</span></code></pre>'
+        result = apply_html(MARKER + "\n" + code + "\n" + NOTES)
+        assert "x " + LINK_1 + " " + LINK_2 + "</code>" in result
+        assert "and" not in result.split("<ol")[0]
+
+    def test_comment_with_a_bang_marker_first_links_every_marker_in_order(self) -> None:
         code = '<pre><code>x <span class="c1"># (1)! (2)</span></code></pre>'
         result = apply_html(MARKER + "\n" + code + "\n" + NOTES)
+        assert "x " + LINK_1 + " " + LINK_2 + "</code>" in result
+
+    def test_bang_marker_without_an_item_keeps_the_comment_span(self) -> None:
+        code = '<pre><code>x <span class="c1"># (1) (9)!</span></code></pre>'
+        result = apply_html(MARKER + "\n" + code + "\n" + NOTES)
+        assert '<span class="c1"># ' + LINK_1 + " (9)!</span>" in result
+
+    def test_marker_without_an_item_is_left_out_of_the_replacement(self) -> None:
+        code = '<pre><code>x <span class="c1"># (1)! (9)</span></code></pre>'
+        result = apply_html(MARKER + "\n" + code + "\n" + NOTES)
         assert "x " + LINK_1 + "</code>" in result
+
+    def test_comment_with_only_plain_markers_keeps_the_comment_span(self) -> None:
+        code = '<pre><code>x <span class="c1"># (1) and (2)</span></code></pre>'
+        result = apply_html(MARKER + "\n" + code + "\n" + NOTES)
+        assert '<span class="c1"># ' + LINK_1 + " and " + LINK_2 + "</span>" in result
+
+    def test_line_break_is_kept_when_the_comment_holds_several_markers(self) -> None:
+        code = '<pre><code>x <span class="c1"># (1) and (2)!\n</span>y</code></pre>'
+        result = apply_html(MARKER + "\n" + code + "\n" + NOTES)
+        assert "x " + LINK_1 + " " + LINK_2 + "\ny</code>" in result
 
     def test_marker_without_a_comment_span_replaces_only_the_marker(self) -> None:
         result = apply_html(MARKER + "\n<pre><code>plain # (1)!</code></pre>\n" + ONE_NOTE)
@@ -264,6 +290,12 @@ class TestInProcess:
     def test_pygments_comment_keeps_the_line_break(self) -> None:
         result = render_annotate("[annotate]\n\n" + BASH_FENCE + "\n\n1. Deploys.")
         assert '--prod<span class="w"> </span>' + LINK_1 + "\n</code>" in result
+
+    def test_comment_with_a_plain_and_a_bang_marker_is_replaced_by_both_links(self) -> None:
+        source = "[annotate]\n\n```bash\n./deploy.sh # (1) and (2)!\n```\n\n1. First.\n2. Second.\n"
+        result = render_annotate(source)
+        assert '<span class="w"> </span>' + LINK_1 + " " + LINK_2 + "\n</code>" in result
+        assert "and" not in result.split("<ol")[0].split("</span>")[-1]
 
     def test_marker_without_a_list_is_consumed(self) -> None:
         assert render_annotate("[annotate]\n\ntext") == "<p>text</p>"

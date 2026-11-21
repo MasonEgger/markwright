@@ -196,19 +196,30 @@ def apply_html(
             if token.kind != "text" or (previous.kind == "start" and previous.tag in RAW_TEXT_ELEMENTS):
                 continue
             text = rendered_html[token.start : token.end]
-            for marker_match in MARKER_RE.finditer(text):
-                number = int(marker_match.group("number"))
-                if not 1 <= number <= item_count:
-                    continue
-                link = f'<a class="{LINK_CLASS}" href="#mw-annotation-{block_number}-{number}">{number}</a>'
-                comment_span = _enclosing_comment_span(tokens, token_index) if marker_match.group("bang") else None
-                if comment_span is None:
-                    edits.append((token.start + marker_match.start(), token.start + marker_match.end(), link))
-                    continue
-                # Dropping a newline the comment carries would merge two code lines
+            found = [
+                (marker_match, int(marker_match.group("number")))
+                for marker_match in MARKER_RE.finditer(text)
+                if 1 <= int(marker_match.group("number")) <= item_count
+            ]
+            links = [
+                f'<a class="{LINK_CLASS}" href="#mw-annotation-{block_number}-{number}">{number}</a>'
+                for _, number in found
+            ]
+            comment_span = (
+                _enclosing_comment_span(tokens, token_index)
+                if any(marker_match.group("bang") for marker_match, _ in found)
+                else None
+            )
+            if comment_span is not None:
+                # One edit for the whole comment, so two markers in it cannot overlap.
+                # Dropping a newline the comment carries would merge two code lines.
                 line_break = "\n" if text.endswith("\n") else ""
-                edits.append((comment_span[0].start, comment_span[1].end, link + line_break))
-                break
+                edits.append((comment_span[0].start, comment_span[1].end, " ".join(links) + line_break))
+                continue
+            edits.extend(
+                (token.start + marker_match.start(), token.start + marker_match.end(), link)
+                for (marker_match, _), link in zip(found, links, strict=True)
+            )
 
     return apply_edits(rendered_html, edits)
 

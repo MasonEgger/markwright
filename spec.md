@@ -72,7 +72,6 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - containers fixes (#30): an invalid `[grid ...]` is not an opener; indentation pairs by column, and a less-indented line ends a container's block; a card needs a paired grid; tabs group by a sibling rule, number their sets in opening order, and render a backticked name as text in both paths; closer markers are validated; the shortcut and annotate markers are emitted as blocks, and a problem marker keeps a CRLF line end; the backslash escape for a literal directive line is documented and tested; and the sample CSS covers a list inside a `cards` block grid; written as `Planned (containers fixes)` sentences under Goals in Containers, Grid and Cards, and Tabs
 - block bodies (no issue): a directive line, a fence with its directives, and a `mermaid` fence work inside the body of an admonition, a details block, a content tab, a definition, or a footnote, in both paths; `_fences` reads those four-column bodies as content, so an embed that 0.3.0 expanded there expands again
 - pre-stage order (no issue): in `mw pre` the icons stage runs after the directive stages, and a `mermaid` fence in a list item renders as one block; the two land together, since icons after mermaid would otherwise rewrite a shortcode inside a diagram
-- annotate overlap (no issue): a comment that holds a plain marker and a `!` marker is replaced by the links for every marker in it, and `_html.apply_edits` refuses overlapping spans; today that comment renders as broken HTML in both paths
 - config `warn` default (#33): `mw post` ignores `warn = true`; make it the default for the diagnostics, as `docs/config.md` says, and add `--no-warn` so the command line can still turn them off
 - public fence API (#32): `disallowed_environments(source, config)`, a public function that reports a document's disallowed fence environments, so Bartleby stops importing `markwright._fences` and fence's regexes; the same item makes `config_from_mapping` raise `ConfigError` for a table that is not a mapping and check key names before it drops `None` values
 - hardening (no issue): no input a pipeline plausibly sends ends in a traceback (unreadable or non-UTF-8 files, closed streams); `mw` reads and writes UTF-8 whatever the locale; the label class options are validated as class tokens; a Chroma prefixed line gains no second newline; highlight skips `<title>` and `<textarea>`; a replaced prefix flag leaves no `prefix_value`; and `mw pre` passes a leading front matter block through untouched; written as `Planned (hardening)` sentences across Goals
@@ -146,7 +145,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | lightbox | own | Unreleased | none | `extensions/lightbox.md` | `lightbox.py` |
 | mermaid | own | Unreleased | none | `extensions/mermaid.md` | `mermaid.py` |
 | icons | own | Unreleased | hardening | `extensions/icons.md` | `icons.py` |
-| annotate | own | Unreleased | annotate overlap | `extensions/annotate.md` | `annotate.py` |
+| annotate | own | Unreleased | none | `extensions/annotate.md` | `annotate.py` |
 | grid and cards | own | Unreleased | none | `extensions/grid.md` | `grid.py`, `_containers.py` |
 | tabs | own | Unreleased | none | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
 
@@ -330,8 +329,7 @@ Each embed line becomes raw HTML that matches `do-markdownit`'s output, its inli
   In highlighted code a marker is linked only where the highlighter keeps `(N)` in one text run, in practice inside a comment; in an unhighlighted block every `(N)` is linked, a call such as `compute(1)` included.
 - The block gains `mw-annotated`, and the list gains `mw-annotations`, `data-mw-version="1"`, and an `id="mw-annotation-B-N"` on each item.
 - In code, the `# (1)!` form strips the comment token around the marker (Pygments in-process, Chroma through Hugo with `noClasses = false`); a highlighter that emits no comment class, Hugo's default inline styles included, degrades to the plain form.
-  Planned (annotate overlap): when a comment token holds a `!` marker, the comment is replaced by the links for every valid marker in it, in order, and `_html.apply_edits` refuses overlapping spans with an exception.
-  Today a comment that holds a plain marker and a `!` marker (`# (1) and (2)!`) produces two overlapping edits and broken HTML, in both paths.
+  When a comment token holds a `!` marker, the comment is replaced by the links for every valid marker in it, in order and separated by a space, and `_html.apply_edits` refuses overlapping spans with an exception.
 - It travels as an `mw-annotate` marker comment, and its post stage runs ahead of fence's so the fence marker is still a comment when the block is located.
 - With no host script the result is a numbered list under the block; tooltips are host work.
 - The classes and the `mw-annotation-B-N` id scheme are a public contract.

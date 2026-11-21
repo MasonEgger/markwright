@@ -60,7 +60,7 @@ debug = False  # (2)!
 | Marker | Result |
 |--------|--------|
 | `(N)` | Replaced by a link to list item N. |
-| `(N)!` | In a code comment, the whole comment is replaced by the link, so the comment text does not show. |
+| `(N)!` | In a code comment, the whole comment is replaced by the link, so the comment text does not show. A comment that holds several markers, one of them with the `!`, is replaced by all their links in order. |
 
 A number outside `1` to the item count is left as written.
 Only text counts: a `(N)` inside an attribute, a `<script>`, or a `<style>` is never touched.

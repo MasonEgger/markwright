@@ -92,11 +92,11 @@ Steps 16, 19, and 20 were cut on 2026-11-20, so the numbering has gaps.
 
 ## Section 7: Annotate Overlap
 
-- [ ] Step 14: A comment token with a `!` marker is replaced by every marker's links
-  - [ ] RED: tests/test_annotate.py, overlapping-span test for _html.apply_edits
-  - [ ] GREEN: annotate.py one edit for all markers in a comment; _html.py apply_edits refuses overlap
-  - [ ] Docs: spec.md Annotate, Feature Status drops annotate overlap
-  - [ ] just check
+- [x] Step 14: A comment token with a `!` marker is replaced by every marker's links
+  - [x] RED: tests/test_annotate.py, overlapping-span test for _html.apply_edits
+  - [x] GREEN: annotate.py one edit for all markers in a comment; _html.py apply_edits refuses overlap
+  - [x] Docs: spec.md Annotate, Feature Status drops annotate overlap
+  - [x] just check
 
 ## Section 8: Config `warn` Default (#33)
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import html
+import itertools
 from html.parser import HTMLParser
 from typing import Literal
 
@@ -233,7 +234,12 @@ def apply_edits(source: str, edits: list[tuple[int, int, str]]) -> str:
     :param source: The original text.
     :param edits: ``(start, end, replacement)`` triples; an insertion has ``start == end``.
     :returns: The text with every span replaced.
+    :raises ValueError: If two spans overlap, which is a bug in the caller.
     """
+    ordered = sorted(edits, key=lambda edit: (edit[0], edit[1]))
+    for earlier, later in itertools.pairwise(ordered):
+        if later[0] < earlier[1]:
+            raise ValueError(f"Overlapping edits at {earlier[:2]} and {later[:2]}")
     # Apply back to front so earlier offsets stay valid
     for start, end, replacement in sorted(edits, key=lambda edit: (edit[0], edit[1]), reverse=True):
         source = source[:start] + replacement + source[end:]
