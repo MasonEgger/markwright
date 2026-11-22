@@ -39,7 +39,7 @@ uv add --editable ../markwright
 !!! warning "MkDocs 2.0 Compatibility"
     MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs.
     There is no migration path.
-    This project's dev dependency is `mkdocs>=1.6` with no upper bound, and its lock file resolves to MkDocs 1.6.1.
+    This project's dev dependency is `mkdocs>=1.6,<2`, and its lock file resolves to MkDocs 1.6.1.
 
 ## Usage
 

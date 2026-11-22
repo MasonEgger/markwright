@@ -3,7 +3,7 @@
 All notable changes to markwright are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-21
 
 Six new extensions that cover the Material for MkDocs authoring features (#16), a `tabs` extension plus block grids and cards on the `grid` extension (#30), and the docs-site pieces that demonstrate them.
 A document that uses none of the new directives or shortcodes renders as it did, apart from the changes listed under Upgrading from 0.3.0 and Fixed.
@@ -20,6 +20,7 @@ A document that uses none of the new directives or shortcodes renders as it did,
   A directive at column 0 renders as before.
 - `config_from_mapping` is stricter: a table that is not a mapping is a `ConfigError`, and an unknown key is an error whatever its value, `None` included.
 - `fence.label_class` and `fence.secondary_label_class` must be space-separated class tokens of letters, digits, `-`, and `_`; an empty value or one with other characters is a config error.
+- The `markdown` floor is `>=3.8.2`, up from `>=3.4`: 3.8.2 is the first Python-Markdown release that passes the suite, so an environment pinned below it has to upgrade.
 - `icons` does nothing until you configure `packs`, so `:name:` text is untouched by default.
 - If your `mkdocs.yml` has a `pymdownx.superfences` `custom_fences` entry named `mermaid` and you load `markwright.mermaid`, the entry goes inert because markwright replaces the fence first; remove it.
 
@@ -145,6 +146,7 @@ With default settings, output is unchanged for documents 0.2.0 already rendered 
 
 - First release: the highlight, fence, YouTube, CodePen, Twitter, Instagram, slideshow, and image compare extensions, and the `mw` pipeline CLI.
 
+[0.4.0]: https://github.com/MasonEgger/markwright/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MasonEgger/markwright/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MasonEgger/markwright/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MasonEgger/markwright/releases/tag/v0.1.0

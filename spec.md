@@ -27,7 +27,7 @@ Likely future directions are tracked under Roadmap Deferred.
 - Python: per the `python:python` skill and the Code Conventions in CLAUDE.md
 - Docs prose: per the `content-design` skill and the writing rules in CLAUDE.md
 - Stack: a pure-Python package on Python 3.11 through 3.15, built with `hatchling`, managed with `uv`; `just check` (ruff, ruff format, mypy strict, pytest) is the gate and runs after every change
-- Runtime dependencies are `markdown`, `pymdown-extensions` (floor `>=11.0.1`, set by a security fix), and `pydantic`; the 0.4.0 release raises the `markdown` floor from `>=3.4` to `>=3.8.2`, the first version that passes the suite; adding another needs a spec change
+- Runtime dependencies are `markdown` (floor `>=3.8.2`, the first version that passes the suite, raised from `>=3.4` in 0.4.0), `pymdown-extensions` (floor `>=11.0.1`, set by a security fix), and `pydantic`; adding another needs a spec change
 - deps: frozen
 - paths: src/markwright/**, tests/**, docs/**, mkdocs.yml, README.md, CHANGELOG.md, CLAUDE.md, spec.md, plan.md, todo.md, .ai-sessions/**
 - Coverage is reported (line and branch) but not gated; read it and either test or delete what it shows uncovered
@@ -70,9 +70,10 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - fix-plan-0.4.0: the 26-step 0.4.0 fix plan (container postprocessor priority, the containers fixes, block bodies, pre-stage order, #31, #32, #33, #34, annotate overlap, hardening, and the docs catch-up), converged (.ai-sessions/fix-plan-0.4.0/)
 
 **Upcoming:**
-- 0.4.0 release: done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; it closes #16, #20, #29, and #30 and turns the Unreleased rows of Goals, Feature Status into Released 0.4.0
-  - draft PR #35 of `containers-30` into `main` is open, so CI runs on every push; mark it ready for review when the plan items have landed
-  - at the release: the version bump in `pyproject.toml` and `uv.lock`, the `markdown` floor raised to `>=3.8.2`, the MkDocs bound settled (`<2` in `pyproject.toml`, or the sentence dropped from the two docs pages that state it), the CHANGELOG date and `[0.4.0]` compare link, and a check by hand that the tag equals the version, which the publish workflow does not make
+- 0.4.0 release: done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; it closes #16, #20, #29, and #30
+  - done on `containers-30` on 2026-11-21, ahead of the merge: version 0.4.0 in `pyproject.toml` and `uv.lock`, the `markdown` floor at `>=3.8.2`, the dev dependency `mkdocs>=1.6,<2`, the CHANGELOG date and `[0.4.0]` compare link, and the Feature Status rows set to Released 0.4.0, which holds once the tag exists
+  - PR #35 of `containers-30` into `main` is ready for review, and CI runs on every push; the merge is the maintainer's
+  - at the release: the CHANGELOG date corrected if the merge lands on a later day, and a check by hand that the tag `v0.4.0` equals the version, which the publish workflow does not make
   - right after the merge: publish the GitHub Release, which is what triggers the PyPI publish; the docs deploy on the merge, so until the Release the live docs describe fifteen extensions and PyPI delivers eight
   - same day: the Bartleby follow-up, since `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports move to the public `disallowed_environments`
 
@@ -134,13 +135,13 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 | config | own | Released 0.2.0 | none | `config.md` | `config.py` |
 | host API | own | Released 0.3.0 | none | `config.md` | `config.py`, `__init__.py` |
 | click-to-load | own | Released 0.3.0 | none | `click-to-load.md` | `_embed_load.py` |
-| button | own | Unreleased | none | `extensions/button.md` | `button.py` |
-| lightbox | own | Unreleased | none | `extensions/lightbox.md` | `lightbox.py` |
-| mermaid | own | Unreleased | none | `extensions/mermaid.md` | `mermaid.py` |
-| icons | own | Unreleased | none | `extensions/icons.md` | `icons.py` |
-| annotate | own | Unreleased | none | `extensions/annotate.md` | `annotate.py` |
-| grid and cards | own | Unreleased | none | `extensions/grid.md` | `grid.py`, `_containers.py` |
-| tabs | own | Unreleased | none | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
+| button | own | Released 0.4.0 | none | `extensions/button.md` | `button.py` |
+| lightbox | own | Released 0.4.0 | none | `extensions/lightbox.md` | `lightbox.py` |
+| mermaid | own | Released 0.4.0 | none | `extensions/mermaid.md` | `mermaid.py` |
+| icons | own | Released 0.4.0 | none | `extensions/icons.md` | `icons.py` |
+| annotate | own | Released 0.4.0 | none | `extensions/annotate.md` | `annotate.py` |
+| grid and cards | own | Released 0.4.0 | none | `extensions/grid.md` | `grid.py`, `_containers.py` |
+| tabs | own | Released 0.4.0 | none | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
 
 ### Rules Every Feature Follows
 
