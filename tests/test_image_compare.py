@@ -150,3 +150,19 @@ class TestImageCompareExpandSource:
     def test_no_embed_passes_through(self) -> None:
         source = "just some text\nmore text"
         assert expand_source(source) == source
+
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[compare https://a.jpg https://b.jpg]\n```"
+        assert expand_source(source) == source
+
+
+class TestImageCompareSkipsIndentedCode:
+    """The in-process preprocessor leaves a directive in an indented code block literal."""
+
+    def test_indented_code_block_stays_literal(self) -> None:
+        result = render_compare("para\n\n    [compare https://l.png https://r.png]\n")
+        assert "<pre><code>[compare https://l.png https://r.png]" in result
+        assert 'class="image-compare"' not in result
+
+    def test_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="image-compare"' in render_compare("- item\n\n    [compare https://l.png https://r.png]\n")

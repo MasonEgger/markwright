@@ -1,0 +1,97 @@
+# ABOUTME: Tests for the button directive extension.
+# Validates the pre-stage expansion, escaping, literal fall-through, and the in-process render.
+
+from __future__ import annotations
+
+import markdown
+
+from markwright.button import expand_source
+
+
+def render_button(source: str) -> str:
+    """Render Markdown source with the button extension loaded.
+
+    :param source: Markdown source text.
+    :returns: Rendered HTML string.
+    """
+    md = markdown.Markdown(extensions=["markwright.button"])
+    return md.convert(source)
+
+
+class TestButtonExpandSource:
+    """Tests for the pre-stage expansion."""
+
+    def test_basic_button(self) -> None:
+        result = expand_source("[button https://example.com/start Get started]")
+        assert result == '<a class="mw-button" href="https://example.com/start">Get started</a>'
+
+    def test_primary_button(self) -> None:
+        result = expand_source("[button primary /start Get started]")
+        assert result == '<a class="mw-button mw-button-primary" href="/start">Get started</a>'
+
+    def test_url_and_text_are_escaped(self) -> None:
+        result = expand_source("[button /a?b=1&c=2 Tom & Jerry <3]")
+        assert 'href="/a?b=1&amp;c=2"' in result
+        assert ">Tom &amp; Jerry &lt;3</a>" in result
+
+    def test_missing_text_stays_literal(self) -> None:
+        assert expand_source("[button /docs]") == "[button /docs]"
+
+    def test_inline_mention_is_unchanged(self) -> None:
+        source = "Use [button /docs Docs] here."
+        assert expand_source(source) == source
+
+    def test_directive_inside_fence_is_unchanged(self) -> None:
+        source = "```\n[button /start Go]\n```"
+        assert expand_source(source) == source
+
+
+class TestButtonInProcess:
+    """Tests for the in-process Python-Markdown render."""
+
+    def test_lone_button_is_wrapped_in_a_paragraph(self) -> None:
+        result = render_button("[button /start Get started]")
+        assert result == '<p><a class="mw-button" href="/start">Get started</a></p>'
+
+    def test_consecutive_buttons_share_a_paragraph(self) -> None:
+        result = render_button("[button /one One]\n[button primary /two Two]")
+        assert result.count("<p>") == 1
+        assert result.count('class="mw-button') == 2
+
+    def test_inline_markdown_in_text_renders(self) -> None:
+        result = render_button("[button /docs Read *the* docs]")
+        assert ">Read <em>the</em> docs</a>" in result
+
+
+class TestButtonSkipsIndentedCode:
+    def test_indented_code_block_is_unchanged(self) -> None:
+        source = "para\n\n    [button /x Go]\n"
+        assert expand_source(source) == source
+
+    def test_tab_indented_in_list_fence_is_unchanged(self) -> None:
+        source = "- item\n\n\t```\n\t[button /x Go]\n\t```"
+        assert expand_source(source) == source
+
+    def test_in_process_indented_code_block_stays_literal(self) -> None:
+        result = render_button("para\n\n    [button /x Go]\n")
+        assert "<pre><code>[button /x Go]" in result
+        assert 'class="mw-button"' not in result
+
+    def test_in_process_directive_under_a_list_item_still_expands(self) -> None:
+        assert 'class="mw-button"' in render_button("- item\n\n    [button /x Go]\n")
+
+
+class TestButtonKeepsIndentation:
+    """An expansion stays at the directive line's indentation so it stays inside a block body."""
+
+    def test_expand_source_keeps_the_indentation(self) -> None:
+        result = expand_source("!!! note\n\n    [button /start Go]")
+
+        assert result == '!!! note\n\n    <a class="mw-button" href="/start">Go</a>'
+
+    def test_in_process_button_stays_inside_an_admonition(self) -> None:
+        md = markdown.Markdown(extensions=["admonition", "markwright.button"])
+
+        html = md.convert("!!! note\n\n    [button /start Go]\n")
+
+        assert html.index('class="mw-button"') < html.rindex("</div>")

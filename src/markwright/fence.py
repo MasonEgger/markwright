@@ -3,7 +3,7 @@
 
 # Fence directives travel from the pre stage to the post stage as an HTML comment
 # placed immediately before the fence: ``<!-- mw-fence:{JSON} -->``. This comment is
-# the only cross-tool contract, so its payload is versioned. The v1 schema is::
+# a cross-tool contract, so its payload is versioned. The v1 schema is::
 #
 #     {
 #       "version": 1,             # integer, the only required field
@@ -19,7 +19,7 @@
 # marker (fail-soft, optionally warning) when the JSON is malformed, the version is
 # unsupported, or no code block follows.
 #
-# The serialized payload is comment-safe: ``_encode_marker_payload`` escapes every
+# The serialized payload is comment-safe: ``_markers.encode_marker`` escapes every
 # literal ``<``/``>`` in the JSON to its ``\uXXXX`` form before it is written between
 # ``<!--`` and ``-->``, so a directive value containing ``-->`` can never close the
 # comment early. The transform is self-reversing: ``json.loads`` restores the
@@ -28,7 +28,6 @@
 from __future__ import annotations
 
 import html
-import json
 import re
 import warnings
 from typing import TYPE_CHECKING, Literal
@@ -36,19 +35,20 @@ from typing import TYPE_CHECKING, Literal
 from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, OptionError
-from markwright._fences import find_fenced_blocks
-from markwright._html import HtmlToken, apply_edits, render_start_tag, tokenize
+from markwright._fences import FencedBlock, find_fenced_blocks
+from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
+from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
+from markwright.mermaid import MERMAID_CLASS
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
 
     from markdown import Markdown
 
 MARKER_NAME = "mw-fence"
-MARKER_VERSION = 1
 DEFAULT_LABEL_CLASS = "code-label"
 DEFAULT_SECONDARY_LABEL_CLASS = "secondary-code-label"
 
@@ -59,24 +59,8 @@ _ALL_ENVIRONMENTS = object()
 LABEL_RE = re.compile(r"^\[label (.+)\]$")
 SECONDARY_LABEL_RE = re.compile(r"^\[secondary_label (.+)\]$")
 ENVIRONMENT_RE = re.compile(r"^\[environment (.+)\]$")
-MARKER_COMMENT_RE = re.compile(rf"<!-- {MARKER_NAME}:(.*?) -->")
 CUSTOM_PREFIX_RE = re.compile(r"^custom_prefix\((.+)\)$")
-
-
-def _encode_marker_payload(payload: dict[str, object]) -> str:
-    """Serialize a marker payload for safe embedding inside an HTML comment.
-
-    ``json.dumps`` leaves ``<`` and ``>`` as literal characters, so a directive
-    value containing ``-->`` would close the comment early and inject live
-    markup. Escaping both to their JSON ``\\uXXXX`` forms removes every literal
-    ``<``/``>`` from the comment body, so ``-->`` and ``<!--`` can never form
-    inside it. ``json.loads`` restores the original characters on read, so this
-    is self-reversing and requires no read-side change.
-
-    :param payload: The marker payload to serialize.
-    :returns: JSON text with every literal ``<`` and ``>`` unicode-escaped.
-    """
-    return json.dumps(payload).replace("<", "\\u003c").replace(">", "\\u003e")
+CLASS_TOKENS_RE = re.compile(r"[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*")
 
 
 def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
@@ -94,6 +78,8 @@ def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
         stripped_part = part.strip()
         if stripped_part == "line_numbers":
             prefix_metadata["prefix_type"] = "line_numbers"
+            # line_numbers wins over an earlier flag, so its value goes too
+            prefix_metadata.pop("prefix_value", None)
         elif stripped_part == "command":
             prefix_metadata["prefix_type"] = "command"
             prefix_metadata["prefix_value"] = "$"
@@ -136,6 +122,7 @@ def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: s
 
     # Collect Chroma's top-level line spans, if there are any
     code_lines: list[str] = []
+    is_chroma = True
     span_depth = 0
     line_span: HtmlToken | None = None
     for token in code_tokens:
@@ -149,13 +136,63 @@ def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: s
                 code_lines.append(code_content[line_span.start : token.end])
                 line_span = None
     if not code_lines:
+        is_chroma = False
         code_lines = code_content.removesuffix("\n").split("\n")
 
+    # A Chroma line span already holds its own newline; a flat line has none
+    line_ending = "" if is_chroma else "\n"
     wrapped_lines: list[str] = []
     for line_index, line_text in enumerate(code_lines):
         current_prefix = str(line_index + 1) if prefix_type == "line_numbers" else prefix_value
-        wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}\n</li>')
+        wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}{line_ending}</li>')
     return "<ol>" + "".join(wrapped_lines) + "</ol>\n"
+
+
+def _leading_directives(lines: list[str], block: FencedBlock) -> Iterator[tuple[str, str]]:
+    """Read a fence's leading directive lines, the one grammar the pre stage and the scan share.
+
+    A directive is a content line that is exactly ``[label ...]``, ``[secondary_label ...]`` or
+    ``[environment ...]``; the first other line ends the run. The value is everything after the
+    first space of the directive, as written.
+
+    :param lines: The document's source lines.
+    :param block: The fenced block whose content lines are read.
+    :returns: ``(directive, value)`` pairs in order, where ``directive`` is ``label``,
+        ``secondary_label``, or ``environment``.
+    """
+    for content_line in lines[block.opening + 1 : block.closing]:
+        stripped_line = content_line.strip()
+        if label_match := LABEL_RE.match(stripped_line):
+            yield "label", label_match.group(1)
+        elif secondary_match := SECONDARY_LABEL_RE.match(stripped_line):
+            yield "secondary_label", secondary_match.group(1)
+        elif environment_match := ENVIRONMENT_RE.match(stripped_line):
+            yield "environment", environment_match.group(1)
+        else:
+            return
+
+
+def environment_names(text: str, *, skip_mermaid: bool) -> list[str]:
+    """List the environment names a document's fence directives name.
+
+    Reads fences and directives by the rules the pre stage extracts them with, with one
+    difference: a disallowed ``[environment ...]`` line does not end the scan of its fence, so
+    every environment line among a fence's leading lines is listed. A directive inside a nested
+    fence's source is code and not listed.
+
+    :param text: The source text.
+    :param skip_mermaid: Skip ``mermaid`` fences, which the mermaid stage replaces before fence
+        reads them.
+    :returns: Every name in document order, repeats included, each as written.
+    """
+    lines = text.split("\n")
+    return [
+        value
+        for block in find_fenced_blocks(lines)
+        if not (skip_mermaid and block.info.strip() == MERMAID_CLASS)
+        for directive, value in _leading_directives(lines, block)
+        if directive == "environment"
+    ]
 
 
 def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> list[str]:
@@ -182,26 +219,18 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
         if prefix_metadata:
             fence_line = block.indent + block.marker + cleaned_info
 
-        # Directives are the leading content lines; the first other line ends them
+        # Directives are the leading content lines; the first other line, or an environment
+        # outside the allowlist, ends them
         metadata: dict[str, str] = dict(prefix_metadata)
         content_index = block.opening + 1
-        while content_index < block.closing:
-            stripped_line = lines[content_index].strip()
-            if label_match := LABEL_RE.match(stripped_line):
-                metadata["label"] = label_match.group(1)
-            elif secondary_match := SECONDARY_LABEL_RE.match(stripped_line):
-                metadata["secondary_label"] = secondary_match.group(1)
-            elif (environment_match := ENVIRONMENT_RE.match(stripped_line)) and (
-                allowed_environments is None or environment_match.group(1) in allowed_environments
-            ):
-                metadata["environment"] = environment_match.group(1)
-            else:
+        for directive, value in _leading_directives(lines, block):
+            if directive == "environment" and allowed_environments is not None and value not in allowed_environments:
                 break
+            metadata[directive] = value
             content_index += 1
 
         if metadata:
-            payload: dict[str, object] = {"version": MARKER_VERSION, **metadata}
-            output.append(f"{block.indent}<!-- {MARKER_NAME}:{_encode_marker_payload(payload)} -->")
+            output.append(f"{block.indent}{encode_marker(MARKER_NAME, metadata)}")
             if block.indent:
                 output.append("")
         output.append(fence_line)
@@ -251,7 +280,8 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
 
     :param options: The fence option table (config table or extension configs), or ``None``.
     :returns: The validated options.
-    :raises OptionError: If ``allowed_environments`` is not a list of names, or a label class is not a string.
+    :raises OptionError: If ``allowed_environments`` is not a list of names, or a label class is not
+        a string of class tokens.
     """
     table = options or {}
 
@@ -282,6 +312,8 @@ def read_options(options: Mapping[str, object] | None) -> FenceOptions:
             value = default
         if not isinstance(value, str):
             raise OptionError(f"'{key}' must be a string")
+        if not CLASS_TOKENS_RE.fullmatch(value):
+            raise OptionError(f"'{key}' must be space-separated class tokens of letters, digits, '-', and '_'")
         label_classes[key] = value
 
     return FenceOptions(
@@ -335,35 +367,6 @@ class FenceMarker(BaseModel):
     prefix_value: str | None = None
 
 
-class _InvalidMarkerError(Exception):
-    """A marker the post stage skips fail-soft; the message is the skip reason."""
-
-
-def _parse_marker(raw_payload: str) -> FenceMarker:
-    """Decode and validate a marker comment's JSON payload.
-
-    :param raw_payload: The text between ``mw-fence:`` and the comment's end.
-    :returns: The validated marker.
-    :raises _InvalidMarkerError: If the JSON is malformed, not an object, an unsupported version, or
-        has a field of the wrong type.
-    """
-    try:
-        payload = json.loads(raw_payload)
-    except json.JSONDecodeError as decode_error:
-        raise _InvalidMarkerError(f"Skipping malformed {MARKER_NAME} marker: {raw_payload!r}") from decode_error
-    if not isinstance(payload, dict):
-        raise _InvalidMarkerError(f"Skipping {MARKER_NAME} marker whose payload is not an object: {raw_payload!r}")
-    if payload.get("version") != MARKER_VERSION:
-        raise _InvalidMarkerError(f"Skipping {MARKER_NAME} marker with unsupported version {payload.get('version')!r}")
-    try:
-        return FenceMarker.model_validate(payload)
-    except ValidationError as validation_error:
-        invalid_fields = ", ".join(str(error["loc"][0]) for error in validation_error.errors())
-        raise _InvalidMarkerError(
-            f"Skipping {MARKER_NAME} marker with invalid fields ({invalid_fields}): {raw_payload!r}"
-        ) from validation_error
-
-
 def _apply_marker(
     rendered_html: str,
     skip_reasons: list[str] | None,
@@ -374,7 +377,7 @@ def _apply_marker(
 
     Each marker styles the first ``<pre>`` and ``<code>`` that follow it, before the next
     marker. A marker is skipped (and optionally reported) when its payload is invalid (see
-    :func:`_parse_marker`) or no code block follows it. A recognized marker comment is always
+    :func:`decode_marker`) or no code block follows it. A recognized marker comment is always
     removed from the output.
 
     :param rendered_html: Rendered HTML containing mw-fence marker comments.
@@ -384,28 +387,20 @@ def _apply_marker(
     :returns: HTML with label divs, environment classes, and line prefixes injected.
     """
     tokens = tokenize(rendered_html)
-    markers = [
-        (token_index, comment_match)
-        for token_index, token in enumerate(tokens)
-        if token.kind == "comment"
-        and (comment_match := MARKER_COMMENT_RE.fullmatch(rendered_html, token.start, token.end))
-    ]
-
     edits: list[tuple[int, int, str]] = []
-    for marker_number, (token_index, comment_match) in enumerate(markers):
-        comment = tokens[token_index]
+    for marker_comment in find_markers(MARKER_NAME, rendered_html, tokens):
+        comment = tokens[marker_comment.token_index]
 
         # The marker's block is everything up to the next marker
-        block_end = markers[marker_number + 1][0] if marker_number + 1 < len(markers) else len(tokens)
-        block = tokens[token_index + 1 : block_end]
+        block = tokens[marker_comment.token_index + 1 : marker_comment.block_end]
         pre_tag = next((token for token in block if token.kind == "start" and token.tag == "pre"), None)
         code_tag = next((token for token in block if token.kind == "start" and token.tag == "code"), None)
 
         try:
-            marker = _parse_marker(comment_match.group(1))
+            marker = decode_marker(MARKER_NAME, marker_comment.raw_payload, FenceMarker)
             if pre_tag is None and code_tag is None:
-                raise _InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following code block")
-        except _InvalidMarkerError as skipped:
+                raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following code block")
+        except InvalidMarkerError as skipped:
             if skip_reasons is not None:
                 skip_reasons.append(str(skipped))
             edits.append((comment.start, comment.end, ""))
@@ -425,7 +420,7 @@ def _apply_marker(
         if marker.environment is not None:
             added_classes.append(f"environment-{re.sub(r'[^a-zA-Z0-9-]', '', marker.environment)}")
         if pre_tag is not None and added_classes:
-            edits.append((pre_tag.start, pre_tag.end, _with_classes(pre_tag, " ".join(added_classes))))
+            edits.append((pre_tag.start, pre_tag.end, add_classes(pre_tag, " ".join(added_classes))))
 
         # The secondary label opens the <code>; line prefixes wrap its content
         if code_tag is not None:
@@ -449,22 +444,6 @@ def _apply_marker(
                 edits.append((code_tag.end, code_tag.end, code_inner))
 
     return apply_edits(rendered_html, edits)
-
-
-def _with_classes(tag: HtmlToken, added_classes: str) -> str:
-    """Rebuild a start tag with classes placed in front of its existing ones.
-
-    :param tag: The start tag token.
-    :param added_classes: Space-separated classes to add.
-    :returns: The rebuilt start tag; a tag without a ``class`` attribute gets one first.
-    """
-    existing_classes = tag.attribute("class")
-    if existing_classes is None:
-        return render_start_tag(tag.tag, (("class", added_classes), *tag.attrs))
-    attrs = tuple(
-        (name, f"{added_classes} {existing_classes}" if name == "class" else value) for name, value in tag.attrs
-    )
-    return render_start_tag(tag.tag, attrs)
 
 
 def apply_html(

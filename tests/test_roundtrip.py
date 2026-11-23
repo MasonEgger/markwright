@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import itertools
 import re
+from typing import TYPE_CHECKING
 
 import markdown
 import pytest
@@ -14,6 +16,9 @@ from markwright import registry
 from markwright.codepen import CODEPEN_SCRIPT
 from markwright.instagram import INSTAGRAM_SCRIPT
 from markwright.twitter import TWITTER_SCRIPT
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # A fixture exercising every feature in one document: a labeled command fence
 # (label directive + command prefix), an environment fence, a line-numbered
@@ -42,6 +47,32 @@ value = "<^>token<^>"
 [codepen jcoulterdesign npyBME]
 
 Prose with a <^>marked<^> word.
+
+[button primary /start Get started]
+
+[lightbox /a.png A diagram]
+
+```mermaid
+graph LR
+    A --> B
+```
+
+[grid cards]
+
+- card one
+- card two
+
+[annotate]
+```python
+x = 1  # (1)!
+```
+
+1. The first note.
+
+[annotate]
+Prose with a marker (1).
+
+1. A prose note.
 """
 
 _PRE_BLOCK_RE = re.compile(r"<pre.*?</pre>", re.DOTALL)
@@ -129,6 +160,248 @@ class TestRoundTripEquivalence:
         assert "youtube.com/embed/dQw4w9WgXcQ" in pipeline
         assert 'class="codepen"' in pipeline
         assert CODEPEN_SCRIPT in pipeline
+        assert '<a class="mw-button mw-button-primary" href="/start">Get started</a>' in pipeline
+        assert '<a class="mw-lightbox" href="/a.png"><img src="/a.png" alt="A diagram" /></a>' in pipeline
+        assert '<pre class="mermaid">graph LR\n    A --&gt; B\n</pre>' in pipeline
+        assert '<ul class="mw-grid mw-grid-cards">' in pipeline
+        assert '<a class="mw-annotation" href="#mw-annotation-1-1">1</a>' in pipeline
+        assert "(1)!" not in pipeline
+        assert '<li id="mw-annotation-2-1">A prose note.</li>' in pipeline
+
+
+class TestRoundTripIcons:
+    """Icon shortcodes expand from a configured pack the same through the pipeline and in-process."""
+
+    def test_pipeline_equals_in_process_render(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        source = "A :demo-check: icon and `:demo-check:` as code.\n"
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
+
+    def test_attribute_and_autolink_shortcodes_match_in_process(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        source = 'Prose :demo-check: here, <span title=":demo-check:">x</span>, and <https://x.test/:demo-check:>.\n'
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
+
+    def test_shortcodes_beside_directives_and_a_diagram_match_in_process(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        source = (
+            "[tab :demo-check: One]\nbody :demo-check:\n[/tab]\n\n"
+            "[button https://x.test :demo-check: Go]\n\n"
+            "[youtube abc123 :demo-check:]\n\n"
+            "```mermaid\ngraph LR\n  A[:demo-check:] --> B\n```\n"
+        )
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+        assert '<pre class="mermaid">graph LR\n  A[:demo-check:] --&gt; B\n</pre>' in pipeline
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
+
+
+class TestRoundTripMermaid:
+    """A mermaid diagram renders the same through the pipeline and in-process, beside text and indented."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "para\n```mermaid\ngraph LR\n  A --> B\n```\nafter\n",
+            "  ```mermaid\n  graph LR\n  ```\n",
+            "para\n   ```mermaid\n   graph LR\n\n     A --> B\n   ```\nafter\n",
+        ],
+        ids=["beside-text", "indented-two", "indented-three-with-blank-line"],
+    )
+    def test_pipeline_equals_in_process_render(self, source: str) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names)
+        assert pipeline.count('<pre class="mermaid">') == 1
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names))
+
+
+class TestRoundTripMermaidInAnItem:
+    """Four columns or more under a list item the in-process text is exact; the pipeline keeps what the item leaves."""
+
+    @staticmethod
+    def diagram_texts(source: str) -> tuple[list[str], list[str]]:
+        """Render ``source`` both ways and read the text of each diagram.
+
+        :param source: Markdown source holding a mermaid fence.
+        :returns: The diagram texts of the pipeline render, then of the in-process render.
+        """
+        names = ["mermaid"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names)
+        in_process = in_process_render(source, names)
+        diagram_re = re.compile(r'<pre class="mermaid">(.*?)</pre>', re.DOTALL)
+        return diagram_re.findall(pipeline), diagram_re.findall(in_process)
+
+    def test_fence_at_the_item_column_matches_in_process(self) -> None:
+        source = "- item\n\n    ```mermaid\n    mindmap\n      root\n        a\n      b\n    ```\n"
+        pipeline_text, in_process_text = self.diagram_texts(source)
+        assert pipeline_text == in_process_text == ["mindmap\n  root\n    a\n  b\n"]
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "- item\n\n     ```mermaid\n     mindmap\n       root\n         a\n       b\n     ```\n",
+            "1. item\n\n     ```mermaid\n     mindmap\n       root\n         a\n       b\n     ```\n",
+        ],
+        ids=["bullet-five", "ordered-five"],
+    )
+    def test_fence_one_column_past_the_item_keeps_that_column_in_the_pipeline(self, source: str) -> None:
+        pipeline_text, in_process_text = self.diagram_texts(source)
+        assert in_process_text == ["mindmap\n  root\n    a\n  b\n"]
+        assert pipeline_text == ["mindmap\n   root\n     a\n   b\n "]
+
+
+class TestRoundTripHighlightEscape:
+    """A prose escape reads the same through ``mw pre | render | mw post`` as in-process."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            r"a \<^>x\<^> b",
+            r"a \\<^>x<^> b",
+            r"a \\\<^>x<^> b",
+            r"a \\\\<^>x<^> b",
+            r"<^>a \<^> b<^> c",
+            r"<^>a\<^> b",
+            r"\<^>x<^>",
+            r"x \<^>y\<^> and <^>z<^>",
+        ],
+    )
+    def test_prose_escape_matches_in_process(self, source: str) -> None:
+        names = ["highlight"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names))
+
+    def test_an_odd_run_is_a_literal_marker_and_an_even_run_is_live(self) -> None:
+        names = ["highlight"]
+        literal = registry.run_post(stub_render(registry.run_pre(r"a \<^>x\<^> b", names)), names)
+        live = registry.run_post(stub_render(registry.run_pre(r"a \\<^>x<^> b", names)), names)
+        assert "<mark>" not in literal
+        assert "&lt;&#94;&gt;x" in literal
+        assert "<mark>x</mark>" in live
+
+
+# The block starts of both renderers (Python-Markdown and CommonMark), as a line prefix. A raw HTML block start
+# (`<div>`, `<!-- `) is left out because it is not highlight pairing: `mw pre` rewrites the text content of an HTML
+# block and the in-process path leaves it alone (spec.md, Roadmap Deferred, mw pre parity).
+_PAIRING_BLOCK_STARTS = (
+    "",
+    "- ",
+    "* ",
+    "+ ",
+    "1. ",
+    "1) ",
+    "- [ ] ",
+    "> ",
+    "# ",
+    "    ",
+    "\t",
+    "    - ",
+    "```",
+    "~~~",
+    "[x]: ",
+    "| ",
+    ": ",
+    "!!! ",
+    "??? ",
+    "=== ",
+    "---",
+)
+_INDENTED_STARTS = frozenset({"    ", "\t", "    - "})
+
+# The text of each line, with the pair opening on the first line and closing on the last
+_PAIRING_TWO_LINE_TEXTS = (
+    ("a <^>b", "c<^> d"),
+    ("a <^>b<^> c", "d <^>e<^> f"),
+    ("a <^>b `x<^>y` c<^> d", "e <^>f<^> g"),
+)
+_PAIRING_THREE_LINE_TEXTS = (
+    ("a <^>b", "x", "c<^> d"),
+    ("a <^>b<^> c", "x <^>y<^> z", "c<^> d"),
+)
+# A code span that holds a line end, in one paragraph: the continuation lines start no block, since a block
+# start inside a code span has no single reading in the two renderers and nobody types one
+_PAIRING_CODE_SPAN_TEXTS = (
+    ("a <^>b `x", "y` c<^> d"),
+    ("a <^>b `x", "y", "z` c<^> d"),
+)
+_PAIRING_CODE_SPAN_STARTS = ("", "- ", "* ", "+ ", "1. ", "> ", "- [ ] ", "1) ")
+
+
+def _is_supported_pairing_document(starts: tuple[str, ...], lines: list[str]) -> bool:
+    """Report whether a generated document stays inside what the two renderers read alike.
+
+    Left out: indented text straight after a heading line, which CommonMark reads as indented code and
+    ``_fences`` reads as prose (code needs a blank line before it there), and a backtick fence opener that
+    holds a backtick, which CommonMark does not read as a fence.
+    """
+    follows_heading = any(
+        previous == "# " and start in _INDENTED_STARTS for previous, start in zip(starts, starts[1:], strict=False)
+    )
+    backtick_in_fence_opener = any(line.startswith("```") and "`" in line[3:] for line in lines)
+    return not follows_heading and not backtick_in_fence_opener
+
+
+def _pairing_documents() -> list[str]:
+    """Generate the two-line and three-line documents that join each pair of block starts with each text."""
+    documents: list[str] = []
+    for (first_text, second_text), first_start, second_start in itertools.product(
+        _PAIRING_TWO_LINE_TEXTS, _PAIRING_BLOCK_STARTS, _PAIRING_BLOCK_STARTS
+    ):
+        lines = [f"{first_start}{first_text}", f"{second_start}{second_text}"]
+        if _is_supported_pairing_document((first_start, second_start), lines):
+            documents.append("\n".join(lines) + "\n")
+    for (first_text, middle_text, last_text), middle_start, last_start in itertools.product(
+        _PAIRING_THREE_LINE_TEXTS, _PAIRING_BLOCK_STARTS, _PAIRING_BLOCK_STARTS
+    ):
+        lines = [first_text, f"{middle_start}{middle_text}", f"{last_start}{last_text}"]
+        if _is_supported_pairing_document(("", middle_start, last_start), lines):
+            documents.append("\n".join(lines) + "\n")
+    for code_span_lines, first_start in itertools.product(_PAIRING_CODE_SPAN_TEXTS, _PAIRING_CODE_SPAN_STARTS):
+        documents.append(f"{first_start}{code_span_lines[0]}\n" + "\n".join(code_span_lines[1:]) + "\n")
+    return documents
+
+
+class TestRoundTripHighlightPairing:
+    """A prose pair never holds a line end, so every path highlights the same text whatever block starts a line."""
+
+    def test_pipeline_equals_in_process_render_over_generated_documents(self) -> None:
+        names = ["highlight"]
+        documents = _pairing_documents()
+
+        differing = [
+            document
+            for document in documents
+            if _normalize(registry.run_post(stub_render(registry.run_pre(document, names)), names))
+            != _normalize(in_process_render(document, names))
+        ]
+
+        assert differing == []
+        # The corpus must reach a highlight, or equality proves nothing
+        assert any("<mark>" in in_process_render(document, names) for document in documents)
+
+    def test_a_pair_around_a_code_span_is_one_mark_in_both_paths(self) -> None:
+        names = ["highlight"]
+        document = "a <^>b `x<^>y` c<^> d\n"
+
+        pipeline = registry.run_post(stub_render(registry.run_pre(document, names)), names)
+
+        assert pipeline == in_process_render(document, names)
+        assert pipeline.count("<mark>") == 1
 
 
 class TestRoundTripIdempotency:
@@ -141,6 +414,31 @@ class TestRoundTripIdempotency:
         assert once == twice
         assert once.count(CODEPEN_SCRIPT) == 1
         assert twice.count(CODEPEN_SCRIPT) == 1
+
+    # A grid shortcut, a paired block grid holding a card whose body is a two-tab set: every
+    # construct grid and tabs turn into their own paired markers, so a second pre pass meets them
+    # all as markers. The degrade-to-literal problem directives are excluded: a top-level [card]
+    # leaves its [/card] a bare directive that re-reports as a stray on a second pass, a literal
+    # degradation unrelated to the marker contract.
+    _CONTAINER_FIXTURE = (
+        "[grid cards 2]\n\n- a\n- b\n\n"
+        "[grid]\n\n[card]\n\n[tab One]\n\nx\n\n[/tab]\n\n[tab Two]\n\ny\n\n[/tab]\n\n[/card]\n\n[/grid]\n"
+    )
+
+    def test_running_pre_twice_is_stable(self) -> None:
+        # Pre stages carry their own marker comments; a second pre pass meets them as markers and
+        # must leave them untouched, not re-emit, re-report, or crash on a marker-sourced pair.
+        names = list(registry.EXTENSION_NAMES)
+        once = registry.run_pre(FIXTURE, names)
+        assert registry.run_pre(once, names) == once
+
+    def test_running_pre_twice_is_stable_over_nested_containers(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        once = registry.run_pre(self._CONTAINER_FIXTURE, names)
+        assert registry.run_pre(once, names) == once
+        # The second pass pairs from the markers but emits nothing new and renders the same.
+        twice_post = registry.run_post(stub_render(registry.run_pre(once, names)), names)
+        assert twice_post == registry.run_post(stub_render(once), names)
 
 
 class TestStageOptions:
@@ -180,6 +478,11 @@ class TestRoundTripDegradation:
         assert "youtube.com/embed/dQw4w9WgXcQ" in degraded
         assert "<mark>token</mark>" in degraded
         assert CODEPEN_SCRIPT in degraded
+        # The marker-comment extensions degrade; the comment-free ones survive.
+        assert "mw-grid" not in degraded
+        assert "mw-annotation" not in degraded
+        assert 'class="mw-button' in degraded
+        assert '<pre class="mermaid">' in degraded
 
 
 # One of each embed that takes a load option, so every load value runs through both paths.
@@ -292,11 +595,324 @@ _EMBED_BLOCKS = st.sampled_from(
 )
 
 
+@st.composite
+def _grid_block(draw: st.DrawFn) -> str:
+    """Draw a grid shortcut directive followed by a short bullet list."""
+    directive = draw(st.sampled_from(["[grid]", "[grid cards]", "[grid 2]", "[grid cards 2]", "[grid 2 cards]"]))
+    items = draw(st.lists(_PHRASES, min_size=1, max_size=3))
+    return directive + "\n\n" + "\n".join(f"- {item}" for item in items)
+
+
+@st.composite
+def _block_grid(draw: st.DrawFn) -> str:
+    """Draw a paired block grid wrapping a prose block and a card with a heading and paragraph."""
+    opener = draw(st.sampled_from(["[grid]", "[grid 2]", "[grid cards]", "[grid cards 2]", "[grid 2 cards]"]))
+    heading = draw(_WORDS)
+    para = draw(_PHRASES)
+    card_heading = draw(_WORDS)
+    card_para = draw(_PHRASES)
+    return f"{opener}\n\n## {heading}\n\n{para}\n\n[card]\n\n### {card_heading}\n\n{card_para}\n\n[/card]\n\n[/grid]"
+
+
+# Container problems grid leaves literal and reports through an mw-grid-problem marker; the pipeline
+# and the in-process render must still agree once the marker is attached and removed.
+_CONTAINER_PROBLEMS = st.sampled_from(
+    [
+        "[card]\n\ninside\n\n[/card]",
+        "[/card]",
+        "[/grid]",
+    ]
+)
+
+# Tab containers tabs leaves literal and reports through an mw-tab-problem marker.
+_TAB_PROBLEMS = st.sampled_from(
+    [
+        "[tab Orphan]\n\ninside",
+        "[/tab]",
+    ]
+)
+
+
+@st.composite
+def _tab_set(draw: st.DrawFn) -> str:
+    """Draw two or three consecutive tabs that form one set, with prose or code bodies."""
+    count = draw(st.integers(min_value=2, max_value=3))
+    tabs = []
+    for _tab_index in range(count):
+        name = draw(_PHRASES)
+        body = f"```python\n{draw(_WORDS)} = 1\n```" if draw(st.booleans()) else draw(_PHRASES)
+        tabs.append(f"[tab {name}]\n\n{body}\n\n[/tab]")
+    return "\n\n".join(tabs)
+
+
+@st.composite
+def _grid_with_tabs(draw: st.DrawFn) -> str:
+    """Draw a block grid holding a card whose body is a two-tab set, so containers nest."""
+    tab_a = draw(_PHRASES)
+    tab_b = draw(_PHRASES)
+    body_a = draw(_PHRASES)
+    body_b = draw(_PHRASES)
+    return (
+        "[grid]\n\n[card]\n\n"
+        f"[tab {tab_a}]\n\n{body_a}\n\n[/tab]\n\n[tab {tab_b}]\n\n{body_b}\n\n[/tab]\n\n"
+        "[/card]\n\n[/grid]"
+    )
+
+
+@st.composite
+def _annotate_block(draw: st.DrawFn) -> str:
+    """Draw an annotate directive with a prose or code body and its numbered notes."""
+    marker = draw(st.integers(min_value=1, max_value=3))
+    if draw(st.booleans()):
+        body = f"{draw(_PHRASES)} ({marker}) {draw(_PHRASES)}"
+    else:
+        body = f"```python\n{draw(_WORDS)} = 1  # ({marker})!\n```"
+    notes = draw(st.lists(_PHRASES, min_size=1, max_size=3))
+    numbered = "\n".join(f"{note_number}. {note}" for note_number, note in enumerate(notes, start=1))
+    return f"[annotate]\n{body}\n\n{numbered}"
+
+
+_DIRECTIVE_BLOCKS = st.sampled_from(
+    [
+        "[button primary /start Get started]",
+        "[button /docs Read the docs]",
+        "[lightbox /a.png A diagram]",
+        "```mermaid\ngraph LR\n    A --> B\n```",
+    ]
+)
+
+
+@st.composite
+def _directive_in_fence(draw: st.DrawFn) -> str:
+    """Draw one directive line wrapped in a fenced code block."""
+    directive = draw(
+        st.sampled_from(
+            [
+                "[button primary /start Get started]",
+                "[lightbox /a.png A diagram]",
+                "[youtube dQw4w9WgXcQ]",
+                "[grid]",
+                "[annotate]",
+            ]
+        )
+    )
+    return f"```\n{directive}\n```"
+
+
+_FENCED_DIRECTIVES = [
+    "[button primary /start Get started]",
+    "[lightbox /a.png A diagram]",
+    "[youtube dQw4w9WgXcQ]",
+    "[grid]",
+    "[annotate]",
+]
+
+
+@st.composite
+def _directive_in_tab_fence(draw: st.DrawFn) -> str:
+    """Draw one directive line wrapped in a tab-indented fence inside a list item."""
+    directive = draw(st.sampled_from(_FENCED_DIRECTIVES))
+    return f"- item\n\n\t```\n\t{directive}\n\t```"
+
+
+@st.composite
+def _directive_in_indented_code(draw: st.DrawFn) -> str:
+    """Draw one directive line as a top-level indented code block."""
+    directive = draw(st.sampled_from(_FENCED_DIRECTIVES))
+    return f"para\n\n    {directive}"
+
+
+# One fence per directive form, so the explicit test reads the whole case at a glance.
+FENCED_DIRECTIVE_FIXTURE = """\
+```
+[button primary /start Get started]
+```
+
+```
+[lightbox /a.png A diagram]
+```
+
+```
+[youtube dQw4w9WgXcQ]
+```
+
+```
+[grid]
+```
+
+```
+[annotate]
+```
+"""
+
+
+class TestRoundTripFencedDirective:
+    """A directive inside a fenced code block stays literal through both paths."""
+
+    def test_run_pre_leaves_every_fenced_directive_literal(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        expanded = registry.run_pre(FENCED_DIRECTIVE_FIXTURE, names)
+        # No stage expands a directive line that sits inside a fence.
+        assert '<a class="mw-button' not in expanded
+        assert '<a class="mw-lightbox"' not in expanded
+        assert "youtube.com/embed/" not in expanded
+        assert "mw-grid" not in expanded
+        assert "mw-annotate" not in expanded
+        assert '<pre class="mermaid"' not in expanded
+
+    def test_pipeline_equals_in_process_render(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(FENCED_DIRECTIVE_FIXTURE, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(FENCED_DIRECTIVE_FIXTURE, names))
+
+
+# A tab-indented in-list fence and a four-space indented code block, each holding a directive.
+INDENTED_DIRECTIVE_FIXTURE = "- item\n\n\t```\n\t[button primary /start Get started]\n\t```\n\npara\n\n    [grid]\n"
+
+
+class TestRoundTripIndentedDirective:
+    """A directive inside a tab-indented fence or an indented code block stays literal through both paths."""
+
+    def test_run_pre_leaves_an_indented_directive_literal(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        expanded = registry.run_pre(INDENTED_DIRECTIVE_FIXTURE, names)
+        assert '<a class="mw-button' not in expanded
+        assert "mw-grid" not in expanded
+
+    def test_pipeline_equals_in_process_render(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        pipeline = registry.run_post(stub_render(registry.run_pre(INDENTED_DIRECTIVE_FIXTURE, names)), names)
+        assert _normalize(pipeline) == _normalize(in_process_render(INDENTED_DIRECTIVE_FIXTURE, names))
+
+
+_BODY_EXTENSIONS = ["admonition", "def_list", "footnotes", "pymdownx.details", "pymdownx.tabbed"]
+# Each opener with the tag that starts the block in the render and the tag that ends it
+_BODY_OPENERS = {
+    "admonition": ('!!! note "Title"', '<div class="admonition', "</div>"),
+    "details": ("??? note", "<details", "</details>"),
+    "tab": ('=== "Tab"', '<div class="tabbed-content"', "</div>"),
+    "definition": ("Term\n: A definition", "<dd>", "</dd>"),
+    "footnote": ("Text[^1]\n\n[^1]: A footnote", '<div class="footnote"', "</div>"),
+}
+# Each body with the text that marks its expansion in the output
+_BODY_CONTENT = {
+    "directive": ("    [button primary /start Get started]", 'class="mw-button'),
+    "embed": ("    [youtube dQw4w9WgXcQ]", "youtube.com/embed/"),
+    "fence with a label": ("    ```python\n    [label app.py]\n    x = 1\n    ```", 'class="code-label"'),
+    "mermaid": ("    ```mermaid\n    graph TD\n      A-->B\n    ```", '<pre class="mermaid"'),
+}
+_UNWRAPPED_BLOCK_RE = re.compile(r"<p>(<(?P<tag>iframe|pre|div)\b.*?</(?P=tag)>)</p>", re.DOTALL)
+
+
+def _body_document(opener: str, content: str) -> str:
+    """Build one block opener with a content body under it."""
+    return f"{opener}\n\n{content}\n"
+
+
+def _body_pipeline(document: str, names: list[str]) -> str:
+    """Run the pre stage, a stub renderer holding the block extensions, and the post stage."""
+    instance = markdown.Markdown(
+        extensions=["pymdownx.superfences", "pymdownx.highlight", *_BODY_EXTENSIONS],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    return registry.run_post(instance.convert(registry.run_pre(document, names)), names)
+
+
+def _body_in_process(document: str, names: list[str]) -> str:
+    """Render in-process with the block extensions beside the markwright ones."""
+    instance = markdown.Markdown(
+        extensions=[
+            "pymdownx.superfences",
+            "pymdownx.highlight",
+            *_BODY_EXTENSIONS,
+            *(f"markwright.{name}" for name in names),
+        ],
+        extension_configs={"pymdownx.highlight": {"pygments_lang_class": True}},
+    )
+    return instance.convert(document)
+
+
+def _is_inside_block(html: str, start_tag: str, end_tag: str, expansion: str) -> bool:
+    """Report whether the expansion sits between the block's start tag and its end tag."""
+    block_start = html.index(start_tag)
+    return block_start < html.index(expansion) < html.index(end_tag, block_start)
+
+
+class TestRoundTripBlockBodies:
+    """A directive, an embed, a labelled fence, and a mermaid fence in a block opener body stay in the body."""
+
+    @pytest.mark.parametrize("opener_name", list(_BODY_OPENERS))
+    @pytest.mark.parametrize("content_name", list(_BODY_CONTENT))
+    def test_in_process_render_keeps_the_expansion_inside_the_block(self, opener_name: str, content_name: str) -> None:
+        opener, start_tag, end_tag = _BODY_OPENERS[opener_name]
+        content, expansion = _BODY_CONTENT[content_name]
+        names = list(registry.EXTENSION_NAMES)
+
+        html = _body_in_process(_body_document(opener, content), names)
+
+        assert _is_inside_block(html, start_tag, end_tag, expansion)
+
+    @pytest.mark.parametrize("opener_name", list(_BODY_OPENERS))
+    @pytest.mark.parametrize("content_name", list(_BODY_CONTENT))
+    def test_pipeline_keeps_the_expansion_inside_the_block_and_equals_in_process(
+        self, opener_name: str, content_name: str
+    ) -> None:
+        opener, start_tag, end_tag = _BODY_OPENERS[opener_name]
+        content, expansion = _BODY_CONTENT[content_name]
+        names = list(registry.EXTENSION_NAMES)
+        document = _body_document(opener, content)
+
+        pipeline = _body_pipeline(document, names)
+
+        assert _is_inside_block(pipeline, start_tag, end_tag, expansion)
+        # The stub renderer wraps an embed's block-level HTML in a paragraph that the in-process stash avoids
+        assert _normalize(_UNWRAPPED_BLOCK_RE.sub(r"\1", pipeline)) == _normalize(_body_in_process(document, names))
+
+    @pytest.mark.parametrize("opener_name", list(_BODY_OPENERS))
+    def test_run_pre_keeps_a_mermaid_diagram_at_the_body_indentation(self, opener_name: str) -> None:
+        opener, _, _ = _BODY_OPENERS[opener_name]
+        document = _body_document(opener, _BODY_CONTENT["mermaid"][0])
+
+        expanded = registry.run_pre(document, list(registry.EXTENSION_NAMES))
+
+        assert '\n    <pre class="mermaid">' in expanded
+
+    @pytest.mark.parametrize("opener_name", ["admonition", "details", "tab", "definition"])
+    def test_in_process_render_does_not_wrap_a_mermaid_diagram_in_a_paragraph(self, opener_name: str) -> None:
+        opener, _, _ = _BODY_OPENERS[opener_name]
+        document = _body_document(opener, _BODY_CONTENT["mermaid"][0])
+
+        html = _body_in_process(document, list(registry.EXTENSION_NAMES))
+
+        assert "<p><pre" not in html
+
+
 class TestRoundTripProperty:
     """Any document built from markwright's grammar renders the same through the pipeline and in-process."""
 
     @settings(max_examples=150, deadline=None)
-    @given(blocks=st.lists(st.one_of(_prose_block(), _fence_block(), _EMBED_BLOCKS), min_size=1, max_size=6))
+    @given(
+        blocks=st.lists(
+            st.one_of(
+                _prose_block(),
+                _fence_block(),
+                _EMBED_BLOCKS,
+                _DIRECTIVE_BLOCKS,
+                _grid_block(),
+                _block_grid(),
+                _CONTAINER_PROBLEMS,
+                _tab_set(),
+                _grid_with_tabs(),
+                _TAB_PROBLEMS,
+                _annotate_block(),
+                _directive_in_fence(),
+                _directive_in_tab_fence(),
+                _directive_in_indented_code(),
+            ),
+            min_size=1,
+            max_size=6,
+        )
+    )
     def test_pipeline_equals_in_process_render(self, blocks: list[str]) -> None:
         document = "\n\n".join(blocks) + "\n"
         names = list(registry.EXTENSION_NAMES)

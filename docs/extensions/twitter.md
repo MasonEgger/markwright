@@ -1,6 +1,14 @@
 # Twitter
 
-Embeds tweets with configurable theme, alignment, and width. Accepts `twitter.com` and `x.com` references in several forms (full URL, scheme-less, or a bare `user/status/id`), canonicalizing the output to `twitter.com`.
+Embeds tweets with configurable theme, alignment, and width.
+Accepts `twitter.com` and `x.com` references in several forms (full URL, scheme-less, or a bare `user/status/id`), canonicalizing the output to `twitter.com`.
+
+[twitter https://twitter.com/github/status/1234567890]
+
+```
+[label Markdown]
+[twitter https://twitter.com/github/status/1234567890]
+```
 
 ## Usage
 
@@ -47,14 +55,6 @@ All of these resolve to the same tweet:
 
 ## Examples
 
-### Basic Tweet
-
-```
-[twitter https://twitter.com/github/status/1234567890]
-```
-
-[twitter https://twitter.com/github/status/1234567890]
-
 ### Dark Theme, Left-Aligned
 
 ```
@@ -97,7 +97,31 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line
+- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
 - `x.com` URLs are automatically converted to `twitter.com`
 - Width is clamped to 250-550px (Twitter's supported range)
 - The Twitter widgets script is injected once per page, and only when at least one embed is `eager`
+
+## HTML Contract
+
+```html
+<div class="twitter">
+    <blockquote class="twitter-tweet" data-dnt="true" data-width="550" data-theme="light">
+        <a href="https://twitter.com/github/status/1234567890">View tweet by @github</a>
+    </blockquote>
+</div>
+
+<script async defer src="https://platform.twitter.com/widgets.js"></script>
+```
+
+This is the `eager` output.
+The `<script>` is appended once, at the end of the page.
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+In `eager` mode the embed is a `<div class="twitter">` around a `<blockquote class="twitter-tweet">` (do-markdownit's own shape), and markwright injects X's widgets `<script>` once per page, so the host needs no code: the widgets script renders the post.
+This site's only Twitter rule in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css) is a `.twitter` margin for spacing.
+
+In `click` mode the embed is the `mw-embed` preview instead, whose hooks a host script swaps for the live post.
+[Click-to-Load](../click-to-load.md) is the contract for that markup and carries a worked host script.

@@ -1,6 +1,6 @@
 # Demo
 
-A demonstration of all markwright extensions on a single page.
+A demonstration of all fifteen markwright extensions on a single page.
 
 ## Highlight
 
@@ -120,3 +120,77 @@ systemctl restart nginx
 ## Image Compare
 
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
+
+## Button
+
+[button primary https://example.com Get Started]
+
+[button https://example.com Read More]
+
+## Lightbox
+
+[lightbox https://picsum.photos/id/10/480/270 A forest path]
+
+## Mermaid
+
+```mermaid
+graph LR
+  Source[Markdown source] --> Pre[mw pre]
+  Pre --> Renderer
+  Renderer --> Post[mw post]
+  Post --> HTML
+```
+
+## Icons
+
+Build passed :lucide-check:
+
+Rated :mw-star: :mw-star: :mw-star: by readers who :mw-heart: it.
+
+## Grid
+
+[grid cards 2]
+
+[card]
+
+**Mark Text**
+
+Highlight a word in prose, in inline code, or inside a code block.
+
+[/card]
+
+[card]
+
+**Label Code**
+
+Add labels, environments, and `$` or `#` prompts to fenced code.
+
+[/card]
+
+[/grid]
+
+## Annotate
+
+[annotate]
+
+```python
+name = "markwright"  # (1)
+debug = False  # (2)!
+```
+
+1. The package name.
+2. Switches off debug output.
+
+## Tabs
+
+[tab Python]
+
+Call the extensions in-process with Python-Markdown.
+
+[/tab]
+
+[tab CLI]
+
+Run the same stages as a shell filter with `mw pre` and `mw post`.
+
+[/tab]

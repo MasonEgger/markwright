@@ -3,8 +3,8 @@
 markwright is a set of [Python-Markdown](https://python-markdown.github.io/) extensions plus a companion CLI, `mw`, for author-friendly markdown: highlighted text, labeled code fences, and media embeds.
 Use the extensions in any tool built on Python-Markdown (including [MkDocs](https://www.mkdocs.org/)), or the `mw` pipeline in toolchains that are not, like Hugo.
 
-The author-facing syntax and HTML output are derived from DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit) (licensed under the [Apache License 2.0](https://github.com/digitalocean/do-markdownit/blob/master/LICENSE)); markwright ports those to Python-Markdown and adds the `mw` CLI on top.
-See [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) for attribution.
+Part of markwright is a port: the highlight, fence, and media embed extensions reproduce the syntax and HTML output of DigitalOcean's [`do-markdownit`](https://github.com/digitalocean/do-markdownit).
+Everything else is markwright's own: buttons, lightboxes, Mermaid diagrams, icons, grids and cards, annotations, tabs, click-to-load embeds, a config system, and the `mw` CLI, which runs the same extensions as pre and post filters around any renderer.
 
 ## Features
 
@@ -16,6 +16,13 @@ See [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) for attr
 - **[Instagram](extensions/instagram.md)** embeds a post with caption and alignment options.
 - **[Slideshow](extensions/slideshow.md)** builds an image slideshow with navigation arrows.
 - **[Image Compare](extensions/image-compare.md)** renders two images with a draggable before/after slider.
+- **[Button](extensions/button.md)** turns `[button URL TEXT]` into a link styled as a button.
+- **[Lightbox](extensions/lightbox.md)** turns `[lightbox URL ALT]` into an image link a host script can open in an overlay.
+- **[Mermaid](extensions/mermaid.md)** turns a `mermaid` code fence into a `<pre class="mermaid">` block a host script draws.
+- **[Icons](extensions/icons.md)** replaces `:pack-name:` shortcodes with inline SVG from directories you configure.
+- **[Grid](extensions/grid.md)** classes the list after `[grid]` or `[grid cards]`, wraps the blocks between `[grid]` and `[/grid]` as grid cells with `[card]` ... `[/card]` cards inside, and sets a 1-to-6 column count with `[grid N]`.
+- **[Annotate](extensions/annotate.md)** links `(N)` markers in a code block to the items of the numbered list after it.
+- **[Tabs](extensions/tabs.md)** groups consecutive `[tab NAME]` ... `[/tab]` blocks into one tabbed set.
 
 ## Installation
 
@@ -30,7 +37,9 @@ uv add --editable ../markwright
 ```
 
 !!! warning "MkDocs 2.0 Compatibility"
-    MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs. There is no migration path. This project pins **MkDocs 1.x** (`mkdocs>=1.6,<2`).
+    MkDocs 2.0 removes the plugin system and rewrites the theming architecture, breaking all existing plugins and themes including Material for MkDocs.
+    There is no migration path.
+    This project's dev dependency is `mkdocs>=1.6,<2`, and its lock file resolves to MkDocs 1.6.1.
 
 ## Usage
 
@@ -51,6 +60,12 @@ md = markdown.Markdown(
         "markwright.instagram",
         "markwright.slideshow",
         "markwright.image_compare",
+        "markwright.button",
+        "markwright.lightbox",
+        "markwright.mermaid",
+        "markwright.grid",
+        "markwright.annotate",
+        "markwright.tabs",
     ]
 )
 
@@ -85,14 +100,34 @@ See the [CLI Reference](cli.md) for the commands and flags, and the [Hugo integr
 
 ## Architecture
 
-Each extension is a standalone Python-Markdown extension loaded by name (e.g., `markwright.highlight`). The extensions use three processor patterns:
+Each extension is a standalone Python-Markdown extension loaded by name (e.g., `markwright.highlight`).
+The extensions use these processor patterns:
 
-1. **Fence** uses a Preprocessor (priority 40) that runs *before* `pymdownx.superfences` to extract directives. A Postprocessor (priority 25) injects labels, classes, and prefix markup into rendered HTML.
+1. **Fence** uses a Preprocessor (priority 40) that runs *before* `pymdownx.superfences` to extract directives.
+    A Postprocessor (priority 25) injects labels, classes, and prefix markup into rendered HTML.
 
-2. **Embeds** use Preprocessors (priority 20) that run *after* superfences, matching standalone `[name ...]` lines. Social embeds add a Postprocessor (priority 15) for one-time script injection.
+2. **Embeds** use Preprocessors (priority 20) that run *after* superfences, matching standalone `[name ...]` lines.
+    Social embeds add a Postprocessor (priority 15) for one-time script injection.
 
 3. **Highlight** uses an InlineProcessor (priority 175) for regular text, plus a Postprocessor (priority 25) for `<^>` markers inside code blocks where the delimiters are HTML-escaped.
 
+4. **Button, Lightbox, and Mermaid** use Preprocessors only.
+    Button and Lightbox (priority 20) match standalone directive lines like the embeds.
+    Mermaid (priority 45) replaces `mermaid` fences with a raw `<pre>` before superfences sees them.
+
+5. **Icons** uses a pre stage (priority 5, after every directive stage) for `mw pre` and an InlineProcessor (priority 85) in-process, both resolving `:pack-name:` shortcodes against SVG directories you configure.
+
+6. **Grid and Annotate** follow the fence marker-comment pattern: a Preprocessor (priority 20, or 21 for grid, which runs ahead of Python-Markdown's `html_block`) swaps the directive for a versioned marker comment, and a Postprocessor (priority 27) reads it from the rendered HTML.
+
+7. **Tabs** follow the same marker-comment pattern: a Preprocessor (priority 21) swaps each `[tab NAME]` ... `[/tab]` block for a pair of marker comments, and a Postprocessor (priority 27) groups consecutive tabs into one `tabbed-set`.
+
+markwright ships no CSS, JavaScript, or icons.
+The extensions emit classes and markup, and the host site styles them.
+
 ## License
 
-This project is a port of [do-markdownit](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0. See the [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) file for attribution details.
+markwright is released under the [MIT License](https://github.com/MasonEgger/markwright/blob/main/LICENSE).
+
+Part of it is a port of [`do-markdownit`](https://github.com/digitalocean/do-markdownit) by DigitalOcean, which is licensed under the Apache License 2.0.
+Those portions remain subject to that license, a copy of which is in the repository as [LICENSE-Apache-2.0](https://github.com/MasonEgger/markwright/blob/main/LICENSE-Apache-2.0).
+See the [NOTICE](https://github.com/MasonEgger/markwright/blob/main/NOTICE) file for attribution details.

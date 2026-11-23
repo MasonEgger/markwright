@@ -13,6 +13,7 @@ from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
 from markwright._embed_load import LOAD_CLICK, LOAD_EAGER, URL_SCHEME_WWW_PREFIX, load_mode, wrap_preview
+from markwright._fences import map_directive_lines
 from markwright._html import provider_script_needed
 
 if TYPE_CHECKING:
@@ -147,7 +148,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :raises OptionError: If ``load`` is not a supported value.
     """
     load = load_mode(options, LOAD_MODES)
-    return "\n".join(_render_match(line, load) or line for line in text.split("\n"))
+    return map_directive_lines(text, lambda line: _render_match(line, load))
 
 
 def apply_html(
@@ -188,14 +189,12 @@ class TwitterPreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with Twitter embeds replaced by HTML.
         """
-        output: list[str] = []
-        for line in lines:
+
+        def render(line: str) -> str | None:
             embed_html = _render_match(line, self.load)
-            if embed_html is not None:
-                output.append(self.md.htmlStash.store(embed_html))
-            else:
-                output.append(line)
-        return output
+            return None if embed_html is None else self.md.htmlStash.store(embed_html)
+
+        return map_directive_lines("\n".join(lines), render).split("\n")
 
 
 class TwitterPostprocessor(Postprocessor):

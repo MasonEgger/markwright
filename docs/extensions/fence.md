@@ -1,6 +1,26 @@
 # Fence
 
-Adds labels, secondary labels, environment classes, and line prefixes to fenced code blocks. All fence features are coordinated through a single extension to avoid ordering issues.
+Adds labels, secondary labels, environment classes, and line prefixes to fenced code blocks.
+All fence features are coordinated through a single extension to avoid ordering issues.
+
+```command
+[environment local]
+[label server.sh]
+[secondary_label Output]
+ssh root@192.168.1.1
+apt update && apt upgrade -y
+```
+
+````
+[label Markdown]
+```command
+[environment local]
+[label server.sh]
+[secondary_label Output]
+ssh root@192.168.1.1
+apt update && apt upgrade -y
+```
+````
 
 ## Usage
 
@@ -202,22 +222,43 @@ SELECT * FROM users;
 SHOW TABLES;
 ```
 
-## Full Combination
 
-All features can be combined:
+## HTML Contract
 
-````
-```command
-[environment local]
-[label server.sh]
-ssh root@192.168.1.1
-apt update && apt upgrade -y
+A label is a `<div class="code-label">` before the highlighted block, and a secondary label is a `<div class="secondary-code-label">` inside its `<code>` element:
+
+```html
+<div class="code-label" title="app.py">app.py</div>
+
+<div class="language-python highlight"><pre><span></span><code><div class="secondary-code-label" title="Output">Output</div>...</code></pre></div>
 ```
-````
 
-```command
-[environment local]
-[label server.sh]
-ssh root@192.168.1.1
-apt update && apt upgrade -y
+An environment and a line prefix add classes to the `<pre>` and wrap each line in an `<ol><li data-prefix="...">`:
+
+```html
+<div class="code-label" title="deploy.sh">deploy.sh</div>
+
+<div class="language-bash highlight"><pre class="prefixed command environment-local"><span></span><code><ol><li data-prefix="$">ls
+</li></ol>
+</code></pre></div>
 ```
+
+The `<pre>` class is `prefixed` plus the prefix type (`line_numbers`, `command`, `super_user`, or `custom_prefix`), and `environment-NAME` when an environment is set.
+`data-prefix` is `$`, `#`, the custom text, or the line number.
+
+## Host CSS and Script
+
+markwright ships no CSS, JavaScript, or icons.
+The fence extension emits these hooks:
+
+| Hook | Where | Role |
+|------|-------|------|
+| `div.code-label` | Before the block | The label chip, with a `title`. The class is the `label_class` option's default. |
+| `div.secondary-code-label` | Inside the `<code>` | The secondary label. The class is the `secondary_label_class` option's default. |
+| `pre.environment-NAME` | On the `<pre>` | The environment tint, where `NAME` is the sanitized `[environment NAME]` value. |
+| `pre.prefixed <type>` | On the `<pre>` | A line-prefixed block, where `<type>` is `line_numbers`, `command`, `super_user`, or `custom_prefix`. |
+| `<ol><li data-prefix="...">` | Inside the `<code>` | One list item per line, each carrying its prefix string. |
+
+No host script is involved; the block works as plain highlighted code, and the hooks only change how it looks.
+This site draws the label chips, tints the five demo environments, and renders each line's `data-prefix` through a CSS `::before` in [`docs/stylesheets/extra.css`](https://github.com/MasonEgger/markwright/blob/main/docs/stylesheets/extra.css), under the `.code-label`, `pre.environment-*`, and `pre.prefixed` rules.
+A host that renames the label classes through the options styles its own names instead.
