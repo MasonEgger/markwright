@@ -68,14 +68,10 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - containers-30: block grids, cards, column counts, and the `tabs` extension on one shared open/close pairing scanner (#30), converged (.ai-sessions/containers-30/)
 - material-mapping: the Material mapping docs page, `docs/material-mapping.md`, listing what gives each Material reference feature in-process and under Hugo, with the gaps; docs-only, Step 29 of the fix plan (.ai-sessions/fix-plan-0.4.0/)
 - fix-plan-0.4.0: the 26-step 0.4.0 fix plan (container postprocessor priority, the containers fixes, block bodies, pre-stage order, #31, #32, #33, #34, annotate overlap, hardening, and the docs catch-up), converged (.ai-sessions/fix-plan-0.4.0/)
+- 0.4.0 release: PR #35 merged on 2026-11-22 and tagged `v0.4.0`; done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; version 0.4.0, the `markdown` floor at `>=3.8.2`, and the dev dependency `mkdocs>=1.6,<2`; it closes #16, #20, #29, #30, #31, #32, #33, and #34
 
 **Upcoming:**
-- 0.4.0 release: done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; it closes #16, #20, #29, and #30
-  - done on `containers-30` on 2026-11-21, ahead of the merge: version 0.4.0 in `pyproject.toml` and `uv.lock`, the `markdown` floor at `>=3.8.2`, the dev dependency `mkdocs>=1.6,<2`, the CHANGELOG date and `[0.4.0]` compare link, and the Feature Status rows set to Released 0.4.0, which holds once the tag exists
-  - PR #35 of `containers-30` into `main` is ready for review, and CI runs on every push; the merge is the maintainer's
-  - at the release: the CHANGELOG date corrected if the merge lands on a later day, and a check by hand that the tag `v0.4.0` equals the version, which the publish workflow does not make
-  - right after the merge: publish the GitHub Release, which is what triggers the PyPI publish; the docs deploy on the merge, so until the Release the live docs describe fifteen extensions and PyPI delivers eight
-  - same day: the Bartleby follow-up, since `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports move to the public `disallowed_environments`
+- Bartleby follow-up to 0.4.0, in the Bartleby repo: `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports move to the public `disallowed_environments`
 
 **Deferred:**
 - New embeds (Bluesky, Mastodon, Vimeo): possible later; each should support the `load` option when it lands

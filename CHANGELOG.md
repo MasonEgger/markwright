@@ -3,7 +3,7 @@
 All notable changes to markwright are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.4.0] - 2026-11-21
+## [0.4.0] - 2026-11-22
 
 Six new extensions that cover the Material for MkDocs authoring features (#16), a `tabs` extension plus block grids and cards on the `grid` extension (#30), and the docs-site pieces that demonstrate them.
 A document that uses none of the new directives or shortcodes renders as it did, apart from the changes listed under Upgrading from 0.3.0 and Fixed.
