@@ -1,0 +1,728 @@
+/* --- markwright extension styles:aligned to DigitalOcean's do-markdownit ---
+   Layout and accent colors follow the do-markdownit reference while keeping
+   Material's light code theme; only the structural pieces are restyled. */
+
+/* Rounded DO-style block corners + faint stroke (the wireframe look). */
+.md-typeset .highlight > pre > code {
+    border-radius: 1em;
+    box-shadow: inset 0 0 0 0.125em rgba(17, 25, 46, 0.1);
+}
+
+/* Inline code: DigitalOcean light pill. */
+.md-typeset :not(pre) > code {
+    background-color: #e3e8f4;
+    color: #4d5b7c;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.375rem;
+}
+
+/* Code labels:integrated header bar sitting flush on the block.
+   Defaults to the MkDocs theme's primary color so the label matches the site
+   chrome; override --do-code-label-bg / --do-code-label-fg in your own CSS to
+   set a custom color without touching the theme palette. */
+.code-label {
+    background-color: var(--do-code-label-bg, var(--md-primary-fg-color));
+    color: var(--do-code-label-fg, var(--md-primary-bg-color));
+    border-radius: 1em 1em 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5em 1em;
+    font-size: 0.75rem;
+    font-family: var(--md-code-font-family);
+    position: relative;
+    z-index: 2;
+}
+
+.code-label + .highlight,
+.code-label + .highlight > pre {
+    margin-top: 0;
+}
+
+.code-label + .highlight > pre > code {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* On mobile, Material makes code blocks full-bleed (margin: 1em -.8rem) and
+   squares their corners. Match that on the label above them, so it spans the
+   same width as the block it labels instead of sitting inset by the content
+   padding. Mirrors the Material breakpoint and negative margin exactly. */
+@media screen and (max-width: 44.984375em) {
+    .md-content__inner > .code-label {
+        margin-left: -0.8rem;
+        margin-right: -0.8rem;
+        border-radius: 0;
+    }
+}
+
+/* Secondary label:muted header line inside the block. */
+.secondary-code-label {
+    display: block;
+    color: #081b4b;
+    margin: 0 0 0.25rem;
+}
+
+/* Highlight marks: a rounded yellow pill in prose. box-decoration-break keeps
+   it intact across line wraps instead of breaking into stepped boxes. */
+.md-typeset mark {
+    background: #ffe175;
+    border-radius: 0.2em;
+    color: inherit;
+    padding: 0.12em 0.25em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+/* Inside code blocks a single highlight becomes several per-token <mark>
+   fragments. Drop the horizontal padding and corner radius so the fragments
+   butt together into one continuous bar instead of separate bumps. */
+.md-typeset .highlight mark {
+    padding: 0.12em 0;
+    border-radius: 0;
+}
+
+/* Environments tint the whole block, one color each (DO light palette). */
+pre.environment-local {
+    --md-code-bg-color: #f7f8fb;
+}
+
+pre.environment-second {
+    --md-code-bg-color: #f4fbff;
+}
+
+pre.environment-third {
+    --md-code-bg-color: #fff9f4;
+}
+
+pre.environment-fourth {
+    --md-code-bg-color: #f9fdf6;
+}
+
+pre.environment-fifth {
+    --md-code-bg-color: #fff4fd;
+}
+
+/* Line prefixes:DO renders data-prefix via ::before, color follows the
+   block's text color. */
+pre.prefixed code {
+    white-space: normal;
+}
+
+pre.prefixed code ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+pre.prefixed code ol li {
+    margin: 0;
+    padding: 0;
+    white-space: pre;
+}
+
+pre.prefixed code ol li::before {
+    content: attr(data-prefix);
+    display: inline-block;
+    margin: 0 0.625rem 0 0.25rem;
+    text-align: right;
+    color: var(--md-code-fg-color);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Command / super-user / custom prompts: a tidy left-aligned gutter so the
+   prompt sits flush with the block edge and the command follows after a single
+   space, instead of the stray indent line numbers don't have. */
+pre.prefixed:not(.line_numbers) code ol li {
+    margin-left: -0.25rem;
+}
+
+pre.prefixed:not(.line_numbers) code ol li::before {
+    min-width: 1ch;
+    text-align: left;
+    margin: 0 0.5rem 0 0.25rem;
+}
+
+/* Line numbers:separator bar with widths that grow with the line count. */
+pre.prefixed.line_numbers code ol li {
+    margin-left: -0.25rem;
+}
+
+pre.prefixed.line_numbers code ol li::before {
+    border-right: 1px solid color-mix(in srgb, var(--md-code-fg-color) 50%, transparent);
+    padding-right: 0.25rem;
+    width: 2ch;
+}
+
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 10)::before,
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 10) ~ li::before {
+    width: 3ch;
+}
+
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100)::before,
+pre.prefixed.line_numbers code ol li:first-child:nth-last-child(n + 100) ~ li::before {
+    width: 4ch;
+}
+
+/* YouTube */
+iframe.youtube {
+    max-width: 100%;
+    display: block;
+    margin: 1em auto;
+    border: none;
+}
+
+/* Twitter */
+.twitter {
+    margin: 1em 0;
+}
+
+/* Instagram */
+.instagram {
+    margin: 1em 0;
+}
+
+/* Slideshow */
+.slideshow {
+    position: relative;
+    overflow: hidden;
+    margin: 1em auto;
+    border-radius: 0.25em;
+}
+
+.slideshow .slides {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.slideshow .slides::-webkit-scrollbar {
+    display: none;
+}
+
+.slideshow .slides img {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.slideshow .action {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 2.5em;
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    padding: 0.2em 0.4em;
+    z-index: 1;
+    user-select: none;
+    -webkit-user-select: none;
+    line-height: 1;
+    border-radius: 0.15em;
+    transition: background 0.2s;
+}
+
+.slideshow .action:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.slideshow .action.left {
+    left: 0.5em;
+}
+
+.slideshow .action.right {
+    right: 0.5em;
+}
+
+/* Image Compare */
+.image-compare {
+    position: relative;
+    overflow: hidden;
+    margin: 1em auto;
+    border-radius: 0.25em;
+}
+
+.image-compare img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-compare .image-left {
+    position: absolute;
+    top: 0;
+    left: 0;
+    clip-path: inset(0 calc(100% - var(--value)) 0 0);
+}
+
+.image-compare .image-right {
+    width: 100%;
+}
+
+.image-compare .control {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: ew-resize;
+    z-index: 2;
+}
+
+.image-compare .control::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 4px;
+    height: 100vh;
+    background: white;
+    cursor: ew-resize;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+.image-compare .control::-moz-range-thumb {
+    width: 4px;
+    height: 100vh;
+    background: white;
+    cursor: ew-resize;
+    border: none;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+.image-compare .control-arrow {
+    position: absolute;
+    top: 50%;
+    left: var(--value);
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+    z-index: 3;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+    color: white;
+}
+
+/* Host styles for the 0.4.0 extensions. markwright ships no CSS. */
+
+a.mw-button {
+    display: inline-block;
+    padding: 0.5em 1.2em;
+    border: 2px solid var(--md-primary-fg-color);
+    border-radius: 0.2rem;
+    color: var(--md-primary-fg-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+a.mw-button:hover {
+    background: var(--md-primary-fg-color--light);
+    color: var(--md-primary-bg-color);
+}
+
+a.mw-button.mw-button-primary {
+    background: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+}
+
+a.mw-button.mw-button-primary:hover {
+    background: var(--md-accent-fg-color);
+    border-color: var(--md-accent-fg-color);
+}
+
+/* Grids, after mkdocs-material's: a [grid ...] list shortcut classes the <ul> or <ol>, a paired
+   [grid]/[/grid] wraps blocks in a <div>. Each layout rule carries an element-qualified companion
+   (ul.mw-grid, ol.mw-grid) next to its class form. mkdocs-material's own list rules outrank a bare
+   class on a list: .md-typeset ul:not([hidden]) sets display: flow-root and [dir=ltr] .md-typeset ul
+   sets the list margin and padding, both at a higher weight than .md-typeset .mw-grid, and
+   .md-typeset ul li outranks .md-typeset .mw-grid > li. The companions tie that weight and win on
+   source order, so a list shortcut lays out as a grid; the class form still reaches the <div> block
+   grid, which has no element-qualified rival. Items flow into as many columns as fit, at least 16rem
+   wide, and drop to one column on a narrow screen; mw-grid-cols-N pins an exact count. Cards get a
+   hairline border that lifts into a shadow on hover. */
+.md-typeset .mw-grid,
+.md-typeset ul.mw-grid,
+.md-typeset ol.mw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: 0.4rem;
+    margin: 1em 0;
+    padding: 0;
+    list-style: none;
+}
+
+.md-typeset .mw-grid-cols-1,
+.md-typeset ul.mw-grid-cols-1,
+.md-typeset ol.mw-grid-cols-1 {
+    grid-template-columns: repeat(1, 1fr);
+}
+
+.md-typeset .mw-grid-cols-2,
+.md-typeset ul.mw-grid-cols-2,
+.md-typeset ol.mw-grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.md-typeset .mw-grid-cols-3,
+.md-typeset ul.mw-grid-cols-3,
+.md-typeset ol.mw-grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.md-typeset .mw-grid-cols-4,
+.md-typeset ul.mw-grid-cols-4,
+.md-typeset ol.mw-grid-cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.md-typeset .mw-grid-cols-5,
+.md-typeset ul.mw-grid-cols-5,
+.md-typeset ol.mw-grid-cols-5 {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.md-typeset .mw-grid-cols-6,
+.md-typeset ul.mw-grid-cols-6,
+.md-typeset ol.mw-grid-cols-6 {
+    grid-template-columns: repeat(6, 1fr);
+}
+
+/* Narrow screens collapse every grid to one column; this rule follows the count rules so it wins. */
+@media screen and (max-width: 44.9375em) {
+    .md-typeset .mw-grid,
+    .md-typeset ul.mw-grid,
+    .md-typeset ol.mw-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.md-typeset .mw-grid > li,
+.md-typeset ul.mw-grid > li,
+.md-typeset ol.mw-grid > li,
+.md-typeset .mw-grid-cards > ul > li,
+.md-typeset .mw-grid-cards > ol > li {
+    margin: 0;
+}
+
+/* A list inside a block grid with cards keeps its markup; display: contents drops the list's own box,
+   so each item becomes a cell of the grid and takes the card rules below. The .md-typeset prefix ties
+   mkdocs-material's own list rule on weight and wins on source order. */
+.md-typeset .mw-grid-cards > ul,
+.md-typeset .mw-grid-cards > ol {
+    display: contents;
+}
+
+.md-typeset .mw-card,
+.md-typeset ul.mw-grid-cards > li,
+.md-typeset ol.mw-grid-cards > li,
+.md-typeset .mw-grid-cards > ul > li,
+.md-typeset .mw-grid-cards > ol > li {
+    display: block;
+    padding: 0.8rem;
+    border: 0.05rem solid var(--md-default-fg-color--lightest);
+    border-radius: 0.1rem;
+    transition:
+        border 250ms,
+        box-shadow 250ms;
+}
+
+.md-typeset .mw-card:is(:hover, :focus-within),
+.md-typeset ul.mw-grid-cards > li:is(:hover, :focus-within),
+.md-typeset ol.mw-grid-cards > li:is(:hover, :focus-within) {
+    border-color: transparent;
+    box-shadow: var(--md-shadow-z2);
+}
+
+.md-typeset .mw-card > hr,
+.md-typeset ul.mw-grid-cards > li > hr,
+.md-typeset ol.mw-grid-cards > li > hr,
+.md-typeset .mw-grid-cards > ul > li > hr,
+.md-typeset .mw-grid-cards > ol > li > hr {
+    margin-block: 1em;
+}
+
+.md-typeset .mw-card > :first-child,
+.md-typeset ul.mw-grid-cards > li > :first-child,
+.md-typeset ol.mw-grid-cards > li > :first-child,
+.md-typeset .mw-grid-cards > ul > li > :first-child,
+.md-typeset .mw-grid-cards > ol > li > :first-child {
+    margin-top: 0;
+}
+
+.md-typeset .mw-card > :last-child,
+.md-typeset ul.mw-grid-cards > li > :last-child,
+.md-typeset ol.mw-grid-cards > li > :last-child,
+.md-typeset .mw-grid-cards > ul > li > :last-child,
+.md-typeset .mw-grid-cards > ol > li > :last-child {
+    margin-bottom: 0;
+}
+
+/* An icon that opens a card is its headline icon: larger, and centered on the title beside it. */
+.md-typeset .mw-card > p:first-child > .mw-icon:first-child,
+.md-typeset ul.mw-grid-cards > li > p:first-child > .mw-icon:first-child,
+.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child,
+.md-typeset .mw-grid-cards > ul > li > p:first-child > .mw-icon:first-child,
+.md-typeset .mw-grid-cards > ol > li > p:first-child > .mw-icon:first-child {
+    vertical-align: middle;
+}
+
+.md-typeset .mw-card > p:first-child > .mw-icon:first-child svg,
+.md-typeset ul.mw-grid-cards > li > p:first-child > .mw-icon:first-child svg,
+.md-typeset ol.mw-grid-cards > li > p:first-child > .mw-icon:first-child svg,
+.md-typeset .mw-grid-cards > ul > li > p:first-child > .mw-icon:first-child svg,
+.md-typeset .mw-grid-cards > ol > li > p:first-child > .mw-icon:first-child svg {
+    width: 2em;
+    height: 2em;
+}
+
+/* CSS-only tab sample: markwright emits pymdown-extensions' tabbed alternate_style markup, so a host
+   that already styles .tabbed-set needs nothing. These rules let the demo tabs switch with no
+   JavaScript by tying each radio's :checked state to the label and block at its position. The inputs
+   are the set's first children, so :nth-child(T) names the T-th tab's input. The chains stop at
+   six tabs: a set's seventh tab and beyond would not switch under this sample, so a host that needs
+   more extends the :nth-child lists below. A host with JavaScript, or one that already styles
+   .tabbed-set, has no such ceiling. */
+.md-typeset .mw-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+.md-typeset .mw-tabs > input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+}
+
+.md-typeset .mw-tabs > .tabbed-labels {
+    display: flex;
+    width: 100%;
+    gap: 0.8rem;
+    border-bottom: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .mw-tabs > .tabbed-labels > label {
+    padding: 0.4rem 0;
+    color: var(--md-default-fg-color--light);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.md-typeset .mw-tabs > .tabbed-content {
+    width: 100%;
+}
+
+.md-typeset .mw-tabs > .tabbed-content > .tabbed-block {
+    display: none;
+    padding-top: 0.8rem;
+}
+
+.md-typeset .mw-tabs > input:nth-child(1):checked ~ .tabbed-content > .tabbed-block:nth-child(1),
+.md-typeset .mw-tabs > input:nth-child(2):checked ~ .tabbed-content > .tabbed-block:nth-child(2),
+.md-typeset .mw-tabs > input:nth-child(3):checked ~ .tabbed-content > .tabbed-block:nth-child(3),
+.md-typeset .mw-tabs > input:nth-child(4):checked ~ .tabbed-content > .tabbed-block:nth-child(4),
+.md-typeset .mw-tabs > input:nth-child(5):checked ~ .tabbed-content > .tabbed-block:nth-child(5),
+.md-typeset .mw-tabs > input:nth-child(6):checked ~ .tabbed-content > .tabbed-block:nth-child(6) {
+    display: block;
+}
+
+.md-typeset .mw-tabs > input:nth-child(1):checked ~ .tabbed-labels > label:nth-child(1),
+.md-typeset .mw-tabs > input:nth-child(2):checked ~ .tabbed-labels > label:nth-child(2),
+.md-typeset .mw-tabs > input:nth-child(3):checked ~ .tabbed-labels > label:nth-child(3),
+.md-typeset .mw-tabs > input:nth-child(4):checked ~ .tabbed-labels > label:nth-child(4),
+.md-typeset .mw-tabs > input:nth-child(5):checked ~ .tabbed-labels > label:nth-child(5),
+.md-typeset .mw-tabs > input:nth-child(6):checked ~ .tabbed-labels > label:nth-child(6) {
+    color: var(--md-default-fg-color);
+    border-bottom: 0.1rem solid var(--md-accent-fg-color);
+}
+
+a.mw-lightbox img {
+    cursor: zoom-in;
+    max-width: 100%;
+}
+
+dialog.mw-lightbox-dialog {
+    max-width: 92vw;
+    max-height: 92vh;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+dialog.mw-lightbox-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+dialog.mw-lightbox-dialog img {
+    display: block;
+    max-width: 92vw;
+    max-height: 92vh;
+    cursor: zoom-out;
+}
+
+.mw-icon {
+    display: inline-block;
+    vertical-align: -0.125em;
+}
+
+.mw-icon svg {
+    width: 1.1em;
+    height: 1.1em;
+    fill: none;
+    stroke: currentColor;
+}
+
+.mw-icon svg[fill="currentColor"] {
+    fill: currentColor;
+    stroke: none;
+}
+
+/* Annotations, after mkdocs-material's: a pulsing circled plus that turns to a cross while its card is open.
+   The marker's number stays in the link text for screen readers and print, clipped out of sight on screen. */
+@keyframes mw-annotation-pulse {
+    0% {
+        transform: scale(0.95);
+    }
+
+    75% {
+        transform: scale(1);
+    }
+
+    100% {
+        transform: scale(0.95);
+    }
+}
+
+@media screen {
+    a.mw-annotation {
+        position: relative;
+        display: inline-block;
+        width: 1.1em;
+        height: 1.1em;
+        margin: 0 0.3ch;
+        overflow: hidden;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1;
+        color: transparent;
+        text-decoration: none;
+        text-indent: 2em;
+        white-space: nowrap;
+        vertical-align: -0.15em;
+        cursor: pointer;
+        background-color: var(--md-default-fg-color--lighter);
+        border-radius: 50%;
+        transition: background-color 250ms;
+        animation: mw-annotation-pulse 2000ms infinite;
+    }
+
+    a.mw-annotation::before {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background:
+            linear-gradient(var(--md-default-bg-color), var(--md-default-bg-color)) center / 56% 13% no-repeat,
+            linear-gradient(var(--md-default-bg-color), var(--md-default-bg-color)) center / 13% 56% no-repeat;
+        transition: transform 250ms;
+    }
+
+    .md-typeset a.mw-annotation:is(:hover, :focus-visible),
+    .md-typeset a.mw-annotation.mw-annotation--active {
+        color: transparent;
+        background-color: var(--md-accent-fg-color);
+    }
+
+    a.mw-annotation.mw-annotation--active {
+        animation-play-state: paused;
+    }
+
+    a.mw-annotation.mw-annotation--active::before {
+        transform: rotate(45deg);
+    }
+}
+
+@media print {
+    a.mw-annotation {
+        padding: 0 0.6ch;
+        font-weight: 700;
+        color: var(--md-default-bg-color);
+        text-decoration: none;
+        background: var(--md-default-fg-color--lighter);
+        border-radius: 2ch;
+    }
+
+    .mw-annotation-tooltip {
+        display: none;
+    }
+}
+
+ol.mw-annotations {
+    font-size: 0.9em;
+}
+
+.mw-annotation-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: min(20rem, calc(100vw - 1.6rem));
+    color: var(--md-default-fg-color);
+    pointer-events: none;
+    visibility: hidden;
+    background-color: var(--md-default-bg-color);
+    border-radius: 0.1rem;
+    box-shadow: var(--md-shadow-z2);
+    opacity: 0;
+    transform: translateY(-0.4rem);
+    transition:
+        transform 0ms 250ms,
+        opacity 250ms,
+        visibility 0ms 250ms;
+}
+
+.mw-annotation-tooltip--active {
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+        transform 250ms cubic-bezier(0.1, 0.7, 0.1, 1),
+        opacity 250ms,
+        visibility 0ms;
+}
+
+[data-md-color-scheme="slate"] .mw-annotation-tooltip {
+    outline: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.mw-annotation-tooltip__inner {
+    padding: 0.8rem;
+    font-size: 0.64rem;
+}
+
+.mw-annotation-tooltip__inner.md-typeset > :first-child {
+    margin-top: 0;
+}
+
+.mw-annotation-tooltip__inner.md-typeset > :last-child,
+.mw-annotation-tooltip__inner.md-typeset > :has(+ ol.mw-annotations[hidden]:last-child) {
+    margin-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    a.mw-annotation,
+    a.mw-annotation::before,
+    .mw-annotation-tooltip,
+    .mw-annotation-tooltip--active {
+        transition: none;
+        animation: none;
+    }
+}
