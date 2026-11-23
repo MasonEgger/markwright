@@ -42,7 +42,7 @@ dev = [
     "types-markdown>=3.10.2.20260211",
     "mkdocs>=1.6,<2",
     "mkdocs-material>=9.7.5",
-    "hypothesis>=6.169.0",
+    "hypothesis>=6.170.16",
 ]
 
 [build-system]
