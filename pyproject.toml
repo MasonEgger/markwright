@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE", "LICENSE-Apache-2.0", "NOTICE"]
 dependencies = [
-    "markdown>=3.8.2",
+    "markdown>=3.11.3",
     "pydantic>=2.14.1",
     "pymdown-extensions>=11.0.1",
 ]
