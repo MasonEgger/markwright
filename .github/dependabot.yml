@@ -4,6 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Update uv.lock only. The floors in pyproject.toml are set on purpose, and a
+    # bump there would raise them for every user who installs markwright.
+    versioning-strategy: lockfile-only
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
