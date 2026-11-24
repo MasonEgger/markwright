@@ -38,7 +38,7 @@ from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, OptionError
-from markwright._fences import FencedBlock, find_fenced_blocks
+from markwright._fences import FencedBlock, find_fenced_blocks, strip_quote
 from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
 from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
 from markwright.mermaid import MERMAID_CLASS
@@ -152,8 +152,8 @@ def _leading_directives(lines: list[str], block: FencedBlock) -> Iterator[tuple[
     """Read a fence's leading directive lines, the one grammar the pre stage and the scan share.
 
     A directive is a content line that is exactly ``[label ...]``, ``[secondary_label ...]`` or
-    ``[environment ...]``; the first other line ends the run. The value is everything after the
-    first space of the directive, as written.
+    ``[environment ...]``, after the block quote markers of a fence in a block quote; the first other
+    line ends the run. The value is everything after the first space of the directive, as written.
 
     :param lines: The document's source lines.
     :param block: The fenced block whose content lines are read.
@@ -161,7 +161,7 @@ def _leading_directives(lines: list[str], block: FencedBlock) -> Iterator[tuple[
         ``secondary_label``, or ``environment``.
     """
     for content_line in lines[block.opening + 1 : block.closing]:
-        stripped_line = content_line.strip()
+        stripped_line = strip_quote(content_line, block.quote).strip()
         if label_match := LABEL_RE.match(stripped_line):
             yield "label", label_match.group(1)
         elif secondary_match := SECONDARY_LABEL_RE.match(stripped_line):
@@ -199,9 +199,11 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
     """Extract fence directives and prefix flags, inserting the mw-fence marker comment.
 
     Shared by the in-process preprocessor and the ``mw pre`` stage function. Fences are found
-    by the shared CommonMark scanner, so indented fences and fences in list items count. A marker
-    for an indented fence is written at the fence's indentation and followed by a blank line,
-    so it stays inside the list item and renders as its own block.
+    by the shared CommonMark scanner, so indented fences, fences in list items, and fences behind
+    block quote markers count. A marker for an indented fence is written at the fence's indentation
+    and followed by a blank line, so it stays inside the list item and renders as its own block. A
+    marker for a fence in a block quote is written behind the same quote markers, with a blank quoted
+    line on each side, so it stays inside the quote and outside the paragraph before the fence.
 
     :param lines: Source lines to process.
     :param allowed_environments: Allowed environment names, or ``None`` to allow every environment;
@@ -216,8 +218,9 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
         # Parse prefix flags from the info string; the fence line keeps the language
         cleaned_info, prefix_metadata = _parse_prefix_from_info(block.info.strip())
         fence_line = lines[block.opening]
+        line_start = block.quote + block.indent
         if prefix_metadata:
-            fence_line = block.indent + block.marker + cleaned_info
+            fence_line = line_start + block.marker + cleaned_info
 
         # Directives are the leading content lines; the first other line, or an environment
         # outside the allowlist, ends them
@@ -230,9 +233,13 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
             content_index += 1
 
         if metadata:
-            output.append(f"{block.indent}{encode_marker(MARKER_NAME, metadata)}")
-            if block.indent:
-                output.append("")
+            # A blank line is the bare quote markers behind a block quote, and empty otherwise
+            blank_line = block.quote.rstrip()
+            if block.quote:
+                output.append(blank_line)
+            output.append(f"{line_start}{encode_marker(MARKER_NAME, metadata)}")
+            if line_start:
+                output.append(blank_line)
         output.append(fence_line)
         output.extend(lines[content_index : block.closing + 1])
         cursor = block.closing + 1

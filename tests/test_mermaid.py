@@ -100,6 +100,10 @@ class TestMermaidExpandSource:
         expected = f'{before}{indent}<pre class="mermaid">graph LR\n\n{indent}  A--&gt;B\n{indent}</pre>'
         assert expand_source(source) == expected
 
+    def test_fence_behind_a_quote_marker_unchanged(self) -> None:
+        source = "> ```mermaid\n> graph LR\n> ```"
+        assert expand_source(source) == source
+
     def test_unclosed_fence_unchanged(self) -> None:
         source = "```mermaid\ngraph LR"
         assert expand_source(source) == source

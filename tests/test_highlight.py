@@ -374,6 +374,18 @@ class TestHighlightTildeFence:
         assert expand_source(source) == source
 
 
+class TestHighlightBlockQuoteFence:
+    """``expand_source`` leaves a marker in a fence behind a block quote marker for the HTML stage."""
+
+    def test_marker_in_a_quoted_backtick_fence_untouched(self) -> None:
+        source = "> ```\n> <^>x<^>\n> ```"
+        assert expand_source(source) == source
+
+    def test_marker_in_a_quoted_tilde_fence_untouched(self) -> None:
+        source = "> ~~~\n> <^>x<^>\n> ~~~"
+        assert expand_source(source) == source
+
+
 class TestHighlightPostStageScope:
     """The post stage reads markers from rendered text only, never from markup."""
 

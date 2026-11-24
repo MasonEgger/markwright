@@ -3,6 +3,15 @@
 All notable changes to markwright are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- A fenced code block inside a block quote, such as a `> [!NOTE]` alert, is now read as code.
+  Its `[label]`, `[secondary_label]`, and `[environment]` directives and its prefix flags apply in-process and through `mw pre | renderer | mw post`; they used to stay in the block as text.
+  `mw pre` also leaves a highlight marker, an icon shortcode, and a directive line inside such a block for the code, where it used to rewrite them as prose.
+  A `mermaid` fence inside a block quote stays a code block.
+
 ## [0.4.0] - 2026-11-22
 
 Six new extensions that cover the Material for MkDocs authoring features (#16), a `tabs` extension plus block grids and cards on the `grid` extension (#30), and the docs-site pieces that demonstrate them.
@@ -146,6 +155,7 @@ With default settings, output is unchanged for documents 0.2.0 already rendered 
 
 - First release: the highlight, fence, YouTube, CodePen, Twitter, Instagram, slideshow, and image compare extensions, and the `mw` pipeline CLI.
 
+[Unreleased]: https://github.com/MasonEgger/markwright/compare/v0.4.0...HEAD
 [0.4.0]: https://github.com/MasonEgger/markwright/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MasonEgger/markwright/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MasonEgger/markwright/compare/v0.1.0...v0.2.0

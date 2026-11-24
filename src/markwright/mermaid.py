@@ -55,7 +55,8 @@ def _expand_lines(lines: list[str], defer: Callable[[str], str] | None = None) -
     result: list[str] = []
     next_line = 0
     for block in find_fenced_blocks(lines):
-        if block.info.strip() != MERMAID_CLASS:
+        # A fence behind block quote markers stays a code block: diagrams are a top-level feature
+        if block.info.strip() != MERMAID_CLASS or block.quote:
             continue
 
         result.extend(lines[next_line : block.opening])

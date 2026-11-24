@@ -94,6 +94,15 @@ This is how the code samples above print the raw `<^>` syntax.
 In text, backslashes before a marker are read in pairs: two of them print one backslash and leave the marker live, three print one backslash and a literal marker.
 A literal marker is written `&lt;&#94;&gt;` in the HTML, so running `mw post` again leaves it alone.
 
+In code a backslash is an ordinary character, so a marker directly after one is always read as escaped.
+To highlight text that follows a backslash, open the highlight before the backslash:
+
+```
+C:\Users\<^>\sammy\<^>\Documents
+```
+
+Result: `C:\Users<^>\sammy<^>\Documents`
+
 ## HTML Contract
 
 Prose and inline code get a `<mark>` element:

@@ -656,6 +656,39 @@ class TestFenceScanner:
         assert result == '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n```\n```\n'
 
 
+class TestFenceInBlockQuote:
+    """A fence behind a block quote marker, as in a ``> [!NOTE]`` alert, gets its directives and prefix flags."""
+
+    ALERT = "> [!NOTE]\n> Run this:\n> ```command\n> [label restart.sh]\n> systemctl restart nginx\n> ```\n"
+
+    def test_marker_is_its_own_quoted_block_before_the_fence(self) -> None:
+        assert expand_source(self.ALERT) == (
+            "> [!NOTE]\n> Run this:\n>\n"
+            '> <!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$", "label": "restart.sh"} -->\n'
+            ">\n> ```bash\n> systemctl restart nginx\n> ```\n"
+        )
+
+    def test_in_process_render_applies_the_label_and_prefix_inside_the_quote(self) -> None:
+        result = render_fence(self.ALERT)
+        quote_end = result.index("</blockquote>")
+        assert result.index('<div class="code-label" title="restart.sh">restart.sh</div>') < quote_end
+        assert result.index('<li data-prefix="$">systemctl') < quote_end
+        assert "[label" not in result
+        assert "mw-fence" not in result
+        assert "<p><div" not in result
+
+    def test_fence_without_directives_is_unchanged(self) -> None:
+        source = "> ```bash\n> echo hi\n> ```\n"
+        assert expand_source(source) == source
+
+    def test_quoted_looking_code_line_in_a_plain_fence_is_not_a_directive(self) -> None:
+        source = "```\n> [label a.sh]\n```\n"
+        assert expand_source(source) == source
+
+    def test_environment_behind_a_quote_marker_is_listed(self) -> None:
+        assert environment_names("> ```\n> [environment local]\n> ```\n", skip_mermaid=True) == ["local"]
+
+
 class TestEnvironmentNames:
     """Tests the public scan that lists the environment names a document's fence directives name."""
 
