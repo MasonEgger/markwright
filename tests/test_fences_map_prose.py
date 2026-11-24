@@ -161,6 +161,21 @@ class TestMapProseSkipBlocksOpenedBy:
         assert "\nB\n" in self.skip(source)
 
 
+class TestMapProseBlockQuote:
+    def test_leaves_a_fence_behind_a_quote_marker_untouched(self) -> None:
+        source = "> note\n> ```\n> code here\n> ```\nafter"
+
+        assert map_prose(source, str.upper) == "> NOTE\n> ```\n> code here\n> ```\nAFTER"
+
+    def test_a_quoted_fence_the_quote_ends_before_closing_is_prose(self) -> None:
+        assert map_prose("> ```\n> code\nafter\n```", str.upper) == "> ```\n> CODE\nAFTER\n```"
+
+    def test_a_deeper_quoted_fence_line_is_code_text_not_the_closer(self) -> None:
+        source = "> ```\n> > ```\n> code\n> ```\nafter"
+
+        assert map_prose(source, str.upper) == "> ```\n> > ```\n> code\n> ```\nAFTER"
+
+
 class TestMapProseKeepingInlineCode:
     def test_transform_sees_the_code_span_inside_the_run(self) -> None:
         assert map_prose("say `x` now", str.upper, skip_inline_code=False) == "SAY `X` NOW"

@@ -551,6 +551,22 @@ class TestRoundTripFenceOptions:
         assert _normalize(pipeline) == _normalize(in_process)
 
 
+class TestRoundTripBlockQuote:
+    """A fence behind a block quote marker renders the same through the pipeline and in-process."""
+
+    def test_alert_fence_matches_in_process_render(self) -> None:
+        names = list(registry.EXTENSION_NAMES)
+        source = (
+            "> [!NOTE]\n> Run this:\n> ```command\n> [label restart.sh]\n"
+            "> systemctl restart <^>nginx<^>\n> ```\n> Then check it.\n"
+        )
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names, None)
+        assert '<div class="code-label" title="restart.sh">restart.sh</div>' in pipeline
+        assert '<li data-prefix="$">' in pipeline
+        assert "<mark>nginx</mark>" in pipeline
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names))
+
+
 # Plain words for prose, labels, and code; markwright's grammar supplies the structure
 _WORDS = st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=8)
 _PHRASES = st.lists(_WORDS, min_size=1, max_size=4).map(" ".join)

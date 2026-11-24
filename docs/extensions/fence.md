@@ -51,7 +51,7 @@ md = markdown.Markdown(
 
 All three options apply the same way in-process, through `mw render`, and through the `mw pre | renderer | mw post` pipeline.
 
-Directives work in any fenced code block CommonMark recognizes, including a fence indented up to three spaces or one nested inside a list item.
+Directives work in any fenced code block CommonMark recognizes, including a fence indented up to three spaces, one nested inside a list item, and one inside a block quote (a `> [!NOTE]` alert, for example).
 An unclosed fence is not a code block, so its directives are left as text.
 
 See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.

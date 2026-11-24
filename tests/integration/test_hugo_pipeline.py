@@ -282,6 +282,24 @@ def _pipeline_through_hugo(tmp_path: Path, source: str) -> str:
     return _run_mw(["post"], (site / "public" / "page" / "index.html").read_text())
 
 
+@requires_tools
+def test_block_quote_fence_survives_hugo(tmp_path: Path) -> None:
+    source = (
+        "> [!NOTE]\n> Run this:\n> ```command\n> [label restart.sh]\n"
+        "> systemctl restart <^>nginx<^>\n> ```\n> Then check it.\n"
+    )
+
+    final = _pipeline_through_hugo(tmp_path, source)
+
+    # The label, the prefix, and the in-code highlight all land inside the quote
+    quote_end = final.index("</blockquote>")
+    assert final.index('<div class="code-label" title="restart.sh">restart.sh</div>') < quote_end
+    assert final.index('class="prefixed command chroma"') < quote_end
+    assert final.index("<mark>nginx</mark>") < quote_end
+    assert "[label" not in final
+    assert "mw-fence" not in final
+
+
 def _mindmap_fence(indent: str, leaf: str) -> str:
     """Build a mermaid fence whose text has a blank line and two levels of its own indentation.
 

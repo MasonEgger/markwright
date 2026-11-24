@@ -16,8 +16,12 @@ _REGION_CACHE_SIZE = 8
 # Python-Markdown expands a tab to four columns, so every pattern below runs on tab-expanded text.
 _TAB_WIDTH = 4
 
-# An opening fence: indentation, then three or more backticks or tildes, then the info string
-_FENCE_OPEN_RE = re.compile(r"^(?P<indent>[ ]*)(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
+# One block quote marker: up to three columns of indentation, ">", and the optional space after it
+_QUOTE_MARKER = r"[ ]{0,3}>[ ]?"
+# An opening fence: any block quote markers, indentation, three or more backticks or tildes, then the info string
+_FENCE_OPEN_RE = re.compile(
+    rf"^(?P<quote>(?:{_QUOTE_MARKER})*)(?P<indent>[ ]*)(?P<marker>`{{3,}}|~{{3,}})(?P<info>.*)$"
+)
 # A list item's first line: indentation, a bullet or ordinal marker, then content
 _LIST_ITEM_RE = re.compile(r"^(?P<indent>[ ]*)(?:[-*+]|\d{1,9}[.)])[ ]+\S")
 # The block openers whose body is content, matched against the stripped line and mirroring the grammars of
@@ -69,8 +73,10 @@ class FencedBlock(BaseModel):
 
     :ivar opening: Line index of the opening fence.
     :ivar closing: Line index of the closing fence.
-    :ivar indent: The opening fence's indentation with tabs expanded to four columns, as spaces, repeated
-        on lines the pre stage inserts.
+    :ivar quote: The block quote markers before the opening fence as written (``"> "``), empty when the
+        fence is not in a block quote, repeated on lines the pre stage inserts.
+    :ivar indent: The opening fence's indentation after any block quote markers, with tabs expanded to
+        four columns, as spaces, repeated on lines the pre stage inserts.
     :ivar marker: The opening fence run, for example ``\\`\\`\\``` or ``~~~~``.
     :ivar info: The info string after the opening fence, unstripped.
     """
@@ -79,6 +85,7 @@ class FencedBlock(BaseModel):
 
     opening: int
     closing: int
+    quote: str
     indent: str
     marker: str
     info: str
@@ -91,12 +98,32 @@ def find_fenced_blocks(lines: list[str]) -> list[FencedBlock]:
     item, under the item's content, or in a block opener's body), a tab counts as four columns, a
     backtick fence's info string holds no backtick, and the closing fence uses the same character, is
     at least as long, and carries nothing else. An unclosed fence is not a code block, matching
-    ``pymdownx.superfences``.
+    ``pymdownx.superfences``. A fence may sit behind block quote markers (``> ``); every line through
+    its closing fence then carries as many markers, and the quote ending first leaves it unclosed.
 
     :param lines: Source lines.
     :returns: The fenced blocks in source order; nested fences inside a block are content.
     """
     return list(_code_regions(tuple(lines))[0])
+
+
+def _quote_re(quote: str) -> re.Pattern[str]:
+    """Build the pattern for the block quote markers a fenced block's lines start with.
+
+    :param quote: The block's quote markers, empty for a block outside a block quote.
+    :returns: A pattern that matches, at the start of a line, as many markers as ``quote`` holds.
+    """
+    return re.compile(f"^(?:{_QUOTE_MARKER}){{{quote.count('>')}}}")
+
+
+def strip_quote(line: str, quote: str) -> str:
+    """Remove a fenced block's block quote markers from one of its lines.
+
+    :param line: A line of the block.
+    :param quote: The block's quote markers, empty for a block outside a block quote.
+    :returns: The line after the markers; the whole line when ``quote`` is empty.
+    """
+    return _quote_re(quote).sub("", line, count=1)
 
 
 def _indent_width(line: str) -> int:
@@ -320,18 +347,23 @@ def _code_regions(lines: tuple[str, ...]) -> tuple[tuple[FencedBlock, ...], froz
             line_index += 1
             continue
 
-        # The closing fence: same character, at least as long, nothing after it
+        # The closing fence: same character, at least as long, nothing after it. Behind block quote
+        # markers every line through it carries the opener's markers; the quote ending first leaves it unclosed
         marker = open_match["marker"]
-        closing = next(
-            (
-                scan_index
-                for scan_index in range(line_index + 1, len(lines))
-                if (stripped := lines[scan_index].strip()).startswith(marker)
+        quote_re = _quote_re(open_match["quote"])
+        closing = None
+        for scan_index in range(line_index + 1, len(lines)):
+            quote_match = quote_re.match(lines[scan_index])
+            if quote_match is None:
+                break
+            content = lines[scan_index][quote_match.end() :]
+            if (
+                (stripped := content.strip()).startswith(marker)
                 and set(stripped) == {marker[0]}
-                and _indent_width(lines[scan_index]) <= len(open_match["indent"]) + 3
-            ),
-            None,
-        )
+                and _indent_width(content) <= len(open_match["indent"]) + 3
+            ):
+                closing = scan_index
+                break
         if closing is None:
             line_index += 1
             continue
@@ -340,6 +372,7 @@ def _code_regions(lines: tuple[str, ...]) -> tuple[tuple[FencedBlock, ...], froz
             FencedBlock(
                 opening=line_index,
                 closing=closing,
+                quote=open_match["quote"],
                 indent=open_match["indent"],
                 marker=marker,
                 info=open_match["info"],
