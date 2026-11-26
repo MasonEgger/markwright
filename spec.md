@@ -39,6 +39,7 @@ Likely future directions are tracked under Roadmap Deferred.
 - Container pairing scans lines through `_fences`, so an opener or closer inside fenced or indented code stays literal; no Markdown parser is added
 - Config law (see `docs/config.md`, Config Rules): omitting a key means its default, a list names exactly what it holds (empty allowlist allows nothing, empty denylist removes nothing), a setting that makes a feature a no-op is legal but emits a `ConfigWarning`, and every option is validated at the boundary with a `ConfigError`, never a traceback
 - Library code raises; only the `mw` CLI boundary turns exceptions into exit codes
+- A diagnostic never changes the rendered HTML or an exit code; it only reports
 - `__init__.py` re-exports only the public API with `__all__`
 - The `do-markdownit` name is preserved in attribution (NOTICE, README); the package and CLI use the `markwright` / `mw` brand
 - Never commit to `main`; branch, open a PR, squash-merge, and only Mason merges
@@ -71,6 +72,7 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - 0.4.0 release: PR #35 merged on 2026-11-22 and tagged `v0.4.0`; done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; version 0.4.0, the `markdown` floor at `>=3.8.2`, and the dev dependency `mkdocs>=1.6,<2`; it closes #16, #20, #29, #30, #31, #32, #33, and #34
 
 **Upcoming:**
+- polish-gaps: close every remaining `Known gap` and the polish findings, on branch `polish-gaps` stacked on PR #39: in-process diagnostics as `Diagnostic` records that name the true source line, the docs-site MkDocs hook for strict mode, multi-line comment regions, markwright syntax inside raw HTML blocks, embeds and marked fences as their own blocks, highlighter attributes beside a prefix flag, line-number tables, and line prefixes around wrapping spans; it ships when spec.md holds no `Known gap` sentence
 - Bartleby follow-up to 0.4.0, in the Bartleby repo: `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports move to the public `disallowed_environments`
 
 **Deferred:**
@@ -79,20 +81,17 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 - `youtube-nocookie` option: reduces tracking even for `eager`; worth a separate issue
 - `mw-` rename of the existing embed CSS classes: align them with the `mw-embed` preview hooks; nothing blocks it before 1.0, but it is a separate concern from the containers phase
 - Richer Material-parity features past the 0.4.0 contracts: lightbox galleries, captions, and `srcset`; annotation forms beyond a block plus its following list; each 0.4.0 extension stays minimal, revisit per issue
-- `mw pre` parity inside Markdown constructs it cannot see without a parser: a highlight marker or icon shortcode inside an image's alt text, a link title, a link destination, a link reference definition, or the text content of a raw HTML block is rewritten by `mw pre` (a block that opens with exactly the mermaid stage's `<pre class="mermaid">` tag is the one exception: the icons stage leaves it literal), which leaves markup inside an attribute or breaks the link, while in-process a marker in alt text, a title, or a destination is consumed and every other case stays literal; a directive line inside a raw HTML block or a `<pre>` block is expanded by `mw pre`, and in-process too when it is a `[grid]`, `[card]`, or `[tab]` container line (those preprocessors run ahead of `html_block`), while any other directive line there is left literal in-process; the icons pre stage skips HTML tags, comments, and autolinks (the single-line grammar), and the highlight pre stage does not, so a pair inside an autolink or a tag's attribute breaks the link or the tag; the rest needs a block-level scanner or a Decision that the CLI's behavior is the reference, revisit per issue
 - Grid extras: card column spans (`[card 2]`), per-breakpoint column counts (`[grid 1 2 3]`), and config defaults for columns, gap, or minimum width; revisit per issue
 - Tab extras: a marker that selects a tab other than the first, and one that forces a new set right after another; revisit when a page needs either
 - Move the docs site to Bartleby: once Bartleby reaches parity and releases, before May 5, 2027; the docs keep loading markwright's own CSS and JavaScript samples through Bartleby's `extra_css` and `extra_js`, so the samples stay exercised
 - Full `mw pre` idempotence for a document with container problems: a line that already carries a problem marker is not read as a directive on a second pass, so a `[card]` outside a grid leaves its `[/card]` to gain a stray-closer report, and a `[grid]` left literal by a stray `[/grid]` is read as the list shortcut; a valid document is unaffected, revisit if a pipeline runs `mw pre` twice
 - pymdown-extensions 13.x: checked on 2026-11-16 by the plan review (markwright's suite passes on 13.0 and 13.1 with `mw render` byte-identical to 12.2, and Bartleby's suite gives the same result on 13.1 as on 12.2); re-check when a release past 13.1 appears
-- In-process diagnostics: a way for `mw render`, MkDocs, and a host that renders through Python-Markdown to collect what `mw post --warn` reports; today only the pipeline reports, and `disallowed_environments` gives a host the disallowed environment names; revisit when a host asks for the rest
-- Problem report line numbers: a line map through `run_pre`, so a report names the source line even when an earlier stage added lines above it or `mw pre` passed a front matter block through above it; the report already names the directive and the reason
 - Fence marker binding: bind an `mw-fence` marker only to a `<pre>` that follows it with nothing but whitespace between; every case that differs needs a fence the renderer failed to render, unchanged since 0.1.0
 - `[button]` argument checks: a style word followed by one token reads the style word as the URL; it needs an author mistake and is visibly wrong on the page
 - Pre-stage scan cost: the fence and indented-code scan runs once per stage and is quadratic for a document of unclosed fence openers, and two directive regexes backtrack on a line of thousands of spaces; ordinary documents scale linearly (about 0.09 s for the 25 pages under `docs/` on the development machine, measured by timing `run_pre` over each page, with the result of a scan remembered per document so stages that leave the text unchanged share it); a stage that rewrites the text still makes the next stage scan it again, and one scan per `run_pre` shared by every stage is the fix, and a host that renders untrusted Markdown should know before 1.0
 - Parser hygiene (cut from the 0.4.0 plan on 2026-11-20): no abbreviated long options, the missing-subcommand usage on stderr, `--config ""` as an error, and the source named in every no-op warning; none changes a correct invocation
 - Hardening for input no author types (cut from the 0.4.0 plan on 2026-11-20): one integer helper for directive and annotation integers, and `decode_marker` skipping a payload no JSON reader accepts; each needs a digit string past 4,300 characters, a non-ASCII digit, or a marker comment edited by hand, and ends the stage in a traceback today; revisit if a host renders untrusted Markdown
-- Multi-line HTML comment region (cut from the 0.4.0 plan on 2026-11-20): `_fences` reading a block from `<!--` to `-->` as a region its callers skip, so a commented-out directive stays commented out; the `Known gap` sentence under Rules Every Feature Follows says what happens today; revisit per issue
+- A MkDocs plugin in the package: the docs site's hook (`docs/hooks/markwright.py`) is the worked example of routing `RenderWarning` into MkDocs' logger for `--strict`; a plugin needs an entry point in `pyproject.toml` and ties markwright to MkDocs, which reaches end of life on May 5, 2027; revisit if a second MkDocs host asks
 - Release pipeline hygiene: actions pinned by SHA, protection rules on the `pypi` environment and on `main`, a tag-equals-version check in the publish workflow, and the `Typing :: Typed` classifier; none changes what installs or runs
 
 ## Goals
@@ -120,25 +119,25 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 
 | Feature | Origin | State | Open Work | Docs | Code |
 |---------|--------|-------|-----------|------|------|
-| highlight | ported | Released 0.1.0 | none | `extensions/highlight.md` | `highlight.py` |
-| fence | ported | Released 0.1.0 | none | `extensions/fence.md` | `fence.py` |
-| youtube | ported | Released 0.1.0 | none | `extensions/youtube.md` | `youtube.py` |
-| codepen | ported | Released 0.1.0 | none | `extensions/codepen.md` | `codepen.py` |
-| twitter | ported | Released 0.1.0 | none | `extensions/twitter.md` | `twitter.py` |
-| instagram | ported | Released 0.1.0 | none | `extensions/instagram.md` | `instagram.py` |
-| slideshow | ported | Released 0.1.0 | none | `extensions/slideshow.md` | `slideshow.py` |
-| image_compare | ported | Released 0.1.0 | none | `extensions/image-compare.md` | `image_compare.py` |
-| `mw` CLI | own | Released 0.1.0 | none | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
+| highlight | ported | Released 0.1.0 | polish-gaps | `extensions/highlight.md` | `highlight.py` |
+| fence | ported | Released 0.1.0 | polish-gaps | `extensions/fence.md` | `fence.py` |
+| youtube | ported | Released 0.1.0 | polish-gaps | `extensions/youtube.md` | `youtube.py` |
+| codepen | ported | Released 0.1.0 | polish-gaps | `extensions/codepen.md` | `codepen.py` |
+| twitter | ported | Released 0.1.0 | polish-gaps | `extensions/twitter.md` | `twitter.py` |
+| instagram | ported | Released 0.1.0 | polish-gaps | `extensions/instagram.md` | `instagram.py` |
+| slideshow | ported | Released 0.1.0 | polish-gaps | `extensions/slideshow.md` | `slideshow.py` |
+| image_compare | ported | Released 0.1.0 | polish-gaps | `extensions/image-compare.md` | `image_compare.py` |
+| `mw` CLI | own | Released 0.1.0 | polish-gaps | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
 | config | own | Released 0.2.0 | none | `config.md` | `config.py` |
-| host API | own | Released 0.3.0 | none | `config.md` | `config.py`, `__init__.py` |
+| host API | own | Released 0.3.0 | polish-gaps | `config.md` | `config.py`, `__init__.py` |
 | click-to-load | own | Released 0.3.0 | none | `click-to-load.md` | `_embed_load.py` |
-| button | own | Released 0.4.0 | none | `extensions/button.md` | `button.py` |
-| lightbox | own | Released 0.4.0 | none | `extensions/lightbox.md` | `lightbox.py` |
-| mermaid | own | Released 0.4.0 | none | `extensions/mermaid.md` | `mermaid.py` |
-| icons | own | Released 0.4.0 | none | `extensions/icons.md` | `icons.py` |
-| annotate | own | Released 0.4.0 | none | `extensions/annotate.md` | `annotate.py` |
-| grid and cards | own | Released 0.4.0 | none | `extensions/grid.md` | `grid.py`, `_containers.py` |
-| tabs | own | Released 0.4.0 | none | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
+| button | own | Released 0.4.0 | polish-gaps | `extensions/button.md` | `button.py` |
+| lightbox | own | Released 0.4.0 | polish-gaps | `extensions/lightbox.md` | `lightbox.py` |
+| mermaid | own | Released 0.4.0 | polish-gaps | `extensions/mermaid.md` | `mermaid.py` |
+| icons | own | Released 0.4.0 | polish-gaps | `extensions/icons.md` | `icons.py` |
+| annotate | own | Released 0.4.0 | polish-gaps | `extensions/annotate.md` | `annotate.py` |
+| grid and cards | own | Released 0.4.0 | polish-gaps | `extensions/grid.md` | `grid.py`, `_containers.py` |
+| tabs | own | Released 0.4.0 | polish-gaps | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
 
 ### Rules Every Feature Follows
 
@@ -160,7 +159,18 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
   A definition (`: text`) needs a line before it, since extra `def_list` reads a leading colon line as a paragraph; markwright does not check that the preceding line is a term, and it does not read `md_in_html` or `attr_list` blocks.
   A directive's expansion starts every line at the directive line's indentation, which keeps it in the body in-process; a directive at column 0 expands byte-identically.
   `mw pre` follows the opener, since a document that carries `!!!`, `???`, or `===` is written for a renderer that reads them; under a CommonMark renderer with no such extension the body is indented code, and an expanded directive there shows as code text.
-  Known gap (directive in a multi-line HTML comment): `_fences` does not read a multi-line HTML comment as a region its callers skip, so `mw pre` writes a tab, grid, or annotate marker comment inside the author's comment, the marker's `-->` ends that comment, and the commented-out text is published; for a fence directive the in-process path does the same.
+  Planned (polish-gaps): a multi-line HTML comment is a region every stage skips, as CommonMark's HTML block reads a comment: a line that starts, after up to three columns of indentation, with `<!--` and holds no `-->` opens it, and the first later line that holds `-->` closes it.
+  A directive, a fence, a highlight marker, or an icon shortcode inside it stays as the author wrote it, in both paths, so commented-out text stays commented out.
+  A comment that closes on its opening line is not a region, so the marker comments markwright emits keep being read.
+  Today `mw pre` writes a tab, grid, or annotate marker inside the author's comment, the marker's `-->` ends that comment, and the commented-out text is published; for a fence directive the in-process path does the same.
+- Raw HTML is not a barrier.
+  Planned (polish-gaps): markwright syntax works inside a raw HTML block the author wrote (a `<div>` and its content), in both paths, as containers already do: a directive line expands, and a highlight pair or an icon shortcode in the text between tags renders.
+  In-process the directive preprocessors run ahead of Python-Markdown's `html_block` (20), at 21 beside grid and tabs, and the highlight and icons source transforms run over the lines of a raw HTML block, which the inline processors never see.
+  In-process a block runs through its matching closing tag, as Python-Markdown reads it, and through `mw pre` through the first blank line, as CommonMark reads it; the markwright markup agrees in both paths, and what each renderer does with plain text after a blank line inside a block stays the renderer's.
+  The highlight pre stage skips HTML tags, comments, and autolinks, as the icons pre stage does, so a marker inside a tag's attribute never breaks the tag.
+  An embed inside a raw HTML block gains no blank line around it, since under CommonMark a blank line ends the block and turns the lines after it into Markdown.
+  Planned (polish-gaps): a `<pre>`, `<script>`, `<style>`, or `<textarea>` block (CommonMark's first HTML block kind, which runs through its closing tag in both renderers) is verbatim content: every pre stage skips it, in both paths, the way it skips fenced code, so a block the mermaid stage emitted keeps its text with no rule of its own.
+  Today a directive line inside a raw HTML block expands through `mw pre`, and in-process only when it is a `[grid]`, `[card]`, or `[tab]` container line; a highlight pair or a shortcode in one renders through `mw pre` and stays literal in-process; the highlight pre stage rewrites a pair inside a tag's attribute; and the icons pre stage skips only a block that opens with exactly `<pre class="mermaid">`.
 - Two paths give one result: the in-process Python-Markdown render and `mw pre | renderer | mw post` produce the same HTML for the same source apart from blank lines between blocks, and `tests/test_roundtrip.py` asserts it after dropping blank lines outside `<pre>`, a hypothesis property over markwright's grammar included.
   Where the two paths differ on a document an author is likely to write, the entry says so under `Known gap`.
 - A pre stage that needs its post stage hands data over in a marker comment, `<!-- NAME:{JSON} -->`, with `"version": 1` in the payload.
@@ -184,6 +194,7 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
   Exactly one backslash is removed for an escape, a paired marker's characters are removed, and every tag stays where it is, so a `<span>` that held only a backslash or part of a marker remains, empty; a revealed literal marker is written `&lt;&#94;&gt;`, so a second `mw post` leaves it alone.
   In prose `mw pre` reads the backslashes before a marker in pairs: an odd run escapes the marker, and `mw pre` then adds one backslash and writes the marker's `<` as `&lt;`, so Python-Markdown and a CommonMark renderer both hand `mw post` the escaped form; an even run leaves the marker live, as the in-process path already reads it.
 - The pre stage wraps prose markers only, outside fenced code, indented code, and inline code spans.
+  Planned (polish-gaps): it also skips HTML tags, comments, and autolinks, and works inside a raw HTML block, by the raw HTML rule under Rules Every Feature Follows.
   The post stage reads the escaped `&lt;^&gt;` form from text tokens only (never an attribute, a `<script>`, a `<style>`, a `<title>`, or a `<textarea>`, whose content a browser shows as characters) and wraps each text run between a pair on its own, so a `<mark>` never crosses a syntax-highlight `<span>`.
 - It takes no options.
 
@@ -192,11 +203,16 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 - Directives are the first lines inside a fence: `[label TEXT]`, `[secondary_label TEXT]`, and `[environment NAME]`.
 - Prefix flags go in the info string, comma-separated, with the language before or after them (`line_numbers,python`): `line_numbers`, `command` (a `$` prefix), `super_user` (a `#` prefix), and `custom_prefix(TEXT)` with `\s` for a space.
   The last three set the language to `bash` when the info string names none.
+  Planned (polish-gaps): the info string splits at its first space or `{`: before it are the comma-separated language and flags, and the rest passes through untouched, so a highlighter attribute keeps working beside a flag; `command hl_lines="1"`, `command title="x.sh"`, and Hugo's `command {hl_lines=[1]}` all give the `$` prefix, and `mw pre` writes `bash hl_lines="1"`.
+  Today the whole string is split on commas, so a flag followed by an attribute is not read: the prefix is dropped in both paths, and under Hugo the flag is also taken as the language, which turns syntax highlighting off.
 - Output: `<div class="code-label" title="TEXT">` before the block, `<div class="secondary-code-label" title="TEXT">` inside the `<code>`, `environment-NAME` on the `<pre>`, and for a prefix `prefixed TYPE` on the `<pre>` with each line wrapped in `<ol><li data-prefix="...">`.
 - Directives work in every closed fence `_fences` finds (indented up to three columns, inside a list item, or behind block quote markers); an unclosed fence is read as prose, so its directives stay text.
   For a fence behind block quote markers `mw pre` writes the marker comment behind the same markers, with a blank quoted line (`>`) on each side, so it stays inside the quote and outside the paragraph before the fence under Python-Markdown and under a CommonMark renderer.
-  Known gap (fence in a tight list): in-process, an indented fence with a directive or prefix flag directly under a tight list item's text ends the list at that item; put a blank line before the fence.
+  Planned (polish-gaps): a fence that gains a marker is always its own block: when the line before the marker is not blank, the pre stage writes a blank line there (empty, or the bare quote markers for a quoted fence), in both paths, so a fence directly under a tight list item's text stays in that item and the item renders loose, as Hugo already renders it; a list with no marked fence stays tight.
+  Today, in-process, such a fence ends the list at that item.
 - Options: `allowed_environments` (omitted allows every name; an empty list allows none and warns; an unlisted `[environment NAME]` line stays in the code as text), `label_class`, and `secondary_label_class`.
+  Planned (polish-gaps): an unlisted environment is reported: the `mw-fence` marker carries `disallowed_environment` with the name (a fence with nothing else to carry gets a marker with only that field), still version 1 since unknown fields are ignored, and the post stage reports it in both paths.
+  Today no path reports it, and a host gets the names from `disallowed_environments`.
   `label_class` and `secondary_label_class` accept space-separated class tokens of letters, digits, `-`, and `_`; any other value is a `ConfigError`, or an `OptionError` in-process.
   `fence.py` exposes the scan (`environment_names`) that lists the environment names a document's fence directives name, by the same rules the pre stage extracts them with; the host API function below is built on it.
 - The `mw-fence` marker (version 1: `label`, `secondary_label`, `environment`, `prefix_type`, `prefix_value`, each present only when set) sits before the fence at the fence's indentation, followed by a blank line when the fence is indented.
@@ -204,8 +220,11 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
   The fence itself is kept, so the renderer still highlights the code, and the post stage styles the first `<pre>` or `<code>` after the marker and before the next one, however far away, an inline code span included.
 - Line prefixes handle two renderers: Pygments emits flat newline-delimited lines, and Chroma (Hugo) wraps each line in `<span class="line">` when `noClasses = false`.
   A Chroma line that already ends with a newline gains no second one.
-  Known gap (line prefixes and wrapping spans): a span the highlighter wraps around a whole line is cut by the prefix wrap, so under Pygments with `hl_lines` or `line_spans`, and under Chroma with Hugo's default `noClasses = true`, the span closes in the next `<li>` and one empty prefixed line is added.
-  Known gap (line-number tables): with `linenums` under Pygments or `lineNos = true` under Hugo the marker binds to the gutter `<pre>`, so the classes, and under Hugo the label and the prefixes, land on the line numbers.
+  Planned (polish-gaps): a line ends at its newline plus the closing tags right after it, so a span the highlighter wraps around a whole line (Pygments `hl_lines` and `line_spans`, Chroma with Hugo's default `noClasses = true`) stays inside that line's `<li>`, and no empty prefixed line is added.
+  Today the wrap cuts such a span, which closes in the next `<li>`, and one empty prefixed line is added.
+  Planned (polish-gaps): with line numbers in a table (`linenums` under Pygments, `lineNos = true` under Hugo) the marker skips the gutter cell (`td.linenos`, or Chroma's first `td.lntd`) and binds to the code `<pre>` in the same table, so the classes and the prefixes land on the code; the label sits before the table.
+  An inline line-number layout (Pygments `linenums_style` `inline` or `pymdownx-inline`, Hugo `lineNumbersInTable = false`) keeps each number in its line's `<li>`, so a prefixed line shows its prefix, its number, and its code.
+  Today the marker binds to the gutter `<pre>`, so the classes and the prefixes land on the line numbers.
 
 ### Embeds
 
@@ -226,7 +245,9 @@ Each embed line becomes raw HTML that matches `do-markdownit`'s output, its inli
 - In-process, the expanded HTML is stashed so Markdown does not re-parse it; `mw pre` emits it inline.
 - youtube, codepen, twitter, and instagram take the `load` option, described under Click-to-Load.
   slideshow and image_compare take no options.
-- Known gap (embed beside other content): an embed line with no blank line before and after it renders inside the neighboring paragraph, list item, or heading in-process and as its own block through `mw pre`, and under a CommonMark renderer the lines that follow it up to the next blank line are raw HTML; put a blank line on both sides.
+- Planned (polish-gaps): an embed is always its own block: when the line before or after an embed line is not blank, the pre stage adds a blank line there, in both paths, so the embed splits the paragraph, list item text, or heading it sat beside, and under a CommonMark renderer the lines after it render as Markdown; inside a raw HTML block no blank line is added, by the raw HTML rule under Rules Every Feature Follows.
+  The expansion itself is unchanged, so `eager` output for an embed line that already had a blank line on each side stays byte-identical, and a tight list item that holds an embed renders loose.
+  Today an embed line with no blank line around it renders inside the neighboring paragraph, list item, or heading in-process and as its own block through `mw pre`, and under a CommonMark renderer the lines after it up to the next blank line are raw HTML.
   An embed indented under a list item stays in the item in-process, since the expansion keeps the line's indentation.
 
 ### Click-to-Load
@@ -272,6 +293,7 @@ Each embed line becomes raw HTML that matches `do-markdownit`'s output, its inli
 - A shortcode that names no pack or no file stays literal text.
 - Shortcodes resolve in prose only: never in fenced code, indented code, an inline code span, or an HTML tag, and `mw pre` also leaves a diagram that the mermaid stage emitted alone (a line that starts with exactly `<pre class="mermaid">`, through the first `</pre>` after it; text after the tag on that line is prose), since in-process the diagram is stashed, by markwright or by Python-Markdown's own raw HTML pass, and never read.
   The icons pre stage runs after every directive stage, so a shortcode inside a `[button]`, `[lightbox]`, `[tab]`, or embed line gives what the in-process render gives, and a converted `mermaid` diagram keeps its shortcode text.
+  Planned (polish-gaps): this rule becomes the verbatim-block rule under Rules Every Feature Follows, which skips every `<pre>` block, so the stage needs no mermaid tag of its own and the Decision below is deleted when the item ships.
   Decision (2026-11-20): `mw pre` reads a block that opens with the mermaid stage's tag as a CommonMark renderer reads it, as raw HTML through the first `</pre>` with no fence line inside it read as a fence, so under Hugo a shortcode after the block renders as an icon whatever the block holds; under a Python-Markdown renderer with a fenced code extension, which reads a fence line inside the block as a fence, an author-written block that holds one does not match the in-process render.
 - A relative pack path resolves against the directory `mw` or the host runs from.
 - With `packs` omitted the extension does nothing, an empty `packs` warns, and a `packs` that is not a table, a path that is not a string, or a directory that does not exist is a boundary error.
@@ -312,7 +334,8 @@ Problems:
 - An unclosed `[card]` or `[tab]`, a stray closer, or a paired `[card]` whose nearest enclosing container is not a block grid stays literal text and is reported under `--warn`.
   A `[card]` outside a block grid is reported once, on its opener.
 - `mw pre` and `mw post` are separate processes, so each report travels as a problem marker: the pre stage appends an `mw-grid-problem` (grid and card lines) or `mw-tab-problem` (tab lines) comment to the literal line, and the post stage composes one `--warn` message from it and removes the comment.
-  The payload is `version` 1, the 1-based `line` in the stage's input, which is the source line only when no earlier stage added lines above it and the document has no front matter block (`mw pre` hands the stages the text after it), the `directive`, and a `reason` from a closed vocabulary (`unclosed`, `stray-closer`, `card-outside-grid`), so a marker that decodes puts only fixed text on stderr; a marker that fails to decode is reported on one line with its payload shown through `repr`, which escapes control characters.
+  Planned (polish-gaps): the payload's `line` is the source line, through the line map under Config and the Host API.
+  Today the payload is `version` 1, the 1-based `line` in the stage's input, which is the source line only when no earlier stage added lines above it and the document has no front matter block (`mw pre` hands the stages the text after it), the `directive`, and a `reason` from a closed vocabulary (`unclosed`, `stray-closer`, `card-outside-grid`), so a marker that decodes puts only fixed text on stderr; a marker that fails to decode is reported on one line with its payload shown through `repr`, which escapes control characters.
 - A line that is not an opener at all (an invalid `[grid ...]`, a `[tab ]` with no name) stays literal with no report.
 
 Both paths:
@@ -376,7 +399,10 @@ Both paths:
   `--warn` (`post` only) writes advisory diagnostics to stderr without changing the output or the exit code.
   `mw post` takes the config key `warn` as the default for its diagnostics; `--warn` turns them on and `--no-warn` turns them off, whatever the config says, and the last of the two on the command line wins.
   The pair exists on `mw post` only, `mw config` shows the resolved value and its source, and the diagnostics stay plain stderr lines that `PYTHONWARNINGS=error` does not escalate.
-  Known gap (in-process diagnostics): the in-process path collects no diagnostics, so `mw render`, MkDocs, and a host that renders through Python-Markdown never see what `mw post --warn` reports, and no path reports a disallowed environment; a host gets those names from `disallowed_environments`.
+  Planned (polish-gaps): the in-process path reports the same diagnostics: each post stage hands every problem to one `report` call, which appends a `Diagnostic` to `md.markwright_diagnostics` (a fresh list for each document, reset with the `Markdown` instance) and calls `warnings.warn` with a `RenderWarning` that carries it, so the list is the record and the warning is a side effect of the same call.
+  `mw render` gains `--warn` and `--no-warn` with the `warn` key as the default, like `mw post`, and prints each `RenderWarning` as one `mw: warning:` line only when they are on; `PYTHONWARNINGS=error` does not escalate them in `mw`, while a host that runs with warnings as errors gets the exception it asked for.
+  Python's default warning filter shows an identical message once per location, so a host that wants every report from a multi-page build reads the list or sets the `always` filter for `RenderWarning`; the docs say so.
+  Today the in-process path collects no diagnostics, so `mw render`, MkDocs, and a host that renders through Python-Markdown never see what `mw post --warn` reports.
 - Exit codes: 0 on success, an empty selection included; 2 on a config error, with one `mw: error:` line, and on a usage error, with argparse's usage text; for `mw pre`, `mw post`, and `mw render`, a decode error, a closed stream, a broken pipe, and an unreadable icon file are each one `mw: error:` line and exit 2, as is an unreadable or non-UTF-8 config file, so no input to those three ends in a traceback; `mw list` and `mw config` write with plain `print`, so a broken pipe on them is not covered.
 - An empty selection prints one `mw: warning:` line and exits 0; `mw pre` and `mw post` then pass input through unchanged, and `mw render` renders it as plain Markdown.
   Each `ConfigWarning` is one `mw: warning:` line, so a config with two no-op settings prints two, and other warnings keep Python's format.
@@ -398,6 +424,10 @@ Both paths:
   A config file that cannot be read or is not UTF-8 is a `ConfigError`.
 - The host API, re-exported from the package root, lets a host tool carry a markwright table in its own config file: `config_from_mapping(table, source)` validates a parsed table with the same rules as a file, `selected_extensions(config)` applies `enable` and `disable` (an empty selection warns and returns an empty list), and `extension_configs(config, names)` builds the `markwright.<name>` option dicts for `markdown.Markdown`.
   `mw render` builds its own `Markdown` through `selected_extensions` and `extension_configs`.
+- Planned (polish-gaps): a `Diagnostic` is a frozen record of `extension`, `line`, `directive`, `reason`, and `message`, and the package root re-exports it with `RenderWarning`; `mw post --warn` prints each one's `message`.
+  `reason` comes from a closed vocabulary listed on the CLI docs page: the container reasons `unclosed`, `stray-closer`, and `card-outside-grid`, one reason for each other problem a post stage reports today, and `disallowed-environment`; `directive` is the directive as written, or `None` for a problem with no directive.
+  `line` is the 1-based line in the text the author wrote: for `mw`, the input file with its front matter block counted; in-process, the text handed to `convert()`, so a host that strips front matter itself adds that block's length.
+  `run_pre` keeps a line map through the stages, so a line an earlier stage added above a problem never shifts it; a problem only the post stage can see (a malformed marker, a marker with no block after it) has `line` `None`.
 - The public names are `Config`, `ConfigError`, `ConfigWarning`, `OptionError`, those three functions, and `disallowed_environments`; `load_config` is not public, and Bartleby is the first consumer.
   `disallowed_environments(source, config)` returns each environment name a fence directive names outside `fence.allowed_environments`, once each, in order of first appearance.
   It scans with fence's own rules (a directive counts only among a fence's leading lines, label and secondary-label lines are skipped, and a directive inside a nested fence's source is code), with two stated additions: a disallowed environment line does not end the scan of that fence, so each disallowed name among the leading lines is reported although fence stops reading directives at the first; and a `mermaid` fence is skipped when `mermaid` is selected, since that stage replaces the fence before fence reads it.
@@ -414,6 +444,8 @@ Both paths:
   None of it ships in the package.
 - The reference pages are Configuration, Click-to-Load, the CLI reference, the Pipeline Guide, Renderer Requirements, the MkDocs and Hugo integration guides, the Material Mapping page (each Material reference feature against its in-process and Hugo providers, with the gaps), and the Demo page.
 - `just docs-build` (strict) is the gate for it.
+  Planned (polish-gaps): `docs/hooks/markwright.py`, loaded through `hooks:` in `mkdocs.yml`, sends each `RenderWarning` to the `mkdocs.plugins.markwright` logger at WARNING with the `always` filter, so `mkdocs build --strict`, and with it `just docs-build`, fails on a markwright diagnostic; the MkDocs integration page documents the hook as the host example, and no docs page renders a live problem.
+  Today MkDocs logs a Python warning at INFO with a traceback, which `--strict` does not count.
 
 ## Non-goals
 
@@ -437,8 +469,12 @@ Permanent; markwright does not do these:
 - **`config.py`** owns discovery, parsing, validation, the resolved `Config` (a frozen pydantic model), and the public host API. It depends on `registry` (`EXTENSION_NAMES`, `OPTION_NAMES`, `REGISTRY`), `_diagnostics` (`ConfigWarning`, `OptionError`), and `fence` (the environment scan behind `disallowed_environments`), and nothing else; never on `cli`.
   `disallowed_environments` lives here with the other host API functions and calls the scan `fence.py` exposes, so `config` imports `fence` and `fence` never imports `config`.
 - **`registry.py`** maps each extension name to a pydantic `StageSpec` (stage functions, priorities, the extension class, its option checker) and provides `run_pre`, `run_post`, and `describe`. Selection lives in `config.selected_extensions`; there is no `registry.select_extensions`.
+  Planned (polish-gaps): `run_pre` keeps the line map from each stage's input back to the source, so a stage writes the source line into a problem marker.
+- **`_diagnostics.py`** owns `ConfigWarning` and `OptionError`.
+  Planned (polish-gaps): it also owns `Diagnostic`, `RenderWarning`, and the one `report` function every in-process post stage calls; it depends on nothing in markwright.
 - **`_fences.py`** (CommonMark fenced-code scanning) and **`_html.py`** (offset-preserving tokenizing over the stdlib `html.parser`) own structured-text parsing. No stage hand-rolls Markdown-structure or HTML regex; single-line token grammars (embed directives, the marker comment) may stay regex.
   `_fences` also reads the body of a Python-Markdown block opener (an admonition, a details block, a content tab, a definition, a footnote definition) as that block's content, not as indented code.
+  Planned (polish-gaps): it also finds multi-line comment regions and raw HTML blocks, the verbatim kind every pre stage skips and the other kind the in-process transforms read.
 - **`_markers.py`** owns the marker-comment contract the post stages share: comment-safe encoding (every `<` and `>` escaped so a payload can never close the comment early, and every backtick escaped so no code span can open inside it), locating markers among `_html` tokens with each marker's block bounds, and fail-soft decode into a strict pydantic payload model.
   It also owns the emission and pairing helpers `grid` and `tabs` share: `marker_block` (one marker as its own indented block, blank lines around it), `inline_problem_marker`, `match_marker_pairs` (stack-match open and close markers by position), and `report_problem_markers`.
   `fence`, `grid`, `tabs`, and `annotate` depend on it; it depends only on `_html`.
