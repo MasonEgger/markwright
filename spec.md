@@ -57,6 +57,18 @@ Tools the `bpe:validator` agent should consult when reviewing diffs in `/bpe:goa
 
 **Notes:** Validator should apply the `python:python` taste profile to code under `src/markwright/` and `tests/`, and the `content-design` review to prose under `docs/`, the README, and the CHANGELOG. The repo's own gate (`just check`) owns correctness, coverage, lint, and types, so the validator focuses on taste and convention rather than re-running tests.
 
+## External tool candidates
+
+Cached by `/bpe:plan` on 2026-11-26 from `bpe:cheap-research`; unverified community listings, none installed in the session, so no plan section declares them.
+
+- mkdocs (jamie-bitflight python3-development) :: MkDocs CLI, mkdocs.yml, Material theme and plugin guidance :: https://www.claudepluginhub.com/skills/jamie-bitflight-python3-development-plugins-python3-development-2/mkdocs
+- mkdocs-documentation (kettleofketchup) :: MkDocs docs skill, may cover hooks and strict builds :: https://www.claudepluginhub.com/skills/kettleofketchup-mkdocs-documentation-plugins-mkdocs-documentation/mkdocs-documentation
+- mkdocs (julianobarbosa claude-code-skills) :: MkDocs config and usage, overlaps the two above :: https://www.skills.sh/julianobarbosa/claude-code-skills/mkdocs
+- python3-development (jamie-bitflight) :: pytest, mutmut, and pytest-mock guidance; overlaps python:python :: https://skills.sh/jamie-bitflight/claude_skills/python3-development
+- markdown-linting (melodic-software) :: Markdown linting for authored docs, not scanner internals :: https://www.skills.sh/melodic-software/claude-code-plugins/markdown-linting
+- docs-as-code (spjoshis) :: Markdown-to-static-site workflow with an MkDocs layout; low relevance :: https://skills.sh/spjoshis/claude-code-plugins/docs-as-code
+- md-docs (paulrberg) :: Markdown docs conventions; low relevance :: https://www.skills.sh/paulrberg/dot-agents/md-docs
+
 ## Roadmap / phase log
 
 **Shipped:**
