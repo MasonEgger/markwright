@@ -54,7 +54,7 @@ The fence directives travel from `pre` to `post` as a single HTML comment right 
 The fence itself is left intact, so your renderer still syntax-highlights the real code.
 There is no placeholder and no rewritten language token.
 The post stage associates a marker with the first code block that follows it, before the next marker.
-A marked fence is its own block, and `mw pre` writes the comment at the fence's indentation:
+A marked fence is its own block, and `mw pre` writes the comment at the fence's indentation, with one exception below:
 
 - At column 0, the comment is the line directly above the fence, with a blank line before it when a text line sits above, and nothing after it.
 - A fence indented one or more columns, as under a list item, gets a blank line after the comment, and a blank line before it unless the fence opens the document, so the comment stays inside the item and renders as its own block.

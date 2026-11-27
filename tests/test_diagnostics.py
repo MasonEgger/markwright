@@ -1,16 +1,14 @@
-# ABOUTME: Tests for the Diagnostic record, the RenderWarning category, and the report call.
-# Covers the closed reason vocabulary, immutability, and the list-plus-warning pairing.
+# ABOUTME: Tests for the Diagnostic record and the RenderWarning category.
+# Covers the closed reason vocabulary and immutability.
 
 from __future__ import annotations
 
 from typing import get_args
 
-import markdown
 import pytest
 from pydantic import ValidationError
 
 from markwright import Diagnostic, RenderWarning
-from markwright._diagnostics import DiagnosticReason, report
 
 
 def make_diagnostic(**overrides: object) -> Diagnostic:
@@ -41,7 +39,7 @@ class TestDiagnostic:
             make_diagnostic(reason="because")
 
     def test_reason_vocabulary_is_closed(self) -> None:
-        assert get_args(DiagnosticReason) == (
+        assert get_args(Diagnostic.model_fields["reason"].annotation) == (
             "unclosed",
             "stray-closer",
             "card-outside-grid",
@@ -59,23 +57,3 @@ class TestRenderWarning:
         assert isinstance(warning, UserWarning)
         assert warning.diagnostic is diagnostic
         assert str(warning) == diagnostic.message
-
-
-class TestReport:
-    def test_appends_to_the_list_and_warns_once(self) -> None:
-        md = markdown.Markdown()
-        diagnostic = make_diagnostic()
-        with pytest.warns(RenderWarning) as recorded:
-            report(md, diagnostic)
-        assert md.markwright_diagnostics == [diagnostic]  # type: ignore[attr-defined]
-        assert len(recorded) == 1
-        assert recorded[0].message.diagnostic is diagnostic  # type: ignore[union-attr]
-
-    def test_keeps_earlier_entries(self) -> None:
-        md = markdown.Markdown()
-        first = make_diagnostic()
-        second = make_diagnostic(line=9)
-        with pytest.warns(RenderWarning):
-            report(md, first)
-            report(md, second)
-        assert md.markwright_diagnostics == [first, second]  # type: ignore[attr-defined]

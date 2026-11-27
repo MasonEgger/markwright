@@ -1,5 +1,5 @@
 # ABOUTME: MkDocs hook that turns each markwright RenderWarning into a WARNING log record.
-# ABOUTME: With it, `mkdocs build --strict` fails when a page holds a markwright diagnostic.
+# With it, `mkdocs build --strict` fails when a page holds a markwright diagnostic.
 from __future__ import annotations
 
 import logging
