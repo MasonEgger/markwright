@@ -85,15 +85,20 @@ def report(md: markdown.Markdown, diagnostic: Diagnostic) -> None:
 
 
 class _DiagnosticsResetPreprocessor(Preprocessor):
-    """Empty ``md.markwright_diagnostics`` before each document, ahead of every other preprocessor."""
+    """Start each document: empty ``md.markwright_diagnostics`` and keep the source lines.
+
+    It runs ahead of every other markwright preprocessor, so ``md.markwright_source_lines`` holds the
+    lines as the author wrote them, which grid and tabs rebase their problem markers' ``line`` against.
+    """
 
     def run(self, lines: list[str]) -> list[str]:
-        """Start the document with no diagnostics.
+        """Start the document with no diagnostics and record its source lines.
 
         :param lines: Source lines, returned unchanged.
         :returns: The same lines.
         """
         setattr(self.md, "markwright_diagnostics", [])  # noqa: B010 - an attribute Python-Markdown does not declare
+        setattr(self.md, "markwright_source_lines", list(lines))  # noqa: B010 - an attribute Python-Markdown does not declare
         return lines
 
 

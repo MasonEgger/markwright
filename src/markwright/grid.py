@@ -44,6 +44,7 @@ from markwright._markers import (
     inline_problem_marker,
     marker_block,
     match_marker_pairs,
+    rebase_marker_lines,
     report_problem_markers,
     skipped_diagnostic,
     unmatched_diagnostic,
@@ -407,7 +408,9 @@ class GridPreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines.
         """
-        return expand_source("\n".join(lines)).split("\n")
+        expanded = expand_source("\n".join(lines))
+        source_lines: list[str] = getattr(self.md, "markwright_source_lines", lines)
+        return rebase_marker_lines(source_lines, lines, expanded, (PROBLEM_MARKER_NAME,)).split("\n")
 
 
 class GridPostprocessor(Postprocessor):

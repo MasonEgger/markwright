@@ -208,7 +208,7 @@ def _run_pre(args: argparse.Namespace) -> None:
     """
     resolved_config, names = _resolve(args)
     front_matter, body = _split_front_matter(_read_stdin())
-    _write_stdout(front_matter + registry.run_pre(body, names, resolved_config.options))
+    _write_stdout(front_matter + registry.run_pre(body, names, resolved_config.options, len(front_matter.splitlines())))
 
 
 def _run_post(args: argparse.Namespace) -> None:

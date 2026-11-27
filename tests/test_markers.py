@@ -15,6 +15,7 @@ from markwright._markers import (
     decode_marker,
     encode_marker,
     find_markers,
+    rebase_marker_lines,
     report_problem_markers,
 )
 
@@ -140,3 +141,48 @@ class TestReportProblemMarkers:
             "mw-demo-problem", "demo", html, tokenize(html), _ProblemMarker, _problem_diagnostic, None
         )
         assert len(edits) == 1
+
+
+class TestRebaseMarkerLines:
+    def test_new_marker_gets_the_matching_source_line(self) -> None:
+        source = ["one", "two", "[/tab]"]
+        stage_input = ["one", "added", "added", "two", "[/tab]"]
+        output = "\n".join(["one", "added", "added", "two", "[/tab]" + encode_marker("mw-x", {"line": 5})])
+        rebased = rebase_marker_lines(source, stage_input, output, ("mw-x",))
+        assert rebased.endswith("[/tab]" + encode_marker("mw-x", {"line": 3}))
+
+    def test_marker_already_in_the_stage_input_is_untouched(self) -> None:
+        marker = encode_marker("mw-x", {"line": 2})
+        source = ["a", "b"]
+        stage_input = ["a", f"b{marker}"]
+        assert rebase_marker_lines(source, stage_input, "\n".join(stage_input), ("mw-x",)) == "\n".join(stage_input)
+
+    def test_unlisted_marker_name_is_untouched(self) -> None:
+        output = "a" + encode_marker("mw-other", {"line": 2})
+        assert rebase_marker_lines(["x", "a"], ["x", "a"], output, ("mw-x",)) == output
+
+    def test_line_with_no_source_counterpart_maps_to_the_nearest_line_above(self) -> None:
+        source = ["one", "two"]
+        stage_input = ["one", "inserted", "two"]
+        output = "\n".join(["one", "inserted" + encode_marker("mw-x", {"line": 2}), "two"])
+        rebased = rebase_marker_lines(source, stage_input, output, ("mw-x",))
+        assert encode_marker("mw-x", {"line": 1}) in rebased
+
+    def test_line_offset_is_added(self) -> None:
+        output = "a" + encode_marker("mw-x", {"line": 1})
+        rebased = rebase_marker_lines(["a"], ["a"], output, ("mw-x",), line_offset=4)
+        assert rebased == "a" + encode_marker("mw-x", {"line": 5})
+
+    @pytest.mark.parametrize(
+        "raw_payload",
+        [
+            "not json",
+            "[1]",
+            json.dumps({"version": 1}),
+            json.dumps({"version": 1, "line": "2"}),
+            json.dumps({"line": 99}),
+        ],
+    )
+    def test_malformed_payload_is_left_as_it_is(self, raw_payload: str) -> None:
+        output = f"a<!-- mw-x:{raw_payload} -->"
+        assert rebase_marker_lines(["a"], ["a"], output, ("mw-x",)) == output

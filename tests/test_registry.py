@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
+
+import markdown
 
 from markwright.registry import EXTENSION_NAMES, OPTION_NAMES, REGISTRY, describe, run_post, run_pre
 
@@ -94,3 +97,53 @@ class TestTabsRegistration:
         final = run_post(expanded, list(EXTENSION_NAMES))
         assert '<div class="tabbed-set tabbed-alternate mw-tabs" data-tabs="1:2">' in final
         assert "mw-tab:" not in final
+
+
+_SHIFTED_DOCUMENT = """# Title
+
+```python
+[label app.py]
+print("x")
+```
+
+```mermaid
+graph TD
+  A --> B
+```
+
+[/tab]
+
+text
+
+[card]
+"""
+
+
+class TestSourceLines:
+    def test_pipeline_reports_the_true_source_line_after_earlier_stages_add_lines(self) -> None:
+        names = list(REGISTRY)
+        diagnostics: list[Diagnostic] = []
+        rendered = markdown.Markdown(extensions=["pymdownx.superfences"]).convert(run_pre(_SHIFTED_DOCUMENT, names))
+        run_post(rendered, names, diagnostics)
+        assert sorted((diagnostic.directive, diagnostic.line) for diagnostic in diagnostics) == [
+            ("[/tab]", 13),
+            ("[card]", 17),
+        ]
+
+    def test_in_process_render_reports_the_same_lines(self) -> None:
+        instance = markdown.Markdown(
+            extensions=["pymdownx.superfences", *(f"markwright.{name}" for name in REGISTRY)],
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            instance.convert(_SHIFTED_DOCUMENT)
+        assert sorted((diagnostic.directive, diagnostic.line) for diagnostic in instance.markwright_diagnostics) == [  # type: ignore[attr-defined]
+            ("[/tab]", 13),
+            ("[card]", 17),
+        ]
+
+    def test_run_pre_line_offset_counts_lines_above_the_text(self) -> None:
+        names = ["tabs"]
+        diagnostics: list[Diagnostic] = []
+        run_post(run_pre("[/tab]\n", names, line_offset=3), names, diagnostics)
+        assert [diagnostic.line for diagnostic in diagnostics] == [4]

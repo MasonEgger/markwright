@@ -21,11 +21,11 @@ The `/goal` loop checks items as it goes.
   - [x] GREEN: postprocessors call report; reset; mw render --warn/--no-warn
   - [x] Docs: docs/cli.md, docs/config.md; spec.md CLI entry cleared
   - [x] just check, just docs-build
-- [ ] Step 4: Source Lines Through a Line Map
-  - [ ] RED: rebase_marker_lines, true lines in both paths, front matter counted
-  - [ ] GREEN: _markers.rebase_marker_lines, run_pre, StageSpec.line_markers, cli front matter, source-lines preprocessor
-  - [ ] spec.md Host API, Containers, registry sentences cleared; CLAUDE.md
-  - [ ] just check
+- [x] Step 4: Source Lines Through a Line Map
+  - [x] RED: rebase_marker_lines, true lines in both paths, front matter counted
+  - [x] GREEN: _markers.rebase_marker_lines, run_pre, StageSpec.line_markers, cli front matter, source-lines preprocessor
+  - [x] spec.md Host API, Containers, registry sentences cleared; CLAUDE.md
+  - [x] just check
 - [ ] Step 5: Report a Disallowed Environment
   - [ ] RED: marker field and line, Diagnostic in both paths, no HTML change
   - [ ] GREEN: fence.py _expand_lines, FenceMarker, _apply_marker

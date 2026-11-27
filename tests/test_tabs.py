@@ -350,6 +350,15 @@ class TestCrlfProblemMarker:
         assert result.endswith(f"[/tab]<!-- mw-tab-problem:{problem} -->\r\n")
 
 
+class TestCrlfSourceLine:
+    def test_in_process_problem_reports_the_true_line_of_a_crlf_document(self) -> None:
+        instance = markdown.Markdown(extensions=["markwright.tabs"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            instance.convert("text\r\n\r\nmore\r\n\r\n[/tab]\r\n")
+        assert [diagnostic.line for diagnostic in instance.markwright_diagnostics] == [5]  # type: ignore[attr-defined]
+
+
 class TestInProcess:
     def test_single_set_renders_a_tabbed_set(self) -> None:
         result = render_tabs("[tab Python]\n\ncode\n\n[/tab]\n\n[tab Shell]\n\nmore\n\n[/tab]")

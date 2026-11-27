@@ -12,10 +12,12 @@
 # tabs, and annotate share this module so the contract lives in one place: it also owns the
 # standalone and inline emission helpers (``marker_block``, ``inline_problem_marker``), the
 # offset-ordered bracket matcher for paired markers (``match_marker_pairs``), and the
-# inline problem-marker reader (``report_problem_markers``) that grid and tabs both call.
+# inline problem-marker reader (``report_problem_markers``) that grid and tabs both call, and the
+# line map (``rebase_marker_lines``) that turns a stage's input line into the true source line.
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 from typing import TYPE_CHECKING, TypeVar
@@ -273,3 +275,91 @@ def report_problem_markers(
         if diagnostics is not None:
             diagnostics.append(diagnostic_for(problem))
     return edits
+
+
+def _comparison_key(line: str) -> str:
+    """Normalize a line the way Python-Markdown does before its preprocessors run.
+
+    :param line: One line of a document or of a stage's input.
+    :returns: The line without a trailing carriage return, tabs expanded to four columns, or an
+        empty string when the line is only whitespace.
+    """
+    text = line.removesuffix("\r").expandtabs(4)
+    return text if text.strip() else ""
+
+
+def _source_line_map(source_lines: list[str], stage_input_lines: list[str]) -> list[int]:
+    """Map each stage-input line to a 1-based source line.
+
+    Lines the two texts share, and lines of an equal-length replaced run, map one for one. Any
+    other stage-input line (one a stage added or rewrote into a different number of lines) maps to
+    the nearest mapped line above it, or to line 1 when none precedes it.
+
+    Lines are compared with the carriage return dropped, tabs expanded, and a blank line emptied,
+    the normalizing Python-Markdown does before its preprocessors, so a CRLF or tabbed document still
+    matches line for line.
+
+    :param source_lines: The lines of the document as the author wrote it.
+    :param stage_input_lines: The lines a stage received.
+    :returns: One source line number per stage-input line, in order.
+    """
+    line_map: list[int] = []
+    matcher = difflib.SequenceMatcher(
+        None,
+        [_comparison_key(line) for line in source_lines],
+        [_comparison_key(line) for line in stage_input_lines],
+        autojunk=False,
+    )
+    for tag, source_start, source_end, input_start, input_end in matcher.get_opcodes():
+        if tag == "equal" or (tag == "replace" and source_end - source_start == input_end - input_start):
+            line_map.extend(range(source_start + 1, source_end + 1))
+        else:
+            line_map.extend([line_map[-1] if line_map else 1] * (input_end - input_start))
+    return line_map
+
+
+def rebase_marker_lines(
+    source_lines: list[str],
+    stage_input_lines: list[str],
+    stage_output: str,
+    names: tuple[str, ...],
+    line_offset: int = 0,
+) -> str:
+    """Rewrite the ``line`` of each marker a stage added from a stage-input line to a source line.
+
+    A pre stage records the line of a directive in its own input, which is wrong once an earlier
+    stage added lines above it. A marker comment already in the stage's input is left alone, so a
+    stage run twice rebases each marker once. A payload that is not JSON, not an object, or has no
+    integer ``line`` is left as it is, fail-soft like every marker read.
+
+    :param source_lines: The lines of the document as the author wrote it.
+    :param stage_input_lines: The lines the stage received.
+    :param stage_output: The text the stage returned.
+    :param names: The marker names whose ``line`` to rewrite.
+    :param line_offset: Lines to add to every source line, for a block (such as front matter)
+        the stages never saw.
+    :returns: ``stage_output`` with the new markers' ``line`` rewritten.
+    """
+    if not names:
+        return stage_output
+    marker_re = re.compile(rf"<!-- ({'|'.join(re.escape(name) for name in names)}):(.*?) -->")
+    already_present = {found.group(0) for found in marker_re.finditer("\n".join(stage_input_lines))}
+    line_map: list[int] | None = None
+
+    def rebase(found: re.Match[str]) -> str:
+        nonlocal line_map
+        if found.group(0) in already_present:
+            return found.group(0)
+        try:
+            payload = json.loads(found.group(2))
+        except json.JSONDecodeError:
+            return found.group(0)
+        stage_line = payload.get("line") if isinstance(payload, dict) else None
+        if type(stage_line) is not int or not 1 <= stage_line <= len(stage_input_lines):
+            return found.group(0)
+        if line_map is None:
+            line_map = _source_line_map(source_lines, stage_input_lines)
+        payload["line"] = line_map[stage_line - 1] + line_offset
+        return encode_marker(found.group(1), payload)
+
+    return marker_re.sub(rebase, stage_output)

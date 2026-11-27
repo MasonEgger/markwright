@@ -122,6 +122,16 @@ class TestCliPost:
         assert "<p>body</p>" in captured.out
         assert "malformed mw-fence marker" in captured.err
 
+    def test_pre_then_post_warn_counts_lines_from_the_top_of_a_file_with_front_matter(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin("---\ntitle: x\n---\n\ntext\n\n[/tab]\n")
+        assert main(["pre"]) == 0
+        preprocessed = capsys.readouterr().out
+        feed_stdin(preprocessed)
+        assert main(["post", "--warn"]) == 0
+        assert "on line 7" in capsys.readouterr().err
+
     def test_post_without_warn_is_silent_on_malformed_marker(
         self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -820,7 +830,7 @@ class TestCliConfig:
         tmp_path: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        def warning_pre(text: str, names: list[str], options: object = None) -> str:
+        def warning_pre(text: str, names: list[str], options: object = None, line_offset: int = 0) -> str:
             warnings.warn("a library deprecation", DeprecationWarning, stacklevel=1)
             return text
 

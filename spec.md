@@ -346,8 +346,7 @@ Problems:
 - An unclosed `[card]` or `[tab]`, a stray closer, or a paired `[card]` whose nearest enclosing container is not a block grid stays literal text and is reported under `--warn`.
   A `[card]` outside a block grid is reported once, on its opener.
 - `mw pre` and `mw post` are separate processes, so each report travels as a problem marker: the pre stage appends an `mw-grid-problem` (grid and card lines) or `mw-tab-problem` (tab lines) comment to the literal line, and the post stage composes one `--warn` message from it and removes the comment.
-  Planned (polish-gaps): the payload's `line` is the source line, through the line map under Config and the Host API.
-  Today the payload is `version` 1, the 1-based `line` in the stage's input, which is the source line only when no earlier stage added lines above it and the document has no front matter block (`mw pre` hands the stages the text after it), the `directive`, and a `reason` from a closed vocabulary (`unclosed`, `stray-closer`, `card-outside-grid`), so a marker that decodes puts only fixed text on stderr; a marker that fails to decode is reported on one line with its payload shown through `repr`, which escapes control characters.
+  The payload is `version` 1, the 1-based `line` in the source (through the line map under Config and the Host API), the `directive`, and a `reason` from a closed vocabulary (`unclosed`, `stray-closer`, `card-outside-grid`), so a marker that decodes puts only fixed text on stderr; a marker that fails to decode is reported on one line with its payload shown through `repr`, which escapes control characters.
 - A line that is not an opener at all (an invalid `[grid ...]`, a `[tab ]` with no name) stays literal with no report.
 
 Both paths:
@@ -438,8 +437,9 @@ Both paths:
   `mw render` builds its own `Markdown` through `selected_extensions` and `extension_configs`.
 - Planned (polish-gaps): a `Diagnostic` is a frozen record of `extension`, `line`, `directive`, `reason`, and `message`, and the package root re-exports it with `RenderWarning`; `mw post --warn` prints each one's `message`.
   `reason` comes from a closed vocabulary listed on the CLI docs page: the container reasons `unclosed`, `stray-closer`, and `card-outside-grid`, one reason for each other problem a post stage reports today, and `disallowed-environment`; `directive` is the directive as written, or `None` for a problem with no directive.
-  `line` is the 1-based line in the text the author wrote: for `mw`, the input file with its front matter block counted; in-process, the text handed to `convert()`, so a host that strips front matter itself adds that block's length.
-  `run_pre` keeps a line map through the stages, so a line an earlier stage added above a problem never shifts it; a problem only the post stage can see (a malformed marker, a marker with no block after it) has `line` `None`.
+- `line` is the 1-based line in the text the author wrote: for `mw`, the input file with its front matter block counted; in-process, the text handed to `convert()`, so a host that strips front matter itself adds that block's length.
+  `run_pre` keeps a line map through the stages (`rebase_marker_lines`), so a line an earlier stage added above a problem never shifts it; in-process, the preprocessor that resets the diagnostics also keeps the source lines for grid and tabs to rebase against.
+  A problem only the post stage can see (a malformed marker, a marker with no block after it) has `line` `None`.
 - The public names are `Config`, `ConfigError`, `ConfigWarning`, `OptionError`, those three functions, and `disallowed_environments`; `load_config` is not public, and Bartleby is the first consumer.
   `disallowed_environments(source, config)` returns each environment name a fence directive names outside `fence.allowed_environments`, once each, in order of first appearance.
   It scans with fence's own rules (a directive counts only among a fence's leading lines, label and secondary-label lines are skipped, and a directive inside a nested fence's source is code), with two stated additions: a disallowed environment line does not end the scan of that fence, so each disallowed name among the leading lines is reported although fence stops reading directives at the first; and a `mermaid` fence is skipped when `mermaid` is selected, since that stage replaces the fence before fence reads it.
@@ -481,7 +481,7 @@ Permanent; markwright does not do these:
 - **`config.py`** owns discovery, parsing, validation, the resolved `Config` (a frozen pydantic model), and the public host API. It depends on `registry` (`EXTENSION_NAMES`, `OPTION_NAMES`, `REGISTRY`), `_diagnostics` (`ConfigWarning`, `OptionError`), and `fence` (the environment scan behind `disallowed_environments`), and nothing else; never on `cli`.
   `disallowed_environments` lives here with the other host API functions and calls the scan `fence.py` exposes, so `config` imports `fence` and `fence` never imports `config`.
 - **`registry.py`** maps each extension name to a pydantic `StageSpec` (stage functions, priorities, the extension class, its option checker) and provides `run_pre`, `run_post`, and `describe`. Selection lives in `config.selected_extensions`; there is no `registry.select_extensions`.
-  Planned (polish-gaps): `run_pre` keeps the line map from each stage's input back to the source, so a stage writes the source line into a problem marker.
+  `run_pre` keeps the line map from each stage's input back to the source, through `StageSpec.line_markers`, so a stage writes the source line into a problem marker.
 - **`_diagnostics.py`** owns `ConfigWarning` and `OptionError`.
   Planned (polish-gaps): it also owns `Diagnostic`, `RenderWarning`, and the one `report` function every in-process post stage calls; it depends on nothing in markwright.
 - **`_fences.py`** (CommonMark fenced-code scanning) and **`_html.py`** (offset-preserving tokenizing over the stdlib `html.parser`) own structured-text parsing. No stage hand-rolls Markdown-structure or HTML regex; single-line token grammars (embed directives, the marker comment) may stay regex.

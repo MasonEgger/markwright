@@ -29,6 +29,7 @@ from markwright import (
 )
 from markwright._diagnostics import Diagnostic
 from markwright._embed_load import load_mode
+from markwright._markers import rebase_marker_lines
 
 PreFn = Callable[[str, Mapping[str, object] | None], str]
 PostFn = Callable[[str, list[Diagnostic] | None, Mapping[str, object] | None], str]
@@ -45,6 +46,8 @@ class StageSpec(BaseModel):
     :ivar extension: The Python-Markdown extension class; its declared config keys are the options it accepts.
     :ivar check_options: Validator for the extension's option table, raising ``OptionError``, or ``None``
         when the extension takes no options.
+    :ivar line_markers: Names of the markers whose ``line`` the pre stage records in its own input,
+        so ``run_pre`` rebases them to the source line.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -55,6 +58,7 @@ class StageSpec(BaseModel):
     post_priority: int = 0
     extension: type[Extension]
     check_options: OptionCheck | None = None
+    line_markers: tuple[str, ...] = ()
 
 
 REGISTRY: dict[str, StageSpec] = {
@@ -122,6 +126,7 @@ REGISTRY: dict[str, StageSpec] = {
         pre_priority=21,
         post_priority=27,
         extension=grid.GridExtension,
+        line_markers=(grid.PROBLEM_MARKER_NAME,),
     ),
     "annotate": StageSpec(
         pre=annotate.expand_source,
@@ -136,6 +141,7 @@ REGISTRY: dict[str, StageSpec] = {
         pre_priority=21,
         post_priority=27,
         extension=tabs.TabsExtension,
+        line_markers=(tabs.PROBLEM_MARKER_NAME,),
     ),
 }
 
@@ -147,20 +153,31 @@ OPTION_NAMES: dict[str, frozenset[str]] = {
 }
 
 
-def run_pre(text: str, names: list[str], options: Mapping[str, Mapping[str, object]] | None = None) -> str:
+def run_pre(
+    text: str,
+    names: list[str],
+    options: Mapping[str, Mapping[str, object]] | None = None,
+    line_offset: int = 0,
+) -> str:
     """Apply each selected pre-stage transform to ``text`` in descending priority order.
 
     :param text: Markdown source text.
     :param names: Selected extension names.
     :param options: Per-extension option tables keyed by extension name; each stage receives
         its own table, or ``None`` when it has none.
+    :param line_offset: Lines that precede ``text`` in the document (front matter the caller split
+        off), added to the source line a problem marker records.
     :returns: Source text after every selected pre stage has run.
     """
     selected = [(name, spec) for name, spec in REGISTRY.items() if name in names]
 
+    source_lines = text.split("\n")
+
     # A stable sort keeps registry order between stages of equal priority
     for name, spec in sorted(selected, key=lambda entry: entry[1].pre_priority, reverse=True):
+        stage_input_lines = text.split("\n")
         text = spec.pre(text, options.get(name) if options is not None else None)
+        text = rebase_marker_lines(source_lines, stage_input_lines, text, spec.line_markers, line_offset)
     return text
 
 
