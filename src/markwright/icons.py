@@ -13,10 +13,11 @@ from xml.etree import ElementTree
 
 from markdown.extensions import Extension
 from markdown.inlinepatterns import InlineProcessor
+from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, OptionError
-from markwright._fences import map_prose
+from markwright._fences import map_prose, map_raw_html_blocks
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -181,6 +182,31 @@ class IconInlineProcessor(InlineProcessor):
         return icon_element, match.start(0), match.end(0)
 
 
+class IconRawHtmlPreprocessor(Preprocessor):
+    """Preprocessor that resolves the shortcodes inside raw HTML blocks.
+
+    Python-Markdown stashes a raw block before any inline processor runs, so :class:`IconInlineProcessor` never
+    sees its text. This applies the ``mw pre`` stage to the lines of each block, at priority 20.5, below every
+    directive preprocessor (21) and ahead of ``html_block`` (20), so the load order never matters. Every other line
+    is left to the inline processor.
+
+    :param md: The Markdown instance.
+    :param packs: Pack prefix to directory.
+    """
+
+    def __init__(self, md: Markdown, packs: Mapping[str, Path]) -> None:
+        super().__init__(md)
+        self.options = {"packs": {prefix: str(directory) for prefix, directory in packs.items()}}
+
+    def run(self, lines: list[str]) -> list[str]:
+        """Replace each resolvable shortcode of each raw HTML block with its icon.
+
+        :param lines: The source lines.
+        :returns: The lines with each raw block's shortcodes replaced.
+        """
+        return map_raw_html_blocks(lines, lambda block: expand_source(block, self.options))
+
+
 class IconsExtension(Extension):
     """Python-Markdown extension for ``:pack-name:`` icon shortcodes.
 
@@ -194,7 +220,7 @@ class IconsExtension(Extension):
         super().__init__(**kwargs)
 
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
-        """Register the icon inline processor.
+        """Register the icon inline processor, and with packs a preprocessor for raw HTML blocks.
 
         It runs at 85, after links, images, autolinks, and inline HTML (90), so a shortcode
         inside an attribute stays literal, and before entities and emphasis.
@@ -208,6 +234,8 @@ class IconsExtension(Extension):
         packs = read_options(self.getConfigs()).packs
         processor = IconInlineProcessor(_shortcode_pattern(packs), md, packs)
         md.inlinePatterns.register(processor, "mw-icons", 85)
+        if packs:
+            md.preprocessors.register(IconRawHtmlPreprocessor(md, packs), "mw-icons-raw-html", 20.5)
 
 
 def makeExtension(**kwargs: object) -> IconsExtension:  # noqa: N802 - Python-Markdown's loader name

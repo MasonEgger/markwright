@@ -15,6 +15,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A highlight pair or an icon shortcode in the text of a raw HTML block, such as a `<div>` with no blank lines, now renders in-process, as `mw pre` already rendered it.
+  Python-Markdown stashes such a block before the inline processors run, so a preprocessor at 20.5, below every directive preprocessor and above `html_block`, now applies the pre stage to each block, whatever order the extensions load in.
+  A pair or shortcode inside a tag's attribute stays as written.
 - A directive line inside a raw HTML block, such as a `[youtube ...]` or `[button ...]` line in a `<div class="note">`, now expands in-process, as `mw pre` already expanded it.
   The embed, button, lightbox, and annotate preprocessors moved from priority 20 to 21, ahead of Python-Markdown's `html_block`, beside grid and tabs.
   Output for a directive outside raw HTML does not change.

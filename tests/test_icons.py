@@ -363,3 +363,26 @@ class TestIconsOptions:
     def test_config_stores_valid_packs(self, packs: dict[str, str]) -> None:
         config = config_from_mapping({"icons": {"packs": packs}}, "test")
         assert config.options["icons"] == {"packs": packs}
+
+
+class TestIconsInProcessRawHtml:
+    """A shortcode in the text of a raw HTML block renders in-process, as ``mw pre`` renders it."""
+
+    def test_a_shortcode_in_a_div_renders_the_icon(self, packs: dict[str, str]) -> None:
+        result = render_icons("<div>\nGo :octicons-rocket-16: now\n</div>", packs)
+
+        assert result == f'<div>\nGo <span aria-hidden="true" class="mw-icon">{ROCKET}</span> now\n</div>'
+
+    def test_a_shortcode_in_an_attribute_stays_literal(self, packs: dict[str, str]) -> None:
+        result = render_icons('<div title=":octicons-rocket-16:">\nGo :octicons-rocket-16:\n</div>', packs)
+
+        assert 'title=":octicons-rocket-16:"' in result
+        assert result.count("mw-icon") == 1
+
+    def test_in_process_matches_expand_source_for_the_block(self, packs: dict[str, str]) -> None:
+        source = "<div>\nGo :octicons-rocket-16: now\n</div>"
+
+        assert render_icons(source, packs) == expand_source(source, {"packs": packs})
+
+    def test_no_packs_leaves_the_block_alone(self) -> None:
+        assert render_icons("<div>\n:octicons-rocket-16:\n</div>") == "<div>\n:octicons-rocket-16:\n</div>"

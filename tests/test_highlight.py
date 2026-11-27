@@ -572,3 +572,27 @@ class TestInProcessSkipsTags:
 
         assert expand_source(source) == "a<b and <mark>q</mark> then c>d"
         assert "<mark>q</mark>" in _render(source)
+
+
+class TestInProcessRawHtml:
+    """A raw HTML block is stashed before the inline processors run, so a preprocessor marks it, as ``mw pre`` does."""
+
+    def test_a_pair_in_a_div_without_blank_lines_is_marked(self) -> None:
+        assert _render("<div>\nSee <^>this<^>.\n</div>") == "<div>\nSee <mark>this</mark>.\n</div>"
+
+    def test_a_pair_in_a_div_with_a_blank_line_inside_is_marked(self) -> None:
+        assert _render("<div>\none\n\nSee <^>this<^>.\n</div>") == "<div>\none\n\nSee <mark>this</mark>.\n</div>"
+
+    def test_a_pair_in_an_attribute_of_the_block_stays_as_written(self) -> None:
+        rendered = _render('<div title="<^>x<^>">\nSee <^>this<^>.\n</div>')
+
+        assert 'title="<^>x<^>"' in rendered
+        assert "See <mark>this</mark>." in rendered
+
+    def test_prose_beside_the_block_is_still_marked(self) -> None:
+        assert _render("<div>\nx\n</div>\n\nSee <^>this<^>.") == "<div>\nx\n</div>\n\n<p>See <mark>this</mark>.</p>"
+
+    def test_in_process_matches_expand_source_for_the_block(self) -> None:
+        source = "<div>\nSee <^>this<^>.\n</div>"
+
+        assert _render(source) == expand_source(source)

@@ -73,6 +73,7 @@ Prefixes are matched longest first.
 A shortcode that names no pack, or a pack with no matching file, is left as text.
 Shortcodes are never replaced in fenced code, indented code, an inline code span, an HTML tag, a multi-line comment, or a `<pre>`, `<script>`, `<style>`, or `<textarea>` block.
 So a converted mermaid diagram keeps its shortcode text.
+A shortcode in the text of a raw HTML block, such as a `<div>`, is replaced too, in-process and through `mw pre`; one inside a tag's attribute stays as written.
 In `mw pre` the icons stage runs after every directive stage, so a shortcode inside a `[button]` line is read as part of the directive, and a shortcode in a `[tab]` name stays literal text.
 Anything before the `<svg` tag in the file (an XML declaration or a license comment) is dropped, and the markup is joined onto a single line.
 

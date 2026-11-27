@@ -3,13 +3,17 @@
 
 from __future__ import annotations
 
+import bisect
 import functools
 import itertools
 import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
+from markdown.util import BLOCK_LEVEL_ELEMENTS
 from pydantic import BaseModel, ConfigDict
+
+from markwright._html import tokenize
 
 # How many documents' scans the pre stages remember; stages run in turn over one document
 _REGION_CACHE_SIZE = 8
@@ -75,6 +79,11 @@ _HTML_TAG_RE = re.compile(
 # close tag. Text after the close tag on its line is prose again.
 _COMMENT_OPEN_RE = re.compile(r"[ ]{0,3}<!--")
 _VERBATIM_OPEN_RE = re.compile(r"\s*<(?P<tag>pre|script|style|textarea)(?=[\s>]|$)", re.IGNORECASE)
+
+# Python-Markdown treats a block-level tag as the start of a raw block only at the start of a line (up to three
+# columns of indentation). Its parser tracks no element for "hr", which has no end tag.
+_BLOCK_TAGS = frozenset(BLOCK_LEVEL_ELEMENTS) - {"hr"}
+_RAW_BLOCK_MAX_INDENT = 3
 
 # One left-to-right pass over both grammars, so whichever starts first wins
 _SKIPPED_SPAN_RE = re.compile(f"{_INLINE_CODE_RE.pattern}|{_HTML_TAG_RE.pattern}")
@@ -603,3 +612,75 @@ def map_directive_lines(text: str, render: Callable[[str], str | None]) -> str:
         return [f"{indent}{part}" if part else part for part in expansion.split("\n")]
 
     return map_lines(text, transform)
+
+
+def raw_html_blocks(lines: list[str]) -> list[tuple[int, int]]:
+    """Find the raw HTML blocks Python-Markdown stashes before any inline processor runs.
+
+    A block starts at a block-level opening tag at the start of a line (up to three columns of indentation),
+    outside code, and runs through the line holding the close tag that empties the tag stack, blank lines
+    included. A close tag pops back to its own opener, so an unclosed inner tag does not hold the block open;
+    a block no tag closes runs to the last line. A block-level tag that opens on the line another block closes
+    on starts a block too, and the two are one. Inline tags such as ``<span>`` open nothing, and neither does a
+    self-closing tag. Fenced and indented code, multi-line comments, and verbatim blocks (``<pre>``,
+    ``<script>``, ``<style>``, ``<textarea>``) are never read as tags. Tags come from the stdlib parser, so a
+    tag inside a comment is not one.
+
+    :param lines: Source lines.
+    :returns: ``(first, last)`` line indexes of each block, inclusive, in source order.
+    """
+    _, code_lines, _ = _code_regions(tuple(lines))
+    line_starts = list(itertools.accumulate((len(line) + 1 for line in lines), initial=0))
+    blocks: list[tuple[int, int]] = []
+    open_tags: list[str] = []
+    first_line = 0
+    closing_line = -1
+    for token in tokenize("\n".join(lines)):
+        if token.kind not in {"start", "end"}:
+            continue
+        line_index = bisect.bisect_right(line_starts, token.start) - 1
+        if line_index in code_lines:
+            continue
+
+        if open_tags:
+            # A close tag pops back to its opener; an unmatched one changes nothing
+            if token.kind == "start":
+                open_tags.append(token.tag)
+            elif token.tag in open_tags:
+                while open_tags.pop() != token.tag:
+                    pass
+                if not open_tags:
+                    blocks.append((first_line, line_index))
+                    closing_line = line_index
+            continue
+
+        column = token.start - line_starts[line_index]
+        starts_line = column <= _RAW_BLOCK_MAX_INDENT and not lines[line_index][:column].strip()
+        if token.kind == "start" and token.tag in _BLOCK_TAGS and (starts_line or line_index == closing_line):
+            open_tags.append(token.tag)
+            # Opening on the line the last block closed on makes the two one block
+            first_line = blocks.pop()[0] if closing_line == line_index else line_index
+
+    if open_tags:
+        blocks.append((first_line, len(lines) - 1))
+    return blocks
+
+
+def map_raw_html_blocks(lines: list[str], transform: Callable[[str], str]) -> list[str]:
+    """Apply a text transform to each raw HTML block of a document, leaving every other line as it is.
+
+    The in-process preprocessors use this to run a pre stage over the blocks Python-Markdown is about to
+    stash, where no inline processor would reach them.
+
+    :param lines: Source lines.
+    :param transform: A function from the text of one block (its lines joined by newlines) to new text.
+    :returns: The lines with each block replaced by its transformed lines.
+    """
+    output: list[str] = []
+    cursor = 0
+    for first_line, last_line in raw_html_blocks(lines):
+        output.extend(lines[cursor:first_line])
+        output.extend(transform("\n".join(lines[first_line : last_line + 1])).split("\n"))
+        cursor = last_line + 1
+    output.extend(lines[cursor:])
+    return output

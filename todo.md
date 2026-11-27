@@ -57,11 +57,11 @@ The `/goal` loop checks items as it goes.
   - [x] GREEN: highlight uses the tag grammar; preprocessors at 21
   - [x] CLAUDE.md priority table; spec.md clauses cleared
   - [x] just check
-- [ ] Step 10: Highlight and Icons Inside Raw HTML In-Process
-  - [ ] RED: raw_html_blocks extents; highlight and icons in a div in-process; round trip
-  - [ ] GREEN: _fences.raw_html_blocks; preprocessors at 21 in highlight and icons
-  - [ ] Docs: highlight and icons pages; spec.md and CLAUDE.md
-  - [ ] just check, just docs-build
+- [x] Step 10: Highlight and Icons Inside Raw HTML In-Process
+  - [x] RED: raw_html_blocks extents; highlight and icons in a div in-process; round trip
+  - [x] GREEN: _fences.raw_html_blocks; preprocessors at 21 in highlight and icons
+  - [x] Docs: highlight and icons pages; spec.md and CLAUDE.md
+  - [x] just check, just docs-build
 
 ## Section 4: Blocks and Code Lines
 

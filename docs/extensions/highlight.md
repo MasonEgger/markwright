@@ -85,6 +85,8 @@ Set \<^>the `timeout` value\<^> first.
 
 Result: Set <^>the `timeout` value<^> first.
 
+A pair in the text of a raw HTML block, such as a `<div>`, is highlighted too, in-process and through `mw pre`; a marker inside a tag's attribute stays as written.
+
 ## Escaping
 
 Prefix a marker with a backslash (`\<^>`) to show it literally instead of applying a highlight.

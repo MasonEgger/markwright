@@ -1012,3 +1012,49 @@ class TestRoundTripHtmlRegions:
 
         assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
         assert "<pre>\n[youtube dQw4w9WgXcQ]\n<^>x<^> :demo-check:\n</pre>" in pipeline
+
+
+class TestRoundTripRawHtmlProse:
+    """A pair and a shortcode in a raw ``<div>`` with no blank lines read the same in both paths."""
+
+    SOURCE = '<div class="note">\nSee <^>this<^> :demo-check: now.\n<a title="<^>x<^>">link</a>\n</div>\n'
+
+    def test_both_paths_agree(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = ["highlight", "icons"]
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        pipeline = registry.run_post(stub_render(registry.run_pre(self.SOURCE, names, options)), names, None, options)
+        in_process = in_process_render(self.SOURCE, names, options)
+
+        assert _normalize(pipeline) == _normalize(in_process)
+        assert "<mark>this</mark>" in in_process
+        assert 'class="mw-icon"' in in_process
+        assert 'title="<^>x<^>"' in in_process
+
+
+class TestRoundTripRawHtmlLoadOrder:
+    """The raw-HTML preprocessors run after every directive preprocessor, so extension load order never matters."""
+
+    DOCUMENTS = (
+        "<div>\n[tab :demo-check: One]\nbody\n[/tab]\n</div>\n",
+        "<div>\n[button /start Go :demo-check:]\n</div>\n",
+        "<div>\n[youtube dQw4w9WgXcQ]\nSee <^>this<^>.\n</div>\n",
+    )
+    ORDERS = (
+        ["icons", "highlight", "button", "tabs", "youtube"],
+        ["button", "tabs", "youtube", "icons", "highlight"],
+        list(registry.EXTENSION_NAMES),
+    )
+
+    @pytest.mark.parametrize("names", ORDERS, ids=["icons-first", "icons-last", "registry"])
+    @pytest.mark.parametrize("source", DOCUMENTS, ids=["tab-name", "button-text", "embed-beside-pair"])
+    def test_in_process_equals_the_pipeline(self, source: str, names: list[str], tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+
+        assert _normalize(in_process_render(source, names, options)) == _normalize(pipeline)

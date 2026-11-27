@@ -10,9 +10,10 @@ from xml.etree import ElementTree
 from markdown.extensions import Extension
 from markdown.inlinepatterns import InlineProcessor
 from markdown.postprocessors import Postprocessor
+from markdown.preprocessors import Preprocessor
 from markdown.util import HTML_PLACEHOLDER_RE
 
-from markwright._fences import find_html_spans, find_inline_code_spans, map_prose
+from markwright._fences import find_html_spans, find_inline_code_spans, map_prose, map_raw_html_blocks
 from markwright._html import RAW_TEXT_ELEMENTS, apply_edits, tokenize
 
 if TYPE_CHECKING:
@@ -206,6 +207,24 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     return map_prose(text, _wrap_prose_markers, skip_inline_code=False)
 
 
+class HighlightRawHtmlPreprocessor(Preprocessor):
+    """Preprocessor that marks the pairs inside raw HTML blocks.
+
+    Python-Markdown stashes a raw block (a ``<div>``, a table) before any inline processor runs, so
+    :class:`HighlightInlineProcessor` never sees its text. This applies the ``mw pre`` stage to the lines of
+    each block, at priority 20.5, below every directive preprocessor (21) and ahead of ``html_block`` (20), so the
+    load order never matters. Every other line is left to the inline processor.
+    """
+
+    def run(self, lines: list[str]) -> list[str]:
+        """Wrap the prose pairs of each raw HTML block in ``<mark>``.
+
+        :param lines: The source lines.
+        :returns: The lines with each raw block's pairs wrapped.
+        """
+        return map_raw_html_blocks(lines, expand_source)
+
+
 class HighlightInlineProcessor(InlineProcessor):
     """Inline processor that converts ``<^>text<^>`` to ``<mark>text</mark>`` on one line.
 
@@ -275,7 +294,8 @@ class HighlightPostprocessor(Postprocessor):
 class HighlightExtension(Extension):
     """Python-Markdown extension for ``<^>text<^>`` highlight syntax.
 
-    Registers an :class:`HighlightInlineProcessor` for regular inline text and a
+    Registers an :class:`HighlightInlineProcessor` for regular inline text, a
+    :class:`HighlightRawHtmlPreprocessor` for the text of raw HTML blocks, and a
     :class:`HighlightPostprocessor` for code blocks where markers are HTML-escaped.
     """
 
@@ -284,6 +304,7 @@ class HighlightExtension(Extension):
 
         :param md: The Markdown instance to extend.
         """
+        md.preprocessors.register(HighlightRawHtmlPreprocessor(md), "mw-highlight-raw-html", 20.5)
         md.inlinePatterns.register(
             HighlightInlineProcessor(_MARKER_PATTERN, md),
             "do_highlight_inline",
