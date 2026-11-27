@@ -39,7 +39,7 @@ from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, Diagnostic, OptionError, ReportingExtension, report
-from markwright._fences import FencedBlock, find_fenced_blocks, strip_quote
+from markwright._fences import FencedBlock, find_fenced_blocks, is_shallow_indent, item_text_end, strip_quote
 from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
 from markwright._markers import (
     InvalidMarkerError,
@@ -68,16 +68,25 @@ LABEL_RE = re.compile(r"^\[label (.+)\]$")
 SECONDARY_LABEL_RE = re.compile(r"^\[secondary_label (.+)\]$")
 ENVIRONMENT_RE = re.compile(r"^\[environment (.+)\]$")
 CUSTOM_PREFIX_RE = re.compile(r"^custom_prefix\((.+)\)$")
+# One single-line grammar for an info string: the head (comma-separated flags and language, a
+# parenthesized flag argument kept whole), then the space before a highlighter attribute, then the
+# attributes. A brace starts the attributes with no space. It matches at the start of any string, even an empty one.
+INFO_STRING_RE = re.compile(r"(?P<head>(?:\([^)]*\)|[^\s{])*)(?P<separator>\s*)(?P<attributes>.*)")
 CLASS_TOKENS_RE = re.compile(r"[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*")
 
 
 def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
     """Parse prefix flags from a fence info string and return cleaned info + prefix metadata.
 
+    Flags and the language are the comma-separated head of the string, up to its first space or ``{``. The
+    rest is a highlighter attribute (``hl_lines="1"``, ``title="x.sh"``, Hugo's ``{hl_lines=[1]}``) and
+    passes through untouched, so a comma inside an attribute value is not a separator.
+
     :param info_string: The raw info string after the opening fence markers.
     :returns: Tuple of (cleaned info string, prefix metadata dict).
     """
-    parts = info_string.split(",")
+    info_parts = next(INFO_STRING_RE.finditer(info_string))
+    parts = info_parts.group("head").split(",")
     prefix_metadata: dict[str, str] = {}
     remaining_parts: list[str] = []
     add_bash = False
@@ -109,7 +118,14 @@ def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
     if add_bash and not remaining_parts:
         remaining_parts.append("bash")
 
-    cleaned_info = ",".join(remaining_parts)
+    # An attribute with no language would be read as the language, so a plain text one goes first
+    if not remaining_parts and info_parts.group("attributes"):
+        remaining_parts.append("text")
+
+    # A space before the attributes collapses to one; a brace stays where it was written
+    cleaned_info = (
+        ",".join(remaining_parts) + (" " if info_parts.group("separator") else "") + info_parts.group("attributes")
+    )
     return cleaned_info, prefix_metadata
 
 
@@ -209,7 +225,10 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
     Shared by the in-process preprocessor and the ``mw pre`` stage function. Fences are found
     by the shared CommonMark scanner, so indented fences, fences in list items, and fences behind
     block quote markers count. A marker for an indented fence is written at the fence's indentation
-    and followed by a blank line, so it stays inside the list item and renders as its own block. A
+    and followed by a blank line, so it stays inside the list item and renders as its own block, and a
+    blank line goes before it unless the line above is blank, so a tight list item's text does not absorb it. An
+    indented marked fence also gets a blank line after its closing fence when text follows, and that text
+    ends in one before the first less indented line, so the next list item stays an item. A
     marker for a fence in a block quote is written behind the same quote markers, with a blank quoted
     line on each side, so it stays inside the quote and outside the paragraph before the fence.
 
@@ -221,9 +240,10 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
         with its ``line`` in ``lines``.
     """
     output: list[str] = []
+    text_ends: set[int] = set()
     cursor = 0
     for block in find_fenced_blocks(lines):
-        output.extend(lines[cursor : block.opening])
+        _copy_text(output, lines[cursor : block.opening], cursor, text_ends)
 
         # Parse prefix flags from the info string; the fence line keeps the language
         cleaned_info, prefix_metadata = _parse_prefix_from_info(block.info.strip())
@@ -247,17 +267,52 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
         if metadata:
             # A blank line is the bare quote markers behind a block quote, and empty otherwise
             blank_line = block.quote.rstrip()
-            if block.quote:
+            spaced = bool(block.quote) or not (is_shallow_indent(block.indent) and output and output[-1].strip())
+            if spaced and (block.quote or (output and output[-1].strip())):
                 output.append(blank_line)
-            output.append(f"{line_start}{encode_marker(MARKER_NAME, metadata)}")
-            if line_start:
+
+            # A fence of one to three columns right under a line of text is usually a tight list item's. There
+            # Python-Markdown ends the item at a blank line, so the marker goes without one, at four columns,
+            # where it is the item's own text
+            marker_start = line_start if spaced else "    "
+            output.append(f"{marker_start}{encode_marker(MARKER_NAME, metadata)}")
+            if spaced and line_start:
                 output.append(blank_line)
         output.append(fence_line)
         output.extend(lines[content_index : block.closing + 1])
         cursor = block.closing + 1
 
-    output.extend(lines[cursor:])
+        # Under a list item, a line right after the fence would join the fence's paragraph in Python-Markdown
+        # (a "- next" item vanishes into it), so a marked fence ends in a blank line there too, and so does
+        # the item text after it, before the first less indented line
+        if (
+            metadata
+            and block.indent
+            and not block.quote
+            and not is_shallow_indent(block.indent)
+            and cursor < len(lines)
+            and lines[cursor].strip()
+        ):
+            output.append("")
+            if (text_end := item_text_end(lines, cursor, block.indent)) is not None:
+                text_ends.add(text_end)
+
+    _copy_text(output, lines[cursor:], cursor, text_ends)
     return output
+
+
+def _copy_text(output: list[str], text_lines: list[str], start: int, text_ends: set[int]) -> None:
+    """Copy the lines between two fences, with a blank line before each line that ends a loose item's text.
+
+    :param output: The lines written so far, extended in place.
+    :param text_lines: The source lines to copy.
+    :param start: The source index of the first of them.
+    :param text_ends: The source indexes that get a blank line before them unless one is there.
+    """
+    for line_index, line in enumerate(text_lines, start):
+        if line_index in text_ends and output[-1].strip():
+            output.append("")
+        output.append(line)
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:

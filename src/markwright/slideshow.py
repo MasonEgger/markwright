@@ -98,7 +98,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: The text with standalone slideshow embeds replaced by HTML.
     """
-    return map_directive_lines(text, _render_match)
+    return map_directive_lines(text, _render_match, own_block=True, commonmark=True)
 
 
 class SlideshowPreprocessor(Preprocessor):
@@ -118,7 +118,7 @@ class SlideshowPreprocessor(Preprocessor):
             slideshow_html = _render_match(line)
             return None if slideshow_html is None else self.md.htmlStash.store(slideshow_html)
 
-        return map_directive_lines("\n".join(lines), render).split("\n")
+        return map_directive_lines("\n".join(lines), render, own_block=True).split("\n")
 
 
 class SlideshowExtension(Extension):

@@ -847,3 +847,157 @@ class TestCommentedOutFence:
         assert "code-label" not in rendered
         assert "mw-fence" not in rendered
         assert "<p>after</p>" in rendered
+
+
+class TestMarkedFenceIsItsOwnBlock:
+    """A fence that gains a marker gets a blank line before it, so it never joins the paragraph above."""
+
+    TIGHT_LIST = "- Run this:\n    ```command\n    ls\n    ```\n- next\n"
+    MARKER = '<!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$"} -->'
+
+    def test_the_marker_gets_a_blank_line_before_it_under_a_tight_list_item(self) -> None:
+        assert expand_source(self.TIGHT_LIST) == (
+            f"- Run this:\n\n    {self.MARKER}\n\n    ```bash\n    ls\n    ```\n\n- next\n"
+        )
+
+    def test_a_marker_at_column_zero_gets_a_blank_line_after_a_text_line(self) -> None:
+        assert expand_source("Intro\n```command\nls\n```\n") == f"Intro\n\n{self.MARKER}\n```bash\nls\n```\n"
+
+    def test_a_fence_after_a_blank_line_gets_no_extra_blank_line(self) -> None:
+        assert expand_source("Intro\n\n```command\nls\n```\n") == f"Intro\n\n{self.MARKER}\n```bash\nls\n```\n"
+
+    def test_a_fence_at_the_start_of_the_document_gets_no_leading_blank_line(self) -> None:
+        assert expand_source("```command\nls\n```\n").startswith("<!--")
+
+    def test_an_unmarked_fence_under_a_list_item_is_unchanged(self) -> None:
+        source = "- Run this:\n    ```bash\n    ls\n    ```\n- next\n"
+
+        assert expand_source(source) == source
+
+    def test_a_quoted_fence_is_unchanged(self) -> None:
+        source = "> Run this:\n> ```command\n> ls\n> ```\n"
+
+        assert expand_source(source) == (f"> Run this:\n>\n> {self.MARKER}\n>\n> ```bash\n> ls\n> ```\n")
+
+    def test_in_process_the_fence_stays_in_the_first_item_and_the_second_item_survives(self) -> None:
+        result = render_fence(self.TIGHT_LIST)
+
+        assert result.count("<li>") == 2
+        assert "<p>Run this:</p>" in result
+        assert result.index('data-prefix="$"') < result.index("next")
+        assert "<li>\n<p>next</p>\n</li>" in result
+        assert "mw-fence" not in result
+
+    def test_item_text_after_the_fence_ends_in_a_blank_line_before_the_next_item(self) -> None:
+        result = expand_source("- Run this:\n    ```command\n    ls\n    ```\n    After.\n- next\n")
+
+        assert result.endswith("    ```\n\n    After.\n\n- next\n")
+
+    def test_item_text_after_the_fence_that_ends_in_a_blank_line_is_unchanged(self) -> None:
+        result = expand_source("- Run this:\n    ```command\n    ls\n    ```\n    After.\n\n- next\n")
+
+        assert result.endswith("    ```\n\n    After.\n\n- next\n")
+
+    def test_item_text_that_holds_a_second_fence_ends_in_a_blank_line_after_that_fence(self) -> None:
+        source = "- Run this:\n    ```command\n    ls\n    ```\n    Then:\n    ```bash\n    pwd\n    ```\n- next\n"
+
+        assert expand_source(source).endswith("    Then:\n    ```bash\n    pwd\n    ```\n\n- next\n")
+
+    def test_in_process_the_item_after_text_that_follows_the_fence_stays_an_item(self) -> None:
+        result = render_fence("- Run this:\n    ```command\n    ls\n    ```\n    After.\n- next\n")
+
+        assert result.count("<li>") == 2
+        assert "<p>After.</p>" in result
+        assert "<li>\n<p>next</p>\n</li>" in result
+
+    def test_in_process_a_list_with_an_unmarked_fence_stays_tight(self) -> None:
+        result = render_fence("- Run this:\n    ```bash\n    ls\n    ```\n- next\n")
+
+        assert "<li>Run this:" in result
+
+
+class TestPrefixFlagBesideHighlighterAttributes:
+    """A flag in the info string keeps working beside a highlighter attribute such as ``hl_lines``."""
+
+    @pytest.mark.parametrize(
+        ("info", "prefix_type", "fence_line"),
+        [
+            ('command hl_lines="1"', "command", '```bash hl_lines="1"'),
+            ('command title="x.sh"', "command", '```bash title="x.sh"'),
+            ("command {hl_lines=[1]}", "command", "```bash {hl_lines=[1]}"),
+            ("command{hl_lines=[1]}", "command", "```bash{hl_lines=[1]}"),
+            ('command,python hl_lines="1 2"', "command", '```python hl_lines="1 2"'),
+            ('line_numbers,python linenums="1"', "line_numbers", '```python linenums="1"'),
+            ('command title="a,b"', "command", '```bash title="a,b"'),
+            ('super_user   title="x"', "super_user", '```bash title="x"'),
+        ],
+    )
+    def test_the_flag_is_read_and_the_attribute_passes_through(
+        self, info: str, prefix_type: str, fence_line: str
+    ) -> None:
+        result = expand_source(f"```{info}\nls\n```\n")
+
+        assert f'"prefix_type": "{prefix_type}"' in result
+        assert fence_line in result.split("\n")
+
+    @pytest.mark.parametrize("info", ['python hl_lines="1,2"', 'python title="a,b"', "python", "bash {hl_lines=[1]}"])
+    def test_an_info_string_with_no_flag_is_unchanged_byte_for_byte(self, info: str) -> None:
+        source = f"```{info}\nls\n```\n"
+
+        assert expand_source(source) == source
+
+    def test_an_attribute_with_no_language_gets_a_plain_text_language(self) -> None:
+        assert '```text hl_lines="1"' in expand_source('```line_numbers hl_lines="1"\nls\n```\n')
+        assert "```text{hl_lines=[1]}" in expand_source("```line_numbers{hl_lines=[1]}\nls\n```\n")
+
+    def test_a_flag_with_no_attribute_and_no_language_stays_empty(self) -> None:
+        assert expand_source("```line_numbers\nls\n```\n").split("\n")[1] == "```"
+
+    def test_in_process_command_with_hl_lines_renders_the_prefix_and_the_highlighted_line(self) -> None:
+        result = render_fence('```command hl_lines="1"\nls\n```\n')
+
+        assert 'data-prefix="$"' in result
+        assert 'class="hll"' in result
+
+    def test_in_process_command_with_a_title_renders_the_filename_and_the_prefix(self) -> None:
+        result = render_fence('```command title="x.sh"\nls\n```\n')
+
+        assert 'data-prefix="$"' in result
+        assert "x.sh" in result
+
+
+class TestMarkedFenceUnderAShallowListItem:
+    """A marked fence indented one to three columns stays in its item, where a blank line would end it."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "- Run this:\n  ```command\n  ls\n  ```\n- next\n",
+            "1. Run this:\n   ```command\n   ls\n   ```\n2. next\n",
+            "- Run this:\n    ```command\n    ls\n    ```\n- next\n",
+        ],
+        ids=["bullet-2", "ordered-3", "bullet-4"],
+    )
+    def test_in_process_the_list_stays_one_list_with_the_fence_in_the_first_item(self, source: str) -> None:
+        result = render_fence(source)
+
+        assert result.count("<ul>") + result.count("<ol>") == 2
+        assert result.count("</ul>") + result.count("</ol>") == 2
+        assert result.index('data-prefix="$"') < result.index("next")
+        assert result.index("<li>") < result.index('data-prefix="$"') < result.rindex("<li>")
+
+    def test_a_two_column_marker_goes_at_four_columns_with_no_blank_line_around_it(self) -> None:
+        result = expand_source("- Run this:\n  ```command\n  ls\n  ```\n- next\n")
+
+        assert "\n\n" not in result
+        assert result.split("\n")[1].startswith("    <!-- mw-fence:")
+        assert result.split("\n")[2] == "  ```bash"
+
+
+class TestInProcessFlagWithAttributeAndNoLanguage:
+    def test_the_highlighted_line_and_the_prefixes_survive(self) -> None:
+        result = render_fence('```line_numbers hl_lines="1"\nalpha\nbeta\n```\n')
+
+        assert 'class="hll"' in result
+        assert 'data-prefix="1"' in result
+        assert 'data-prefix="2"' in result

@@ -133,8 +133,10 @@ class TestYouTubeExpandSource:
         result = expand_source(source)
         lines = result.split("\n")
         assert lines[0] == "before line"
+        assert lines[1] == ""
         assert lines[-1] == "after line"
-        assert "<iframe" in lines[1]
+        assert lines[-2] == ""
+        assert "<iframe" in lines[2]
 
     def test_no_embed_passes_through(self) -> None:
         source = "just some text\nmore text"
@@ -187,3 +189,133 @@ class TestYouTubeInsideRawHtml:
         assert expand_source(self.DIRECTIVE) in rendered
         assert self.DIRECTIVE not in rendered
         assert rendered.startswith('<div class="note">')
+
+
+class TestYouTubeIsItsOwnBlock:
+    """An embed beside text gets a blank line on each side, so it never joins a paragraph."""
+
+    IFRAME_OPEN = '<iframe src="https://www.youtube.com/embed/abc"'
+
+    def test_expand_source_adds_a_blank_line_on_each_side(self) -> None:
+        result = expand_source("Intro\n[youtube abc]\nOutro\n")
+
+        lines = result.split("\n")
+        assert lines[0] == "Intro"
+        assert lines[1] == ""
+        assert lines[-3] == ""
+        assert lines[-2] == "Outro"
+
+    def test_an_embed_between_blank_lines_is_byte_identical(self) -> None:
+        source = "Intro\n\n[youtube abc]\n\nOutro\n"
+
+        result = expand_source(source)
+
+        assert result.startswith("Intro\n\n<iframe")
+        assert result.endswith("</iframe>\n\nOutro\n")
+        assert "\n\n\n" not in result
+
+    def test_consecutive_embeds_share_one_blank_line(self) -> None:
+        result = expand_source("[youtube abc]\n[youtube def]\n")
+
+        assert "\n\n\n" not in result
+        assert result.count("<iframe") == 2
+
+    def test_an_embed_at_the_start_and_end_of_a_document_adds_no_outer_blank_line(self) -> None:
+        result = expand_source("[youtube abc]")
+
+        assert result.startswith("<")
+        assert not result.endswith("\n")
+
+    def test_an_indented_embed_under_a_list_item_keeps_empty_blank_lines(self) -> None:
+        result = expand_source("- item\n    [youtube abc]\n    more\n")
+
+        lines = result.split("\n")
+        assert lines[0] == "- item"
+        assert lines[1] == ""
+        assert lines[2].startswith("    <")
+        assert lines[-3] == ""
+        assert lines[-2] == "    more"
+
+    def test_an_embed_inside_a_raw_div_gets_no_blank_lines(self) -> None:
+        source = '<div class="note">\n[youtube abc]\nbeside\n</div>\n'
+
+        result = expand_source(source)
+
+        assert result.startswith('<div class="note">\n<')
+        assert result.endswith("\nbeside\n</div>\n")
+
+    def test_an_embed_after_a_blank_line_inside_a_div_is_outside_the_block_for_commonmark(self) -> None:
+        source = "<div>\n\n[youtube abc]\nbeside\n</div>\n"
+
+        result = expand_source(source)
+
+        assert "\n\n<iframe" in result
+        assert "</iframe>\n\nbeside" in result
+
+    def test_in_process_the_paragraph_splits_around_the_embed(self) -> None:
+        result = render_youtube("Intro\n[youtube abc]\nOutro *line*\n")
+
+        assert "<p>Intro</p>" in result
+        assert f"<p>{self.IFRAME_OPEN}" not in result
+        assert "<p>Outro <em>line</em></p>" in result
+
+    def test_in_process_a_tight_list_item_holding_an_embed_renders_loose(self) -> None:
+        result = render_youtube("- item\n    [youtube abc]\n- next\n")
+
+        assert "<li>\n<p>item</p>" in result
+        assert self.IFRAME_OPEN in result
+        assert result.count("<li>") == 2
+
+    def test_expand_source_ends_the_item_text_after_an_embed_in_a_blank_line(self) -> None:
+        result = expand_source("1. Watch this:\n    [youtube abc]\n    Then run *this* command.\n2. Next\n")
+
+        assert result.endswith("</iframe>\n\n    Then run *this* command.\n\n2. Next\n")
+
+    def test_in_process_the_item_after_text_that_follows_an_embed_stays_an_item(self) -> None:
+        result = render_youtube("1. Watch this:\n    [youtube abc]\n    Then run *this* command.\n2. Next\n")
+
+        assert result.count("<li>") == 2
+        assert "<p>Then run <em>this</em> command.</p>" in result
+        assert "<li>\n<p>Next</p>\n</li>" in result
+
+    def test_in_process_an_embed_in_a_div_stays_where_it_is(self) -> None:
+        result = render_youtube("<div>\n[youtube abc]\nbeside\n</div>\n")
+
+        assert result.startswith("<div>\n<iframe")
+        assert "<p>" not in result
+
+
+class TestYouTubeUnderAShallowListItem:
+    """An embed under a list item at two, three, and four columns renders in the first item of one list in-process."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "- item\n  [youtube abc]\n- next\n",
+            "1. Step\n   [youtube abc]\n2. Next\n",
+            "- item\n    [youtube abc]\n- next\n",
+        ],
+        ids=["bullet-2", "ordered-3", "bullet-4"],
+    )
+    def test_in_process_the_list_stays_one_list_with_the_embed_in_the_first_item(self, source: str) -> None:
+        result = render_youtube(source)
+
+        assert result.count("<ul>") + result.count("<ol>") == 1
+        assert result.index("<li>") < result.index("<iframe") < result.rindex("<li>")
+
+    @pytest.mark.parametrize(
+        ("source", "indent"),
+        [("- item\n  [youtube abc]\n- next\n", "  "), ("1. Step\n   [youtube abc]\n2. Next\n", "   ")],
+        ids=["bullet-2", "ordered-3"],
+    )
+    def test_expand_source_adds_blank_lines_at_two_and_three_columns(self, source: str, indent: str) -> None:
+        lines = expand_source(source).split("\n")
+
+        assert lines[1] == ""
+        assert lines[2].startswith(f"{indent}<iframe")
+        assert lines[-3] == ""
+
+    def test_expand_source_is_stable_over_its_own_output(self) -> None:
+        once = expand_source("- item\n  [youtube abc]\n  Then *this*.\n- next\n")
+
+        assert expand_source(once) == once

@@ -13,8 +13,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The docs site loads `docs/hooks/strict_warnings.py`, which logs each `RenderWarning` at WARNING so `mkdocs build --strict` fails on a markwright diagnostic.
   The MkDocs integration page documents it as a host example.
 
+### Upgrading
+
+- An embed (`[youtube ...]`, `[codepen ...]`, `[twitter ...]`, `[instagram ...]`, `[slideshow ...]`, `[compare ...]`) beside text is now its own block, in `mw pre` and in-process.
+  It splits the paragraph, list item text, or heading it sat beside.
+  A tight list item that holds an embed now renders loose under a CommonMark renderer, and in-process when the embed is indented four or more columns.
+  Item text after the embed ends in a blank line as well, so the next list item stays an item.
+  Under a CommonMark renderer the lines after it now render as Markdown instead of raw HTML.
+  An embed already between blank lines, or inside a raw HTML block, is unchanged.
+- A fence with a directive or a flag under a tight list item now keeps the list: the marker gets a blank line before it, an indented marked fence gets one after it when text follows, and item text after the fence gets one before the next item, so the item renders loose and the next item stays an item.
+  Before, in-process, such a fence ended the list at that item.
+  A fence already after a blank line, an unmarked fence, and a quoted fence are unchanged.
+  `mw pre` now also writes a blank line before the marker of a marked fence that follows a text line, at column 0 included; the rendered HTML is unchanged.
+  A marked fence indented one to three columns right under a text line gets its marker at four columns with no blank line around it, so the item and the list stay whole in-process.
+- An embed indented one to three columns under a list item gets its blank lines from `mw pre`, so a CommonMark renderer keeps it in the item and renders the text after it as Markdown.
+  In-process it gets none, since Python-Markdown ends the item at a blank line there, so the embed stays in the item, which stays tight.
+
 ### Fixed
 
+- A prefix flag beside a highlighter attribute now works: `command hl_lines="1"`, `command title="x.sh"`, and Hugo's `command {hl_lines=[1]}` give the `$` prefix, and `mw pre` writes `bash hl_lines="1"`; with no language left (`line_numbers hl_lines="1"`) it writes `text` before the attribute.
+  Before, the whole info string was split on commas, so the prefix was dropped, and under Hugo the flag was taken as the language, which turned syntax highlighting off.
 - A highlight pair or an icon shortcode in the text of a raw HTML block, such as a `<div>` with no blank lines, now renders in-process, as `mw pre` already rendered it.
   Python-Markdown stashes such a block before the inline processors run, so a preprocessor at 20.5, below every directive preprocessor and above `html_block`, now applies the pre stage to each block, whatever order the extensions load in.
   A pair or shortcode inside a tag's attribute stays as written.

@@ -239,3 +239,17 @@ class TestInstagramInsideRawHtml:
         assert expand_source(self.DIRECTIVE) in rendered
         assert self.DIRECTIVE not in rendered
         assert rendered.startswith('<div class="note">')
+
+
+class TestOwnBlock:
+    """An embed beside text becomes its own block."""
+
+    def test_expand_source_adds_a_blank_line_on_each_side(self) -> None:
+        lines = expand_source("Intro\n[instagram https://www.instagram.com/p/CkQuv3_LRgS]\nOutro\n").split("\n")
+
+        assert lines[1] == ""
+        assert lines[-3] == ""
+        assert lines[-2] == "Outro"
+
+    def test_an_embed_between_blank_lines_gains_no_extra_blank_line(self) -> None:
+        assert "\n\n\n" not in expand_source("Intro\n\n[instagram https://www.instagram.com/p/CkQuv3_LRgS]\n\nOutro\n")

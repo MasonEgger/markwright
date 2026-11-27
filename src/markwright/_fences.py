@@ -588,7 +588,48 @@ def map_lines(text: str, transform: Callable[[str], list[str]]) -> str:
     return "\n".join(output)
 
 
-def map_directive_lines(text: str, render: Callable[[str], str | None]) -> str:
+def is_shallow_indent(indent: str) -> bool:
+    """Tell whether an indentation is one to three columns, a tab counting to the next stop of four.
+
+    Python-Markdown ends a list item at a blank line before content indented that little, so a stage that
+    adds a blank line leaves such content beside its neighbors.
+
+    :param indent: The leading whitespace of a line.
+    :returns: ``True`` for one to three columns.
+    """
+    return 0 < len(indent.expandtabs(_TAB_WIDTH)) < _TAB_WIDTH
+
+
+def item_text_end(lines: list[str], start: int, indent: str) -> int | None:
+    """Find the line that ends the text right after an indented block: the first one indented less than it.
+
+    A stage that sets an indented block off with a blank line makes its list item loose. In a loose item
+    Python-Markdown reads a less indented line right after the item's last paragraph as more of that
+    paragraph, so a ``- next`` item vanishes into it. A blank line before that line keeps it an item, and
+    this finds the line.
+
+    :param lines: The source lines.
+    :param start: The index of the first line after the block.
+    :param indent: The block's leading whitespace.
+    :returns: The index of the first line indented less than the block, in the run of non-blank lines from
+        ``start``; ``None`` when a blank line or the end of the document comes first.
+    """
+    width = _indent_width(indent)
+    for line_index in range(start, len(lines)):
+        if not lines[line_index].strip():
+            return None
+        if _indent_width(lines[line_index]) < width:
+            return line_index
+    return None
+
+
+def map_directive_lines(
+    text: str,
+    render: Callable[[str], str | None],
+    *,
+    own_block: bool = False,
+    commonmark: bool = False,
+) -> str:
     """Replace each standalone directive line with its expansion, keeping the line's indentation.
 
     A directive inside an admonition, details, content-tab, definition, or footnote body, or a list item,
@@ -597,21 +638,72 @@ def map_directive_lines(text: str, render: Callable[[str], str | None]) -> str:
     column 0 expands byte-identically. Empty lines of a multi-line expansion stay empty, and lines
     inside fenced or indented code are left alone, as in :func:`map_lines`.
 
+    With ``own_block`` the expansion is a block of its own: an empty line goes before it and after it
+    wherever the neighboring line is not blank, so the renderer never folds it into a paragraph. The
+    blank line carries no indentation. In the in-process reading a directive indented one to three columns, as
+    under a short list marker, gets none: Python-Markdown ends a list item at a blank line before content
+    indented less than four columns, so the expansion stays beside its neighbors and in the item. A
+    CommonMark renderer keeps the item going across that blank line, so the CommonMark reading adds it. A
+    directive inside a raw HTML block (see :func:`raw_html_blocks`) gets none, since a blank line would end
+    the block there. Where the empty line after an indented expansion is added, the text that follows also
+    ends in one before the first less indented line (see :func:`item_text_end`), so the next list item
+    stays an item.
+
     :param text: Raw Markdown source.
     :param render: A function returning the expansion of one source line, or ``None`` when the line is
         not a directive. The expansion may hold several lines.
+    :param own_block: Surround each expansion with empty lines where the neighbor is not blank.
+    :param commonmark: Read the document as a CommonMark renderer does: a raw HTML block runs from its opening
+        line to the first blank line, not through its closing tag, and a directive at one to three columns still
+        gets its blank lines. ``mw pre`` hands the text to such a renderer, so it sets this; the in-process
+        preprocessors leave it off.
     :returns: The source with every directive line replaced by its indented expansion.
     """
+    lines = text.split("\n")
+    _, code_lines, _ = _code_regions(tuple(lines))
+    raw_lines = _raw_block_lines(lines, blank_ends_block=commonmark) if own_block else frozenset[int]()
 
-    def transform(line: str) -> list[str]:
-        expansion = render(line)
+    output: list[str] = []
+    text_ends: set[int] = set()
+    for line_index, line in enumerate(lines):
+        if line_index in text_ends and output[-1].strip():
+            output.append("")
+        expansion = None if line_index in code_lines else render(line)
         if expansion is None:
-            return [line]
+            output.append(line)
+            continue
 
         indent = line[: len(line) - len(line.lstrip())]
-        return [f"{indent}{part}" if part else part for part in expansion.split("\n")]
+        spaced = own_block and line_index not in raw_lines and (commonmark or not is_shallow_indent(indent))
+        if spaced and output and output[-1].strip():
+            output.append("")
+        output.extend(f"{indent}{part}" if part else part for part in expansion.split("\n"))
+        if spaced and line_index + 1 < len(lines) and lines[line_index + 1].strip():
+            output.append("")
+            if (text_end := item_text_end(lines, line_index + 1, indent)) is not None:
+                text_ends.add(text_end)
+    return "\n".join(output)
 
-    return map_lines(text, transform)
+
+def _raw_block_lines(lines: list[str], *, blank_ends_block: bool) -> frozenset[int]:
+    """List the line indexes inside raw HTML blocks.
+
+    :param lines: Source lines.
+    :param blank_ends_block: End each block at its first blank line, as CommonMark does, not at its closing tag.
+    :returns: The indexes of every line in a block.
+    """
+    covered: set[int] = set()
+    for first_line, last_line in raw_html_blocks(lines):
+        if blank_ends_block:
+            last_line = (
+                next(
+                    (line_index for line_index in range(first_line, last_line + 1) if not lines[line_index].strip()),
+                    last_line + 1,
+                )
+                - 1
+            )
+        covered.update(range(first_line, last_line + 1))
+    return frozenset(covered)
 
 
 def raw_html_blocks(lines: list[str]) -> list[tuple[int, int]]:

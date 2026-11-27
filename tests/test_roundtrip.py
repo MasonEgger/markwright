@@ -515,6 +515,116 @@ EMBED_FIXTURE = """\
 """
 
 
+class TestRoundTripEmbedBlock:
+    """An embed is its own block in both paths, beside text, in a tight list item, and in a div."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "Intro\n[youtube abc]\nOutro *line*\n",
+            '<div class="note">\n[youtube abc]\nbeside\n</div>\n',
+        ],
+        ids=["beside-text", "raw-div"],
+    )
+    def test_both_paths_agree(self, source: str) -> None:
+        names = ["youtube"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names, None)
+
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names))
+
+    def test_a_tight_list_item_holding_an_embed_renders_loose_in_both_paths(self) -> None:
+        # The stub renderer is Python-Markdown, which wraps an indented raw iframe in a paragraph, so the
+        # two outputs are compared on structure; the Hugo integration test covers a CommonMark renderer.
+        source = "- item\n    [youtube abc]\n- next\n"
+        names = ["youtube"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names, None)
+        in_process = in_process_render(source, names)
+
+        for html in (pipeline, in_process):
+            assert html.count("<li>") == 2
+            assert "<p>item</p>" in html
+            assert "<p>next</p>" in html
+            assert html.count("youtube.com/embed/abc") == 1
+
+    def test_the_item_after_text_that_follows_an_embed_stays_an_item_in_both_paths(self) -> None:
+        # Compared on structure, for the stub renderer's paragraph around the iframe (see the test above).
+        source = "1. Watch this:\n    [youtube abc]\n    Then run *this* command.\n2. Next\n"
+        names = ["youtube"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names, None)
+        in_process = in_process_render(source, names)
+
+        for html in (pipeline, in_process):
+            assert html.count("<li>") == 2
+            assert "<p>Then run <em>this</em> command.</p>" in html
+            assert "<p>Next</p>" in html
+
+
+class TestRoundTripMarkedFenceInATightList:
+    """A marked fence under a tight list item keeps the list in both paths."""
+
+    SOURCE = "- Run this:\n    ```command\n    ls\n    ```\n- next\n"
+
+    def test_both_paths_agree(self) -> None:
+        names = ["fence"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(self.SOURCE, names)), names, None)
+        in_process = in_process_render(self.SOURCE, names)
+
+        assert _normalize(pipeline) == _normalize(in_process)
+        assert in_process.count("<li>") == 2
+        assert 'data-prefix="$"' in in_process
+
+    def test_the_item_after_text_that_follows_the_fence_stays_an_item_in_both_paths(self) -> None:
+        source = "- Run this:\n    ```command\n    ls\n    ```\n    After.\n- next\n"
+        names = ["fence"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names, None)
+        in_process = in_process_render(source, names)
+
+        assert _normalize(pipeline) == _normalize(in_process)
+        assert in_process.count("<li>") == 2
+        assert "<p>After.</p>" in in_process
+
+
+class TestRoundTripPrefixFlagBesideAttribute:
+    """A flag beside a highlighter attribute renders the same in both paths."""
+
+    SOURCE = '```command title="x.sh"\nls\n```\n'
+
+    def test_both_paths_agree(self) -> None:
+        names = ["fence"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(self.SOURCE, names)), names, None)
+        in_process = in_process_render(self.SOURCE, names)
+
+        assert _normalize(pipeline) == _normalize(in_process)
+        assert 'data-prefix="$"' in in_process
+        assert "x.sh" in in_process
+
+
+class TestRoundTripShallowListItem:
+    """A marked fence one to three columns under a list item stays in it, and renders the same in both paths."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "- Run this:\n  ```command\n  ls\n  ```\n- next\n",
+            "1. Run this:\n   ```command\n   ls\n   ```\n2. next\n",
+        ],
+        ids=["fence-bullet-2", "fence-ordered-3"],
+    )
+    def test_a_marked_fence_matches_in_both_paths(self, source: str) -> None:
+        names = ["fence"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names)), names, None)
+        in_process = in_process_render(source, names)
+
+        assert _normalize(pipeline) == _normalize(in_process)
+        assert in_process.count("<li>") == 2
+
+    # The shallow embed shapes (an embed 1 to 3 columns under a list item) are not compared here: `mw pre` writes
+    # blank lines around them, and the stub renderer, Python-Markdown, ends the item at a blank line before a
+    # line indented less than four columns. The Decision in spec.md's Embeds entry records the difference.
+    # The in-process unit tests in tests/test_youtube.py and the Hugo
+    # integration tests in tests/integration/test_hugo_pipeline.py carry them.
+
+
 class TestRoundTripLoad:
     """The pipeline and the in-process render agree for every load value."""
 

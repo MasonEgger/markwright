@@ -9,6 +9,10 @@ Embeds Instagram posts with optional caption display, alignment, and width.
 [instagram https://www.instagram.com/p/CkQuv3_LRgS caption]
 ```
 
+An embed is always its own block: `mw pre` writes a blank line before and after it when the neighboring line is not blank, so it splits the paragraph it sat beside, and the text after it renders as Markdown.
+Inside a raw HTML block no blank line is added.
+In-process, an embed indented one to three columns under a list item gets none either, since Python-Markdown ends the item at a blank line there; the item stays tight and the embed stays in it.
+
 ## Usage
 
 ```python
@@ -94,7 +98,7 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
+- The embed must be on its own line; a blank line before and after it is optional, since the pre stage writes one wherever the neighboring line is not blank
 - Width is clamped to 326-550px (Instagram's supported range)
 - The Instagram embed script is injected once per page, and only when at least one embed is `eager`
 

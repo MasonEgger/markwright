@@ -71,7 +71,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :param options: Ignored; accepted so the registry calls every pre stage with one signature.
     :returns: The text with standalone compare embeds replaced by HTML.
     """
-    return map_directive_lines(text, _render_match)
+    return map_directive_lines(text, _render_match, own_block=True, commonmark=True)
 
 
 class ImageComparePreprocessor(Preprocessor):
@@ -95,7 +95,7 @@ class ImageComparePreprocessor(Preprocessor):
             compare_html = _render_match(line)
             return None if compare_html is None else self.md.htmlStash.store(compare_html)
 
-        return map_directive_lines("\n".join(lines), render).split("\n")
+        return map_directive_lines("\n".join(lines), render, own_block=True).split("\n")
 
 
 class ImageCompareExtension(Extension):

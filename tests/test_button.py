@@ -109,3 +109,12 @@ class TestButtonInsideRawHtml:
         assert expand_source(self.DIRECTIVE) in rendered
         assert self.DIRECTIVE not in rendered
         assert rendered.startswith('<div class="note">')
+
+
+class TestButtonStaysInline:
+    """A button is inline, so it gets no blank lines beside text."""
+
+    def test_expand_source_adds_no_blank_line_beside_text(self) -> None:
+        result = expand_source("Intro\n[button /start Go]\nOutro\n")
+
+        assert result == 'Intro\n<a class="mw-button" href="/start">Go</a>\nOutro\n'

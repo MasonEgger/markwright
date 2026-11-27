@@ -9,6 +9,10 @@ Embeds YouTube videos as responsive iframes with automatic aspect ratio calculat
 [youtube dQw4w9WgXcQ]
 ```
 
+An embed is always its own block: `mw pre` writes a blank line before and after it when the neighboring line is not blank, so it splits the paragraph it sat beside, and the text after it renders as Markdown.
+Inside a raw HTML block no blank line is added.
+In-process, an embed indented one to three columns under a list item gets none either, since Python-Markdown ends the item at a blank line there; the item stays tight and the embed stays in it.
+
 ## Usage
 
 ```python
@@ -73,7 +77,7 @@ See [Click-to-Load](../click-to-load.md) for the preview markup and a host scrip
 
 ## Notes
 
-- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
+- The embed must be on its own line; a blank line before and after it is optional, since the pre stage writes one wherever the neighboring line is not blank
 - The video ID is URL-encoded for safety
 - A fallback link is included inside the iframe for accessibility
 

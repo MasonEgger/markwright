@@ -65,21 +65,21 @@ The `/goal` loop checks items as it goes.
 
 ## Section 4: Blocks and Code Lines
 
-- [ ] Step 11: An Embed Is Its Own Block
-  - [ ] RED: blank lines around an embed, byte-identical when present, none inside raw HTML, in-process, Hugo
-  - [ ] GREEN: map_directive_lines own_block for the six embeds
-  - [ ] Docs; spec.md Embeds cleared; CHANGELOG upgrading note
-  - [ ] just check, just docs-build
-- [ ] Step 12: A Marked Fence Is Its Own Block
-  - [ ] RED: blank line before the marker, tight list in-process, round trip, Hugo
-  - [ ] GREEN: fence.py _expand_lines blank-line rule
-  - [ ] spec.md Fence tight-list cleared; CHANGELOG note
-  - [ ] just check
-- [ ] Step 13: Highlighter Attributes Beside a Prefix Flag
-  - [ ] RED: hl_lines, title, Hugo braces, commas inside values, in-process, Hugo
-  - [ ] GREEN: split at the first space or brace
-  - [ ] Docs: docs/extensions/fence.md; spec.md cleared
-  - [ ] just check, just docs-build
+- [x] Step 11: An Embed Is Its Own Block
+  - [x] RED: blank lines around an embed, byte-identical when present, none inside raw HTML, in-process, Hugo
+  - [x] GREEN: map_directive_lines own_block for the six embeds
+  - [x] Docs; spec.md Embeds cleared; CHANGELOG upgrading note
+  - [x] just check, just docs-build
+- [x] Step 12: A Marked Fence Is Its Own Block
+  - [x] RED: blank line before the marker, tight list in-process, round trip, Hugo
+  - [x] GREEN: fence.py _expand_lines blank-line rule
+  - [x] spec.md Fence tight-list cleared; CHANGELOG note
+  - [x] just check
+- [x] Step 13: Highlighter Attributes Beside a Prefix Flag
+  - [x] RED: hl_lines, title, Hugo braces, commas inside values, in-process, Hugo
+  - [x] GREEN: split at the first space or brace
+  - [x] Docs: docs/extensions/fence.md; spec.md cleared
+  - [x] just check, just docs-build
 - [ ] Step 14: Line Prefixes Around Spans That Wrap a Whole Line
   - [ ] RED: Pygments hl_lines and line_spans, Chroma noClasses fixture, Hugo hugo_config argument
   - [ ] GREEN: a line ends at its newline plus the closing tags after it

@@ -538,3 +538,102 @@ def test_commented_out_directives_stay_inside_the_comment_through_hugo(tmp_path:
     assert "[youtube dQw4w9WgXcQ]\n-->" in final
     assert "tabbed-set" not in final
     assert "<iframe" not in final
+
+
+@requires_tools
+def test_an_embed_beside_text_is_its_own_block_through_hugo(tmp_path: Path) -> None:
+    final = _pipeline_through_hugo(tmp_path, "Intro\n[youtube abc]\nOutro *line*\n")
+
+    assert "youtube.com/embed/abc" in final
+    assert "Outro <em>line</em>" in final
+    assert "<p>Intro</p>" in final
+
+
+@requires_tools
+def test_a_tight_list_item_holding_an_embed_keeps_both_items_through_hugo(tmp_path: Path) -> None:
+    final = _pipeline_through_hugo(tmp_path, "- item\n    [youtube abc]\n- next\n")
+
+    assert final.count("<li>") == 2
+    assert "youtube.com/embed/abc" in final
+    assert "<p>next</p>" in final
+
+
+@requires_tools
+def test_a_marked_fence_under_a_tight_list_item_keeps_both_items_through_hugo(tmp_path: Path) -> None:
+    final = _pipeline_through_hugo(tmp_path, "- Run this:\n    ```command\n    ls\n    ```\n- next\n")
+
+    assert final.count("<ul>") == 1
+    first_item = final.index("<li>")
+    second_item = final.index("<li>", first_item + 1)
+    assert first_item < final.index('class="prefixed command chroma"') < second_item
+    assert "next" in final[second_item:]
+    assert '<li data-prefix="$">' in final
+
+
+@requires_tools
+def test_a_shallow_marked_fence_and_embed_stay_in_their_items_through_hugo(tmp_path: Path) -> None:
+    final = _pipeline_through_hugo(
+        tmp_path, "- Run this:\n  ```command\n  ls\n  ```\n- item\n  [youtube abc]\n- next\n"
+    )
+
+    assert final.count("<ul>") == 1
+    assert final.index('class="prefixed command chroma"') < final.index("next")
+    assert final.index("youtube.com/embed/abc") < final.index("next")
+
+
+@requires_tools
+def test_the_item_after_text_that_follows_an_embed_or_a_marked_fence_stays_an_item_through_hugo(
+    tmp_path: Path,
+) -> None:
+    final = _pipeline_through_hugo(
+        tmp_path,
+        "1. Watch this:\n    [youtube abc]\n    Then run *this* command.\n"
+        "2. Run this:\n    ```command\n    ls\n    ```\n    After.\n3. Next\n",
+    )
+
+    assert final.count("<li>") == 3
+    assert "<p>Then run <em>this</em> command.</p>" in final
+    assert "<p>After.</p>" in final
+    assert "<li>\n<p>Next</p>\n</li>" in final
+
+
+@requires_tools
+def test_a_flag_and_attribute_with_no_language_keep_highlighting_through_hugo(tmp_path: Path) -> None:
+    final = _pipeline_through_hugo(tmp_path, "```line_numbers {hl_lines=[1]}\nalpha\nbeta\n```\n")
+
+    assert 'class="language-text"' in final
+    assert "hl_lines" not in final
+    assert 'data-prefix="1"' in final
+    assert 'data-prefix="2"' in final
+    assert 'class="line hl"' in final
+
+
+@requires_tools
+def test_a_prefix_flag_beside_hugo_attribute_braces_keeps_the_prefix_and_highlighting(tmp_path: Path) -> None:
+    final = _pipeline_through_hugo(tmp_path, "```command {hl_lines=[1]}\nls\n```\n")
+
+    assert 'class="prefixed command chroma"' in final
+    assert '<li data-prefix="$">' in final
+    assert 'class="language-bash"' in final
+
+
+@requires_tools
+@pytest.mark.parametrize(
+    ("source", "list_tag"),
+    [
+        ("1. Watch this:\n   [youtube abc]\n   Then run *this* command.\n2. Next\n", "ol"),
+        ("- Watch this:\n  [youtube abc]\n  Then run *this* command.\n- Next\n", "ul"),
+    ],
+    ids=["ordered-3", "bullet-2"],
+)
+def test_a_shallow_embed_keeps_its_item_and_the_text_after_it_renders_through_hugo(
+    tmp_path: Path, source: str, list_tag: str
+) -> None:
+    final = _pipeline_through_hugo(tmp_path, source)
+
+    assert final.count(f"<{list_tag}>") == 1
+    first_item = final.index("<li>")
+    second_item = final.index("<li>", first_item + 1)
+    assert first_item < final.index("youtube.com/embed/abc") < second_item
+    assert "<em>this</em>" in final[first_item:second_item]
+    assert "Next" in final[second_item:]

@@ -79,3 +79,13 @@ class TestLightboxInsideRawHtml:
         assert expand_source(self.DIRECTIVE) in rendered
         assert self.DIRECTIVE not in rendered
         assert rendered.startswith('<div class="note">')
+
+
+class TestLightboxStaysInline:
+    """A lightbox is inline, so it gets no blank lines beside text."""
+
+    def test_expand_source_adds_no_blank_line_beside_text(self) -> None:
+        result = expand_source("Intro\n[lightbox /a.png A diagram]\nOutro\n")
+
+        assert "\n\n" not in result
+        assert result.startswith("Intro\n<a")

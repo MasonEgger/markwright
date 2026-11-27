@@ -85,7 +85,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     :raises OptionError: If ``load`` is not a supported value.
     """
     load = load_mode(options, LOAD_MODES)
-    return map_directive_lines(text, lambda line: _render_match(line, load))
+    return map_directive_lines(text, lambda line: _render_match(line, load), own_block=True, commonmark=True)
 
 
 class YouTubePreprocessor(Preprocessor):
@@ -110,7 +110,7 @@ class YouTubePreprocessor(Preprocessor):
             iframe_html = _render_match(line, self.load)
             return None if iframe_html is None else self.md.htmlStash.store(iframe_html)
 
-        return map_directive_lines("\n".join(lines), render).split("\n")
+        return map_directive_lines("\n".join(lines), render, own_block=True).split("\n")
 
 
 class YouTubeExtension(Extension):

@@ -227,6 +227,28 @@ SHOW TABLES;
 ```
 
 
+### Flags Beside Highlighter Attributes
+
+The flags and the language are the part of the info string before its first space or `{`, comma-separated.
+Whatever follows passes to the highlighter untouched, so a flag works beside `hl_lines`, `title`, or Hugo's brace form.
+A comma inside an attribute value is not a separator.
+`mw pre` writes the fence with its attributes after the language: `command title="deploy.sh"` becomes `bash title="deploy.sh"`.
+With no language left (`line_numbers hl_lines="1"`), `mw pre` writes `text` before the attribute, so a renderer does not take the attribute as the language.
+
+````
+```command title="deploy.sh"
+sudo apt update
+sudo apt install nginx
+```
+````
+
+```command title="deploy.sh"
+sudo apt update
+sudo apt install nginx
+```
+
+Under Hugo, `command {hl_lines=[1]}` keeps both the prefix and Chroma's highlighting.
+
 ## HTML Contract
 
 A label is a `<div class="code-label">` before the highlighted block, and a secondary label is a `<div class="secondary-code-label">` inside its `<code>` element:

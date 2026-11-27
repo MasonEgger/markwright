@@ -9,6 +9,10 @@ Creates side-by-side image comparisons with an interactive slider control.
 [compare https://picsum.photos/id/10/480/270 https://picsum.photos/id/20/480/270]
 ```
 
+An embed is always its own block: `mw pre` writes a blank line before and after it when the neighboring line is not blank, so it splits the paragraph it sat beside, and the text after it renders as Markdown.
+Inside a raw HTML block no blank line is added.
+In-process, an embed indented one to three columns under a list item gets none either, since Python-Markdown ends the item at a blank line there; the item stays tight and the embed stays in it.
+
 ## Usage
 
 ```python
@@ -45,7 +49,7 @@ See [Using with MkDocs](../integrations/mkdocs.md) to load it in a MkDocs site.
 
 ## Notes
 
-- The embed must be on its own line, with a blank line before and after it; without them the renderer folds the embed into the surrounding paragraph
+- The embed must be on its own line; a blank line before and after it is optional, since the pre stage writes one wherever the neighboring line is not blank
 - Exactly 2 image URLs are required (no more, no fewer)
 - The slider starts at 50% and uses a CSS custom property (`--value`) for positioning
 - No script injection required; uses an inline `oninput` handler

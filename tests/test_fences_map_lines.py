@@ -265,3 +265,121 @@ class TestMapLinesUnicodeDigitListItem:
             source = f"{item}\n\n    hit"
 
             assert map_lines(source, _keep_indent_x) == f"{item}\n\n    X", item
+
+
+class TestMapDirectiveLinesOwnBlock:
+    @staticmethod
+    def render(line: str) -> str | None:
+        return "<b>x</b>" if line.strip() == "hit" else None
+
+    def test_adds_a_blank_line_on_each_side_of_a_directive_beside_text(self) -> None:
+        result = map_directive_lines("before\nhit\nafter", self.render, own_block=True)
+
+        assert result == "before\n\n<b>x</b>\n\nafter"
+
+    def test_keeps_the_source_byte_identical_when_blank_lines_are_there(self) -> None:
+        source = "before\n\nhit\n\nafter"
+
+        assert map_directive_lines(source, self.render, own_block=True) == "before\n\n<b>x</b>\n\nafter"
+
+    def test_a_whitespace_only_neighbor_counts_as_blank(self) -> None:
+        assert map_directive_lines("before\n  \nhit\n  \nafter", self.render, own_block=True) == (
+            "before\n  \n<b>x</b>\n  \nafter"
+        )
+
+    def test_two_directives_in_a_row_share_one_blank_line(self) -> None:
+        assert map_directive_lines("hit\nhit", self.render, own_block=True) == "<b>x</b>\n\n<b>x</b>"
+
+    def test_a_directive_in_a_raw_block_is_left_without_blank_lines(self) -> None:
+        source = "<div>\nhit\nbeside\n</div>"
+
+        assert map_directive_lines(source, self.render, own_block=True) == "<div>\n<b>x</b>\nbeside\n</div>"
+
+    def test_a_raw_block_runs_past_a_blank_line_unless_the_blank_line_ends_it(self) -> None:
+        source = "<div>\n\nhit\nbeside\n</div>"
+
+        assert map_directive_lines(source, self.render, own_block=True) == "<div>\n\n<b>x</b>\nbeside\n</div>"
+        assert map_directive_lines(source, self.render, own_block=True, commonmark=True) == (
+            "<div>\n\n<b>x</b>\n\nbeside\n</div>"
+        )
+
+    def test_the_default_adds_no_blank_lines(self) -> None:
+        assert map_directive_lines("before\nhit\nafter", self.render) == "before\n<b>x</b>\nafter"
+
+
+class TestMapDirectiveLinesShallowIndent:
+    @staticmethod
+    def render(line: str) -> str | None:
+        return "<b>x</b>" if line.strip() == "hit" else None
+
+    def test_a_commonmark_reading_adds_blank_lines_at_one_to_three_columns(self) -> None:
+        source = "- item\n  hit\n  after"
+
+        assert map_directive_lines(source, self.render, own_block=True, commonmark=True) == (
+            "- item\n\n  <b>x</b>\n\n  after"
+        )
+
+    def test_the_in_process_reading_adds_none_at_one_to_three_columns(self) -> None:
+        source = "- item\n  hit\n  after"
+
+        assert map_directive_lines(source, self.render, own_block=True) == "- item\n  <b>x</b>\n  after"
+
+    def test_the_in_process_reading_still_adds_them_at_four_columns(self) -> None:
+        source = "- item\n    hit\n    after"
+
+        assert map_directive_lines(source, self.render, own_block=True) == "- item\n\n    <b>x</b>\n\n    after"
+
+
+class TestMapDirectiveLinesItemText:
+    """Text right after an indented own-block expansion ends in a blank line before a less indented line."""
+
+    @staticmethod
+    def render(line: str) -> str | None:
+        return "<b>x</b>" if line.strip() == "hit" else None
+
+    def test_a_blank_line_goes_before_the_first_less_indented_line(self) -> None:
+        source = "- item\n    hit\n    after\n    more\n- next"
+
+        assert map_directive_lines(source, self.render, own_block=True) == (
+            "- item\n\n    <b>x</b>\n\n    after\n    more\n\n- next"
+        )
+
+    def test_a_less_indented_line_right_after_the_directive_gets_one_blank_line(self) -> None:
+        source = "- item\n    hit\n- next"
+
+        assert map_directive_lines(source, self.render, own_block=True) == "- item\n\n    <b>x</b>\n\n- next"
+
+    def test_text_that_already_ends_in_a_blank_line_is_unchanged(self) -> None:
+        source = "- item\n    hit\n    after\n\n- next"
+
+        assert map_directive_lines(source, self.render, own_block=True) == (
+            "- item\n\n    <b>x</b>\n\n    after\n\n- next"
+        )
+
+    def test_a_directive_the_author_spaced_leaves_the_text_after_it_alone(self) -> None:
+        source = "- item\n    hit\n\n    after\n- next"
+
+        assert map_directive_lines(source, self.render, own_block=True) == (
+            "- item\n\n    <b>x</b>\n\n    after\n- next"
+        )
+
+    def test_the_text_runs_through_a_fence(self) -> None:
+        source = "- item\n    hit\n    ```\n    code\n    ```\n- next"
+
+        assert map_directive_lines(source, self.render, own_block=True) == (
+            "- item\n\n    <b>x</b>\n\n    ```\n    code\n    ```\n\n- next"
+        )
+
+    def test_a_commonmark_reading_adds_it_under_a_shallow_item_too(self) -> None:
+        source = "- item\n  hit\n  after\n- next"
+
+        assert map_directive_lines(source, self.render, own_block=True, commonmark=True) == (
+            "- item\n\n  <b>x</b>\n\n  after\n\n- next"
+        )
+
+    def test_a_less_indented_directive_after_the_text_shares_the_blank_line(self) -> None:
+        source = "- item\n    hit\n    after\nhit"
+
+        assert map_directive_lines(source, self.render, own_block=True) == (
+            "- item\n\n    <b>x</b>\n\n    after\n\n<b>x</b>"
+        )
