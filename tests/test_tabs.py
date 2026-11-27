@@ -519,3 +519,25 @@ class TestInProcessDiagnostics:
         assert len(md.markwright_diagnostics) == 1  # type: ignore[attr-defined]
         md.reset()
         assert md.markwright_diagnostics == []  # type: ignore[attr-defined]
+
+
+class TestCommentedOutDirective:
+    """A tab set inside a multi-line HTML comment stays the author's text."""
+
+    SOURCE = "<!--\n[tab A]\n\nbody\n\n[/tab]\n-->\n\nafter\n"
+
+    def test_expand_source_leaves_the_comment_unchanged(self) -> None:
+        assert expand_source(self.SOURCE) == self.SOURCE
+
+    def test_in_process_render_keeps_the_comment_whole(self) -> None:
+        rendered = render_tabs(self.SOURCE)
+
+        assert rendered.startswith("<!--\n[tab A]")
+        assert "tabbed-set" not in rendered
+        assert "<p>after</p>" in rendered
+
+    def test_a_tab_inside_a_pre_block_stays_literal_in_both_paths(self) -> None:
+        source = "<pre>\n[tab A]\nbody\n[/tab]\n</pre>\n"
+
+        assert expand_source(source) == source
+        assert "tabbed-set" not in render_tabs(source)

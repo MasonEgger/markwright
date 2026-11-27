@@ -343,3 +343,18 @@ class TestInProcessDiagnostics:
         with pytest.warns(RenderWarning):
             md.convert("[annotate]")
         assert [item.reason for item in md.markwright_diagnostics] == ["no-target"]  # type: ignore[attr-defined]
+
+
+class TestCommentedOutDirective:
+    """An [annotate] line inside a multi-line HTML comment stays the author's text."""
+
+    SOURCE = "<!--\n[annotate]\n```python\nx = 1  # (1)!\n```\n\n1. note\n-->\n"
+
+    def test_expand_source_leaves_the_comment_unchanged(self) -> None:
+        assert expand_source(self.SOURCE) == self.SOURCE
+
+    def test_in_process_render_keeps_the_comment_whole(self) -> None:
+        rendered = markdown.Markdown(extensions=["markwright.annotate"]).convert(self.SOURCE)
+
+        assert rendered.startswith("<!--\n[annotate]")
+        assert "mw-annotation" not in rendered

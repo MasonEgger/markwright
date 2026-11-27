@@ -828,3 +828,22 @@ class TestDisallowedEnvironmentIsAMarkedFence:
         assert "environment" in rendered
         assert "prod" in rendered
         assert "environment-prod" not in rendered
+
+
+class TestCommentedOutFence:
+    """A fence with directives inside a multi-line HTML comment stays the author's text."""
+
+    SOURCE = "<!--\n```command\n[label deploy.sh]\nmake\n```\n-->\n\nafter\n"
+
+    def test_expand_source_leaves_the_comment_unchanged(self) -> None:
+        assert expand_source(self.SOURCE) == self.SOURCE
+
+    def test_in_process_render_keeps_the_comment_whole(self) -> None:
+        rendered = render_fence(self.SOURCE)
+
+        # superfences still highlights the fence inside the comment; markwright applies nothing to it
+        assert rendered.startswith("<!--\n")
+        assert "[label deploy.sh]" in rendered
+        assert "code-label" not in rendered
+        assert "mw-fence" not in rendered
+        assert "<p>after</p>" in rendered

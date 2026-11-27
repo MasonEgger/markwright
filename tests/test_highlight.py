@@ -503,3 +503,17 @@ class TestInCodeEscapeUnderChroma:
             '<span class="line"><span class="cl">b&lt;^&gt;\n</span></span></code></pre>'
         )
         assert apply_html(rendered) == rendered
+
+
+class TestVerbatimBlocks:
+    """A marker pair inside a verbatim block is left alone by the pre stage."""
+
+    def test_pair_inside_a_script_block_is_untouched(self) -> None:
+        source = "<script>\nvar x = '<^>y<^>';\n</script>\n\n<^>z<^>\n"
+
+        assert expand_source(source) == "<script>\nvar x = '<^>y<^>';\n</script>\n\n<mark>z</mark>\n"
+
+    def test_pair_inside_a_multi_line_comment_is_untouched(self) -> None:
+        source = "<!--\n<^>y<^>\n-->\n"
+
+        assert expand_source(source) == source

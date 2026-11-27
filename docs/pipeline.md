@@ -25,6 +25,12 @@ The pre stage expands the embed, button, lightbox, mermaid, and icon directives 
 Your renderer turns Markdown into HTML, passing the raw HTML and the comments through.
 The post stage reads the marker comments back to apply fence labels and prefixes, grid, card, and tab markup, and annotation links, and it resolves the remaining highlight markers and injects one-time embed scripts.
 
+The pre stage reads a document as a CommonMark renderer does and leaves four kinds of text alone: fenced code, indented code, a multi-line HTML comment, and a `<pre>`, `<script>`, `<style>`, or `<textarea>` block.
+A directive, a fence directive, a highlight marker, or an icon shortcode inside one of them stays as you wrote it, so commented-out text stays commented out.
+A comment starts at a line that begins with `<!--` and holds no `-->`, and it ends at the first later line that holds `-->`.
+The opener may be indented up to three columns.
+A comment that opens and closes on the same line is not skipped, which is how the marker comments the stages write keep working.
+
 ## When to Run Only Post
 
 You do not always need both stages.

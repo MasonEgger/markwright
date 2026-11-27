@@ -6,6 +6,7 @@ from __future__ import annotations
 import functools
 import itertools
 import re
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -61,11 +62,19 @@ _PARAGRAPH_CODE_SPAN_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`)(?:(?!\n[ \t]*\n)
 # span holding a "<^>" marker is prose, as it is to in-process highlight.
 _HTML_TAG_RE = re.compile(r"<(?:/?[A-Za-z][^<>]*|!--(?:(?!-->)[^<>])*--)>")
 
+# The start of an HTML block that CommonMark and Python-Markdown pass through whole, so its lines are never
+# prose: a comment (up to three columns in) that does not close on its own line, which runs through the first
+# line holding "-->", and the first HTML block kind, which starts a line with <pre, <script, <style, or
+# <textarea (any case, then a space, ">", or the line end) and runs through the line holding the matching
+# close tag. Text after the close tag on its line is prose again.
+_COMMENT_OPEN_RE = re.compile(r"[ ]{0,3}<!--")
+_VERBATIM_OPEN_RE = re.compile(r"\s*<(?P<tag>pre|script|style|textarea)(?=[\s>]|$)", re.IGNORECASE)
+
 # One left-to-right pass over both grammars, so whichever starts first wins
 _SKIPPED_SPAN_RE = re.compile(f"{_INLINE_CODE_RE.pattern}|{_HTML_TAG_RE.pattern}")
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 
 class FencedBlock(BaseModel):
@@ -324,20 +333,65 @@ def _indented_code_lines(lines: list[str], fenced_lines: set[int], scan: _BlockS
     return code_lines
 
 
+def _html_region(lines: tuple[str, ...], line_index: int) -> tuple[int, int | None] | None:
+    """Find the comment or verbatim HTML block that starts at a line.
+
+    :param lines: Source lines.
+    :param line_index: The line to test; the caller has checked it is outside code.
+    :returns: ``None`` when no block starts there. Otherwise the index of the line the block ends on (the
+        last line of the document when nothing closes it), and for a verbatim block whose closing line
+        holds more text, the offset where that text starts; ``None`` in the offset slot otherwise.
+    """
+    expanded = lines[line_index].expandtabs(_TAB_WIDTH)
+    if comment_open := _COMMENT_OPEN_RE.match(expanded):
+        if "-->" in expanded[comment_open.end() :]:
+            return None
+        for scan_index in range(line_index + 1, len(lines)):
+            if "-->" in lines[scan_index]:
+                return scan_index, None
+        return len(lines) - 1, None
+
+    if (verbatim_open := _VERBATIM_OPEN_RE.match(expanded)) is None:
+        return None
+    close_tag = f"</{verbatim_open['tag'].lower()}>"
+    search_from = verbatim_open.end()
+    for scan_index in range(line_index, len(lines)):
+        scanned = lines[scan_index].expandtabs(_TAB_WIDTH) if scan_index == line_index else lines[scan_index]
+        close_start = scanned.lower().find(close_tag, search_from if scan_index == line_index else 0)
+        if close_start >= 0:
+            tail_start = close_start + len(close_tag)
+            return scan_index, tail_start if scanned[tail_start:].strip() else None
+    return len(lines) - 1, None
+
+
 @functools.lru_cache(maxsize=_REGION_CACHE_SIZE)
-def _code_regions(lines: tuple[str, ...]) -> tuple[tuple[FencedBlock, ...], frozenset[int]]:
-    """Find the closed fenced blocks and every code line of one document, remembering the answer.
+def _code_regions(
+    lines: tuple[str, ...],
+) -> tuple[tuple[FencedBlock, ...], frozenset[int], Mapping[int, int]]:
+    """Find the closed fenced blocks and every skipped line of one document, remembering the answer.
 
     The pre stages run one after another over text that most of them leave unchanged, so each stage
     that scans the same lines again reads this cache instead of scanning twice.
 
     :param lines: Source lines.
-    :returns: The fenced blocks, and the indexes of lines that are closed fences or indented code.
+    :returns: The fenced blocks; the indexes of lines that are closed fences, indented code, multi-line
+        comments, or verbatim HTML blocks; and, for each verbatim block that ends before the end of its
+        closing line, the offset where the prose after the close tag starts.
     """
     scan = _scan_blocks(list(lines))
     blocks: list[FencedBlock] = []
+    html_lines: set[int] = set()
+    prose_tails: dict[int, int] = {}
     line_index = 0
     while line_index < len(lines):
+        if scan.outside_code[line_index] and (html_region := _html_region(lines, line_index)) is not None:
+            region_end, tail_start = html_region
+            html_lines.update(range(line_index, region_end + 1))
+            if tail_start is not None:
+                prose_tails[region_end] = tail_start
+            line_index = region_end + 1
+            continue
+
         open_match = _FENCE_OPEN_RE.match(lines[line_index].expandtabs(_TAB_WIDTH))
         if (
             open_match is None
@@ -380,57 +434,10 @@ def _code_regions(lines: tuple[str, ...]) -> tuple[tuple[FencedBlock, ...], froz
         )
         line_index = closing + 1
 
-    fenced_lines = {line_index for block in blocks for line_index in range(block.opening, block.closing + 1)}
-    return tuple(blocks), frozenset(fenced_lines | _indented_code_lines(list(lines), fenced_lines, scan))
-
-
-def _read_emitted_blocks(lines: list[str], opener: str) -> tuple[frozenset[int], dict[int, int]]:
-    """Find the blocks one stage emitted, and the code lines of the text around them.
-
-    A block starts at a line outside code whose first text is ``opener`` and ends right after the first
-    ``</pre>`` that follows it, on that line or a later one. A block that nothing closes is not a block.
-
-    The emitting stage wrote each block in place of a closed fence, whose text opened and closed nothing
-    outside it. So when a line of a block's text reads as code, the lines after the block's first are read as
-    copies of that first line, and the lines are scanned again before the next block is looked for. A fence
-    line or an indented line in the block's text then changes nothing about what is code after the block.
-
-    :param lines: The source split into lines.
-    :param opener: The exact open tag the emitting stage writes.
-    :returns: The indexes of the code lines, read with no block's text opening or closing code, and for
-        each line a block covers, how many of its leading characters are the block's.
-    """
-    scanned_lines = list(lines)
-    _, code_lines = _code_regions(tuple(scanned_lines))
-    block_ends: dict[int, int] = {}
-    line_index = 0
-    while line_index < len(lines):
-        closing_index = closing_end = -1
-        if line_index not in code_lines and lines[line_index].lstrip().startswith(opener):
-            search_from = lines[line_index].find(opener) + len(opener)
-            for scan_index in range(line_index, len(lines)):
-                closing_start = lines[scan_index].find("</pre>", search_from if scan_index == line_index else 0)
-                if closing_start >= 0:
-                    closing_index, closing_end = scan_index, closing_start + len("</pre>")
-                    break
-
-        if closing_index < 0:
-            line_index += 1
-            continue
-
-        for block_index in range(line_index, closing_index):
-            block_ends[block_index] = len(lines[block_index])
-        # Text after the closing tag is prose, unless the scan reads that whole line as code
-        block_ends[closing_index] = len(lines[closing_index]) if closing_index in code_lines else closing_end
-
-        # A line of the block's text that reads as code may hold a fence open past the closing tag, so the
-        # lines after the first are read as copies of the first, which is not code, and the scan runs again
-        later_lines = range(line_index + 1, closing_index + 1)
-        if any(later_index in code_lines for later_index in later_lines):
-            scanned_lines[later_lines.start : later_lines.stop] = [lines[line_index]] * len(later_lines)
-            _, code_lines = _code_regions(tuple(scanned_lines))
-        line_index = closing_index + 1
-    return code_lines, block_ends
+    skipped_lines = {line_index for block in blocks for line_index in range(block.opening, block.closing + 1)}
+    skipped_lines |= html_lines
+    code_lines = skipped_lines | _indented_code_lines(list(lines), skipped_lines, scan)
+    return tuple(blocks), frozenset(code_lines), MappingProxyType(prose_tails)
 
 
 def find_inline_code_spans(prose: str) -> list[tuple[int, int]]:
@@ -453,7 +460,6 @@ def map_prose(
     *,
     skip_html: bool = False,
     skip_inline_code: bool = True,
-    skip_blocks_opened_by: str | None = None,
 ) -> str:
     """Apply a transform to the prose of Markdown source, skipping code.
 
@@ -470,26 +476,18 @@ def map_prose(
     prose lines, blank lines included, and finds the spans itself with :func:`find_inline_code_spans`.
     Highlight needs this because a pair may hold a code span.
 
-    With ``skip_blocks_opened_by``, a block that one stage emitted passes through unchanged too: it starts at
-    a line outside code whose first text is that exact open tag, at any indentation, and ends right after the
-    first ``</pre>`` that follows it, whatever the lines between them look like. A fence line or an indented
-    line between them changes nothing about what is code after the block. Text after the ``</pre>`` on its
-    line is prose, unless that line is code. The pre stage of mermaid is the one emitter, and the icons stage
-    is the one reader.
+    A multi-line HTML comment and a ``<pre>``, ``<script>``, ``<style>``, or ``<textarea>`` block pass
+    through unchanged as well, the way CommonMark's HTML blocks run through their end line. Text after a
+    verbatim block's close tag on its line is prose.
 
     :param text: Raw Markdown source.
     :param transform: A function applied to each prose run.
     :param skip_html: Also skip HTML tags, comments, and autolinks.
     :param skip_inline_code: Skip inline code spans; ``False`` leaves them inside the runs.
-    :param skip_blocks_opened_by: The open tag of the blocks to skip, or ``None`` to skip none.
     :returns: The source with every prose run transformed.
     """
     lines = text.split("\n")
-    block_ends: dict[int, int] = {}
-    if skip_blocks_opened_by is None:
-        _, code_lines = _code_regions(tuple(lines))
-    else:
-        code_lines, block_ends = _read_emitted_blocks(lines, skip_blocks_opened_by)
+    _, code_lines, prose_tails = _code_regions(tuple(lines))
     if skip_html:
         skipped_span_re = _SKIPPED_SPAN_RE
     elif skip_inline_code:
@@ -501,13 +499,11 @@ def map_prose(
     # on both sides of it is, so a prose run never starts or ends with a newline.
     pieces: list[tuple[bool, str]] = []
     for line_index, line in enumerate(lines):
-        block_end = block_ends.get(line_index)
-        if block_end is None:
+        tail_start = prose_tails.get(line_index)
+        if tail_start is None:
             line_pieces = [(line_index not in code_lines, line)]
-        elif block_end == len(line):
-            line_pieces = [(False, line)]
         else:
-            line_pieces = [(False, line[:block_end]), (True, line[block_end:])]
+            line_pieces = [(False, line[:tail_start]), (True, line[tail_start:])]
 
         if pieces:
             previous_is_prose, _ = pieces[-1]
@@ -549,7 +545,7 @@ def map_lines(text: str, transform: Callable[[str], list[str]]) -> str:
     :returns: The source with every non-code line transformed.
     """
     lines = text.split("\n")
-    _, code_lines = _code_regions(tuple(lines))
+    _, code_lines, _ = _code_regions(tuple(lines))
 
     output: list[str] = []
     for line_index, line in enumerate(lines):

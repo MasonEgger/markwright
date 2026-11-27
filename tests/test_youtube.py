@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import markdown
+import pytest
 
 from markwright.youtube import expand_source
 
@@ -154,3 +155,21 @@ class TestYoutubeSkipsIndentedCode:
 
     def test_directive_under_a_list_item_still_expands(self) -> None:
         assert "<iframe" in render_youtube("- item\n\n    [youtube iom_nhYQIYk]\n")
+
+
+class TestInsideVerbatimRegions:
+    """A directive line inside a comment or a <pre> block stays literal in both paths."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "<!--\n[youtube dQw4w9WgXcQ]\n-->\n",
+            "<pre>\n[youtube dQw4w9WgXcQ]\n</pre>\n",
+            "<script>\n[youtube dQw4w9WgXcQ]\n</script>\n",
+        ],
+        ids=["comment", "pre", "script"],
+    )
+    def test_directive_stays_literal(self, source: str) -> None:
+        assert expand_source(source) == source
+        assert "<iframe" not in render_youtube(source)
+        assert "[youtube dQw4w9WgXcQ]" in render_youtube(source)

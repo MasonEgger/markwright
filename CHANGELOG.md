@@ -15,6 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A multi-line HTML comment is now skipped by every stage, in both paths: a `[tab]`, `[youtube ...]`, or `[annotate]` line, a fence directive, a highlight marker, or an icon shortcode inside one stays as written.
+  Before, the `-->` of a marker comment `mw pre` wrote inside the author's comment ended it, and the commented-out text was published.
+- A `<pre>`, `<script>`, `<style>`, or `<textarea>` block is now verbatim to every pre stage, so a directive, a highlight marker, or an icon shortcode inside one stays literal.
+  Before, only icons skipped a block, and only one that opened with `<pre class="mermaid">`.
 - A fenced code block inside a block quote, such as a `> [!NOTE]` alert, is now read as code.
   Its `[label]`, `[secondary_label]`, and `[environment]` directives and its prefix flags apply in-process and through `mw pre | renderer | mw post`; they used to stay in the block as text.
   `mw pre` also leaves a highlight marker, an icon shortcode, and a directive line inside such a block for the code, where it used to rewrite them as prose.

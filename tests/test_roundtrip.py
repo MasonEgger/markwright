@@ -959,3 +959,38 @@ class TestRoundTripDisallowedEnvironment:
         assert _normalize(pipeline) == _normalize(in_process)
         assert pipeline_diagnostics == instance.markwright_diagnostics  # type: ignore[attr-defined]
         assert [item.line for item in pipeline_diagnostics] == [5]
+
+
+class TestRoundTripHtmlRegions:
+    """A commented-out directive set and a verbatim block read the same in both paths."""
+
+    COMMENTED = (
+        "<!--\n[tab A]\n\nbody\n\n[/tab]\n[youtube dQw4w9WgXcQ]\n"
+        "```command\n[label x.sh]\nmake\n```\n-->\n\nafter <^>this<^>\n"
+    )
+    VERBATIM = "<pre>\n[youtube dQw4w9WgXcQ]\n<^>x<^> :demo-check:\n</pre>\n\nafter <^>this<^> :demo-check:\n"
+
+    @pytest.mark.parametrize("source", [COMMENTED, VERBATIM], ids=["comment", "pre-block"])
+    def test_pipeline_equals_in_process_render(self, source: str, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        pipeline = registry.run_post(stub_render(registry.run_pre(source, names, options)), names, None, options)
+
+        assert _normalize(pipeline) == _normalize(in_process_render(source, names, options))
+        assert "<mark>this</mark>" in pipeline
+        assert "[youtube dQw4w9WgXcQ]" in pipeline
+        assert "<iframe" not in pipeline
+
+    def test_a_shortcode_after_a_pre_block_is_an_icon_and_the_one_inside_stays_literal(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        pack.mkdir()
+        (pack / "check.svg").write_text('<svg viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>')
+        names = list(registry.EXTENSION_NAMES)
+        options: dict[str, dict[str, object]] = {"icons": {"packs": {"demo": str(pack)}}}
+        pipeline = registry.run_post(stub_render(registry.run_pre(self.VERBATIM, names, options)), names, None, options)
+
+        assert pipeline.count('<span aria-hidden="true" class="mw-icon"><svg') == 1
+        assert "<pre>\n[youtube dQw4w9WgXcQ]\n<^>x<^> :demo-check:\n</pre>" in pipeline

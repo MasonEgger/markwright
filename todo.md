@@ -42,16 +42,16 @@ The `/goal` loop checks items as it goes.
 
 ## Section 3: Regions Every Stage Skips or Reads
 
-- [ ] Step 7: Multi-Line HTML Comments Are Skipped
-  - [ ] RED: _fences region tests, containers, directive stages, round trip, Hugo
-  - [ ] GREEN: comment regions in _scan_blocks and _code_regions
-  - [ ] Docs: docs/pipeline.md; spec.md and CLAUDE.md
-  - [ ] just check, just docs-build
-- [ ] Step 8: `<pre>`, `<script>`, `<style>`, and `<textarea>` Blocks Are Verbatim
-  - [ ] RED: _fences, icons, youtube, tabs, highlight, round trip
-  - [ ] GREEN: verbatim blocks in _fences; drop skip_blocks_opened_by
-  - [ ] spec.md Icons Decision deleted, rules cleared; CLAUDE.md
-  - [ ] just check
+- [x] Step 7: Multi-Line HTML Comments Are Skipped
+  - [x] RED: _fences region tests, containers, directive stages, round trip, Hugo
+  - [x] GREEN: comment regions in _scan_blocks and _code_regions
+  - [x] Docs: docs/pipeline.md; spec.md and CLAUDE.md
+  - [x] just check, just docs-build
+- [x] Step 8: `<pre>`, `<script>`, `<style>`, and `<textarea>` Blocks Are Verbatim
+  - [x] RED: _fences, icons, youtube, tabs, highlight, round trip
+  - [x] GREEN: verbatim blocks in _fences; drop skip_blocks_opened_by
+  - [x] spec.md Icons Decision deleted, rules cleared; CLAUDE.md
+  - [x] just check
 - [ ] Step 9: Highlight Skips Tags, and Directives Expand Inside Raw HTML In-Process
   - [ ] RED: highlight tag skipping; nine directive modules inside a div in-process; round trip
   - [ ] GREEN: highlight uses the tag grammar; preprocessors at 21

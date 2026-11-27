@@ -71,8 +71,8 @@ A file in a subdirectory joins its path parts with hyphens, so `arrows/up.svg` i
 Prefixes are matched longest first.
 
 A shortcode that names no pack, or a pack with no matching file, is left as text.
-Shortcodes inside fenced code blocks and inline code spans are never replaced, and `mw pre` leaves a diagram that the mermaid stage converted alone.
-It reads a `<pre class="mermaid">` block you write yourself the same way, through the first `</pre>`, so a shortcode inside it stays literal text.
+Shortcodes are never replaced in fenced code, indented code, an inline code span, an HTML tag, a multi-line comment, or a `<pre>`, `<script>`, `<style>`, or `<textarea>` block.
+So a converted mermaid diagram keeps its shortcode text.
 In `mw pre` the icons stage runs after every directive stage, so a shortcode inside a `[button]` line is read as part of the directive, and a shortcode in a `[tab]` name stays literal text.
 Anything before the `<svg` tag in the file (an XML declaration or a license comment) is dropped, and the markup is joined onto a single line.
 

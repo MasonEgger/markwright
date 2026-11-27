@@ -736,3 +736,18 @@ class TestInProcessDiagnostics:
         with pytest.warns(RenderWarning) as recorded:
             md.convert(self.SOURCE + "\n\n[/tab]")
         assert len(md.markwright_diagnostics) == len(recorded) == 2  # type: ignore[attr-defined]
+
+
+class TestCommentedOutDirective:
+    """A directive inside a multi-line HTML comment stays the author's text."""
+
+    SOURCE = "<!--\n[grid cards]\n\n- one\n\n[grid]\n[card]\nx\n[/card]\n[/grid]\n-->\n"
+
+    def test_expand_source_leaves_the_comment_unchanged(self) -> None:
+        assert expand_source(self.SOURCE) == self.SOURCE
+
+    def test_in_process_render_keeps_the_comment_whole(self) -> None:
+        rendered = markdown.Markdown(extensions=["markwright.grid"]).convert(self.SOURCE)
+
+        assert rendered.startswith("<!--\n[grid cards]")
+        assert "mw-grid" not in rendered

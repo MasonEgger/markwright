@@ -443,3 +443,30 @@ class TestEdgeCases:
         assert scan.pairs[0].kind == "grid"
         assert scan.pairs[0].indent == "  "
         assert scan.problems == ()
+
+
+class TestHtmlRegions:
+    """A tab inside a multi-line comment or a verbatim block is not paired and not reported."""
+
+    def test_tab_inside_a_multi_line_comment_is_skipped(self) -> None:
+        result = scan_containers("<!--\n[tab A]\nbody\n[/tab]\n-->")
+
+        assert result.pairs == ()
+        assert result.problems == ()
+
+    def test_stray_closer_inside_a_comment_is_not_reported(self) -> None:
+        assert scan_containers("<!--\n[/tab]\n-->").problems == ()
+
+    def test_tab_inside_a_pre_block_is_skipped(self) -> None:
+        result = scan_containers("<pre>\n[tab A]\nbody\n[/tab]\n</pre>")
+
+        assert result.pairs == ()
+        assert result.problems == ()
+
+    def test_one_line_marker_comments_are_still_read(self) -> None:
+        source = '<!-- mw-tab:{"version": 1, "name": "A", "first": true} -->\nbody\n<!-- mw-tab-end:{"version": 1} -->'
+
+        assert len(scan_containers(source).pairs) == 1
+
+    def test_tab_after_a_closed_comment_pairs(self) -> None:
+        assert len(scan_containers("<!--\nx\n-->\n[tab A]\nbody\n[/tab]").pairs) == 1

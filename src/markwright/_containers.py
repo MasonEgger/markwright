@@ -305,7 +305,7 @@ def scan_containers(text: str) -> ContainersScan:
     :returns: The matched pairs, the problems, and the unclosed grid shortcuts.
     """
     lines = text.split("\n")
-    fenced_blocks, code_lines = _code_regions(tuple(lines))
+    fenced_blocks, code_lines, _ = _code_regions(tuple(lines))
     fence_openings = {block.opening for block in fenced_blocks}
     stack: list[_Frame] = []
     closed: list[tuple[_Frame, int, bool]] = []

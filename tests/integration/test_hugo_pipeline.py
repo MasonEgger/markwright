@@ -526,3 +526,15 @@ def test_highlight_pairing_matches_in_process_over_generated_documents_through_h
     assert differing == []
     # The corpus must reach a highlight, or equality proves nothing
     assert highlighted_documents
+
+
+@requires_tools
+def test_commented_out_directives_stay_inside_the_comment_through_hugo(tmp_path: Path) -> None:
+    source = "<!--\n[tab A]\n\nbody\n\n[/tab]\n[youtube dQw4w9WgXcQ]\n-->\n\nafter\n"
+
+    final = _pipeline_through_hugo(tmp_path, source)
+
+    assert "<!--\n[tab A]" in final
+    assert "[youtube dQw4w9WgXcQ]\n-->" in final
+    assert "tabbed-set" not in final
+    assert "<iframe" not in final

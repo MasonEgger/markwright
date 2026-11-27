@@ -209,21 +209,20 @@ TEXT_AFTER_DIAGRAM_SOURCES = {
     "two lines": '<pre class="mermaid">x</pre> :octicons-rocket-16:\n\nnext :octicons-rocket-16:\n',
 }
 
-# Raw <pre> blocks the author wrote, and mermaid-like tags that are not the diagram's exact tag. The icons stage
-# does not read the block structure, so it rewrites every shortcode outside code (a Roadmap Deferred entry in spec.md).
-UNSKIPPED_BLOCK_SOURCES = {
+# Verbatim HTML blocks the author wrote: every one is skipped through its close tag, whatever its tag or attributes
+VERBATIM_BLOCK_SOURCES = {
     "closed block": "<pre>\n:octicons-rocket-16:\n</pre>\n",
-    "unclosed block with a fence after it": (
-        "<pre>\n:octicons-rocket-16:\n\n```\ncode\n```\n\nmore :octicons-rocket-16:\n"
-    ),
-    "text after the closing tag": "<pre>\n:octicons-rocket-16:\n</pre> tail :octicons-rocket-16:\n",
-    "upper case mermaid tag": '<PRE CLASS="MERMAID">\n:octicons-rocket-16:\n</PRE>\n',
+    "mermaid tag": '<pre class="mermaid">\n:octicons-rocket-16:\n</pre>\n',
+    "upper case tag": '<PRE CLASS="MERMAID">\n:octicons-rocket-16:\n</PRE>\n',
     "mermaid tag with another attribute": '<pre class="mermaid" id="x">\n:octicons-rocket-16:\n</pre>\n',
+    "script block": "<script>\nvar x = ':octicons-rocket-16:';\n</script>\n",
+    "style block": "<style>\n/* :octicons-rocket-16: */\n</style>\n",
+    "textarea block": "<textarea>\n:octicons-rocket-16:\n</textarea>\n",
 }
 
 
 class TestIconsPreTags:
-    """Only the diagram the mermaid stage emitted is skipped; any other <pre> text is read as before."""
+    """A verbatim HTML block is skipped through its close tag; the prose around it is read."""
 
     @pytest.mark.parametrize("source", PRE_LOOKALIKE_SOURCES.values(), ids=PRE_LOOKALIKE_SOURCES.keys())
     def test_pipeline_matches_the_in_process_render(self, packs: dict[str, str], source: str) -> None:
@@ -249,13 +248,29 @@ class TestIconsPreTags:
 
         assert pipeline.count("<svg") == in_process.count("<svg")
 
-    @pytest.mark.parametrize("source", UNSKIPPED_BLOCK_SOURCES.values(), ids=UNSKIPPED_BLOCK_SOURCES.keys())
-    def test_every_shortcode_outside_code_is_rewritten(self, packs: dict[str, str], source: str) -> None:
+    @pytest.mark.parametrize("source", VERBATIM_BLOCK_SOURCES.values(), ids=VERBATIM_BLOCK_SOURCES.keys())
+    def test_a_shortcode_in_a_verbatim_block_stays_literal(self, packs: dict[str, str], source: str) -> None:
+        assert run_pre(source, ["icons"], {"icons": {"packs": packs}}) == source
+
+    @pytest.mark.parametrize("source", VERBATIM_BLOCK_SOURCES.values(), ids=VERBATIM_BLOCK_SOURCES.keys())
+    def test_a_shortcode_in_a_verbatim_block_stays_literal_in_process(self, packs: dict[str, str], source: str) -> None:
+        rendered = render_icons(source, packs)
+
+        assert "<svg" not in rendered
+        assert ":octicons-rocket-16:" in rendered
+
+    def test_an_unclosed_block_runs_to_the_end_of_the_document(self, packs: dict[str, str]) -> None:
+        source = "<pre>\n:octicons-rocket-16:\n\n```\ncode\n```\n\nmore :octicons-rocket-16:\n"
+
+        assert run_pre(source, ["icons"], {"icons": {"packs": packs}}) == source
+
+    def test_text_after_the_close_tag_is_prose(self, packs: dict[str, str]) -> None:
         icon = f'<span aria-hidden="true" class="mw-icon">{ROCKET}</span>'
+        source = "<pre>\n:octicons-rocket-16:\n</pre> tail :octicons-rocket-16:\n"
 
         result = run_pre(source, ["icons"], {"icons": {"packs": packs}})
 
-        assert result == source.replace(":octicons-rocket-16:", icon)
+        assert result == f"<pre>\n:octicons-rocket-16:\n</pre> tail {icon}\n"
 
 
 class TestIconsInProcess:
