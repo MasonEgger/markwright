@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import html
+import itertools
 import re
 import warnings
 from typing import TYPE_CHECKING, Literal
@@ -40,7 +41,7 @@ from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, Diagnostic, OptionError, ReportingExtension, report
 from markwright._fences import FencedBlock, find_fenced_blocks, is_shallow_indent, item_text_end, strip_quote
-from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
+from markwright._html import add_classes, apply_edits, tokenize
 from markwright._markers import (
     InvalidMarkerError,
     decode_marker,
@@ -132,10 +133,11 @@ def _parse_prefix_from_info(info_string: str) -> tuple[str, dict[str, str]]:
 def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: str) -> str:
     """Wrap each code line in <li> elements with data-prefix attributes inside an <ol>.
 
-    Pygments-style highlighters emit flat, newline-delimited lines, so a split on newlines is
-    correct. Chroma (Hugo) wraps each line in ``<span class="line">...</span>`` with the newline
-    inside the span; splitting that on newlines would cut a line span in half and emit a
-    spurious empty prefixed line, so its top-level line spans are taken whole instead.
+    A line ends at its newline plus the closing tags that follow it at once. Pygments writes flat
+    lines, and its ``hl_lines`` and ``line_spans`` wrap a whole line, newline included, in a span
+    that closes right after it; Chroma wraps each line in spans that close after the newline too
+    (``span.line`` with classes, ``<span style="display:flex;">`` with inline styles). One rule
+    keeps every such span inside its own line, and adds no empty prefixed line after the last one.
 
     :param code_content: The raw content between <code> and </code> tags.
     :param prefix_type: The marker's prefix type; ``line_numbers`` numbers the lines.
@@ -144,31 +146,33 @@ def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: s
     """
     code_tokens = tokenize(code_content)
 
-    # Collect Chroma's top-level line spans, if there are any
-    code_lines: list[str] = []
-    is_chroma = True
-    span_depth = 0
-    line_span: HtmlToken | None = None
-    for token in code_tokens:
-        if token.kind == "start" and token.tag == "span":
-            if span_depth == 0 and token.has_class("line"):
-                line_span = token
-            span_depth += 1
-        elif token.kind == "end" and token.tag == "span" and span_depth:
-            span_depth -= 1
-            if span_depth == 0 and line_span is not None:
-                code_lines.append(code_content[line_span.start : token.end])
-                line_span = None
-    if not code_lines:
-        is_chroma = False
-        code_lines = code_content.removesuffix("\n").split("\n")
+    # Find each line's end: just past its newline, then past the closing tags that come right after
+    line_ends: list[int] = []
+    for token_index, token in enumerate(code_tokens):
+        if token.kind != "text":
+            continue
+        search_from = token.start
+        while (newline_offset := code_content.find("\n", search_from, token.end)) != -1:
+            line_end = newline_offset + 1
+            search_from = line_end
+            if line_end == token.end:
+                for following in code_tokens[token_index + 1 :]:
+                    if following.kind != "end" or following.start != line_end:
+                        break
+                    line_end = following.end
+            line_ends.append(line_end)
 
-    # A Chroma line span already holds its own newline; a flat line has none
-    line_ending = "" if is_chroma else "\n"
+    # Cut the content at those ends; text after the last newline is a final line of its own
+    line_starts = [0, *line_ends]
+    code_lines = [code_content[start:end] for start, end in itertools.pairwise(line_starts)]
+    trailing_text = code_content[line_starts[-1] :]
+    if trailing_text:
+        code_lines.append(trailing_text + "\n")
+
     wrapped_lines: list[str] = []
     for line_index, line_text in enumerate(code_lines):
         current_prefix = str(line_index + 1) if prefix_type == "line_numbers" else prefix_value
-        wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}{line_ending}</li>')
+        wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}</li>')
     return "<ol>" + "".join(wrapped_lines) + "</ol>\n"
 
 

@@ -232,10 +232,9 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 - The `mw-fence` marker (version 1: `label`, `secondary_label`, `environment`, `prefix_type`, `prefix_value`, `disallowed_environment`, `line`, each present only when set) sits before the fence at the fence's indentation, followed by a blank line when the fence is indented.
   A `line_numbers` flag that replaces an earlier `command`, `super_user`, or `custom_prefix` drops `prefix_value`.
   The fence itself is kept, so the renderer still highlights the code, and the post stage styles the first `<pre>` or `<code>` after the marker and before the next one, however far away, an inline code span included.
-- Line prefixes handle two renderers: Pygments emits flat newline-delimited lines, and Chroma (Hugo) wraps each line in `<span class="line">` when `noClasses = false`.
-  A Chroma line that already ends with a newline gains no second one.
-  Planned (polish-gaps): a line ends at its newline plus the closing tags right after it, so a span the highlighter wraps around a whole line (Pygments `hl_lines` and `line_spans`, Chroma with Hugo's default `noClasses = true`) stays inside that line's `<li>`, and no empty prefixed line is added.
-  Today the wrap cuts such a span, which closes in the next `<li>`, and one empty prefixed line is added.
+- Line prefixes handle every highlighter output through one rule: a line ends at its newline plus the closing tags right after it, so a span the highlighter wraps around a whole line stays inside that line's `<li>`.
+  That covers Pygments flat lines, Pygments `hl_lines` and `line_spans`, Chroma's `<span class="line">` with `noClasses = false`, and Chroma's `<span style="display:flex;">` with Hugo's default `noClasses = true`.
+  A line that already ends with a newline gains no second one, and no empty prefixed line follows the last line.
   Planned (polish-gaps): with line numbers in a table (`linenums` under Pygments, `lineNos = true` under Hugo) the marker skips the gutter cell (`td.linenos`, or Chroma's first `td.lntd`) and binds to the code `<pre>` in the same table, so the classes and the prefixes land on the code; the label sits before the table.
   An inline line-number layout (Pygments `linenums_style` `inline` or `pymdownx-inline`, Hugo `lineNumbersInTable = false`) keeps each number in its line's `<li>`, so a prefixed line shows its prefix, its number, and its code.
   Today the marker binds to the gutter `<pre>`, so the classes and the prefixes land on the line numbers.

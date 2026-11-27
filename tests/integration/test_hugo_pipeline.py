@@ -138,8 +138,9 @@ A stray card outside any grid.
 This tab never closes.
 """
 
-# Goldmark must pass raw HTML and the mw-fence comment through (unsafe), and Chroma
-# must emit CSS classes (noClasses = false) so the highlight markup carries class hooks.
+# Goldmark must pass raw HTML and the mw-fence comment through (unsafe). The default sets
+# noClasses = false for the tests' class assertions and annotate's (N)! test; the
+# noClasses = true test passes its own config.
 HUGO_CONFIG = """\
 baseURL = "https://example.org/"
 title = "mw integration"
@@ -264,18 +265,19 @@ def test_indented_and_list_item_fences_survive_hugo(tmp_path: Path) -> None:
     assert "[label" not in final
 
 
-def _pipeline_through_hugo(tmp_path: Path, source: str) -> str:
+def _pipeline_through_hugo(tmp_path: Path, source: str, hugo_config: str = HUGO_CONFIG) -> str:
     """Run ``source`` through ``mw pre``, a Hugo build, and ``mw post``.
 
     :param tmp_path: A scratch directory for the Hugo site.
     :param source: Markdown source text.
+    :param hugo_config: The site's ``hugo.toml``; the default sets ``noClasses = false``.
     :returns: The final HTML of the built page.
     """
     assert HUGO is not None
     site = tmp_path / "site"
     (site / "content").mkdir(parents=True)
     (site / "layouts" / "_default").mkdir(parents=True)
-    (site / "hugo.toml").write_text(HUGO_CONFIG)
+    (site / "hugo.toml").write_text(hugo_config)
     (site / "layouts" / "_default" / "single.html").write_text(SINGLE_LAYOUT)
     (site / "content" / "page.md").write_text('+++\ntitle = "Page"\n+++\n\n' + _run_mw(["pre"], source))
     subprocess.run([HUGO, "--quiet"], cwd=site, check=True)
@@ -637,3 +639,19 @@ def test_a_shallow_embed_keeps_its_item_and_the_text_after_it_renders_through_hu
     assert first_item < final.index("youtube.com/embed/abc") < second_item
     assert "<em>this</em>" in final[first_item:second_item]
     assert "Next" in final[second_item:]
+
+
+@requires_tools
+def test_prefixed_fence_with_inline_styles_keeps_each_line_in_its_item(tmp_path: Path) -> None:
+    # Hugo's default noClasses = true wraps each line in <span style="display:flex;"><span>
+    inline_style_config = HUGO_CONFIG.replace("noClasses = false", "noClasses = true")
+    source = "```command\nls\ncd x\npwd\n```\n"
+
+    final = _pipeline_through_hugo(tmp_path, source, inline_style_config)
+
+    code_inner = final[final.index("<ol>") : final.index("</ol>")]
+    items = re.findall(r"<li data-prefix=\"\$\">(.*?)</li>", code_inner, flags=re.DOTALL)
+    assert len(items) == 3
+    for item in items:
+        assert item.count("<span") == item.count("</span>")
+        assert item.count("<span") > 0

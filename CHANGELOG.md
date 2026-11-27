@@ -31,6 +31,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A line prefix now keeps a span the highlighter wraps around a whole line inside that line's `<li>`: Pygments `hl_lines` and `line_spans`, and Chroma with Hugo's default `noClasses = true`.
+  Before, the span closed in the next `<li>`, and when the last line was wrapped (`line_spans`, or `hl_lines` on the last line) the wrap added one empty prefixed line after it.
 - A prefix flag beside a highlighter attribute now works: `command hl_lines="1"`, `command title="x.sh"`, and Hugo's `command {hl_lines=[1]}` give the `$` prefix, and `mw pre` writes `bash hl_lines="1"`; with no language left (`line_numbers hl_lines="1"`) it writes `text` before the attribute.
   Before, the whole info string was split on commas, so the prefix was dropped, and under Hugo the flag was taken as the language, which turned syntax highlighting off.
 - A highlight pair or an icon shortcode in the text of a raw HTML block, such as a `<div>` with no blank lines, now renders in-process, as `mw pre` already rendered it.

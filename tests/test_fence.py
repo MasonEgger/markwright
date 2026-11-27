@@ -10,6 +10,7 @@ import pytest
 
 from markwright import ConfigWarning, Diagnostic, OptionError, RenderWarning
 from markwright.fence import FenceExtension, apply_html, environment_names, expand_source
+from markwright.registry import run_post, run_pre
 
 
 def messages(diagnostics: list[Diagnostic]) -> list[str]:
@@ -1001,3 +1002,77 @@ class TestInProcessFlagWithAttributeAndNoLanguage:
         assert 'class="hll"' in result
         assert 'data-prefix="1"' in result
         assert 'data-prefix="2"' in result
+
+
+class TestPrefixAroundSpansThatWrapAWholeLine:
+    """A span a highlighter wraps around a whole line closes inside that line's <li>, with no empty line after."""
+
+    COMMAND_MARKER = '<!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$"} -->\n'
+    HL_LINES_SOURCE = '```command hl_lines="1"\nls\ncd x\n```\n'
+
+    @staticmethod
+    def render_with_highlight_config(source: str, highlight_config: dict[str, object]) -> str:
+        instance = markdown.Markdown(
+            extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.fence"],
+            extension_configs={"pymdownx.highlight": highlight_config},
+        )
+        return instance.convert(source)
+
+    def test_in_process_hl_lines_closes_the_span_inside_the_first_item(self) -> None:
+        result = self.render_with_highlight_config(self.HL_LINES_SOURCE, {})
+
+        assert (
+            '<ol><li data-prefix="$"><span class="hll">ls\n</span></li>'
+            '<li data-prefix="$"><span class="nb">cd</span><span class="w"> </span>x\n</li></ol>\n'
+        ) in result
+
+    def test_in_process_line_spans_close_both_spans_inside_each_item(self) -> None:
+        result = self.render_with_highlight_config(self.HL_LINES_SOURCE, {"line_spans": "__span"})
+
+        assert (
+            '<ol><li data-prefix="$"><span id="__span-0-1"><span class="hll">ls\n</span></span></li>'
+            '<li data-prefix="$"><span id="__span-0-2"><span class="nb">cd</span><span class="w"> </span>x\n'
+            "</span></li></ol>\n"
+        ) in result
+
+    def test_registry_round_trip_gives_the_same_wrap(self) -> None:
+        pre_output = run_pre(self.HL_LINES_SOURCE, ["fence"])
+        rendered = _stub_render(pre_output)
+
+        result = run_post(rendered, ["fence"])
+
+        assert (
+            '<ol><li data-prefix="$"><span class="hll">ls\n</span></li>'
+            '<li data-prefix="$"><span class="nb">cd</span><span class="w"> </span>x\n</li></ol>\n'
+        ) in result
+
+    def test_pygments_hl_lines_fixture_has_no_trailing_empty_item(self) -> None:
+        html_input = (
+            self.COMMAND_MARKER + '<div class="highlight"><pre><span></span><code>'
+            '<span class="hll">ls\n</span><span class="hll">cd x\n</span>pwd\n</code></pre></div>'
+        )
+
+        result = apply_html(html_input)
+
+        assert (
+            '<ol><li data-prefix="$"><span class="hll">ls\n</span></li>'
+            '<li data-prefix="$"><span class="hll">cd x\n</span></li>'
+            '<li data-prefix="$">pwd\n</li></ol>\n'
+        ) in result
+
+    def test_chroma_inline_style_fixture_gives_one_item_per_line(self) -> None:
+        # Line markup captured from a Hugo build (noClasses = true, hl_lines=[1]); the <pre> style is shortened
+        html_input = (
+            self.COMMAND_MARKER + '<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;">'
+            '<code class="language-bash" data-lang="bash">'
+            '<span style="display:flex; background-color:#3c3d38"><span>ls\n</span></span>'
+            '<span style="display:flex;"><span>cd x\n</span></span></code></pre></div>'
+        )
+
+        result = apply_html(html_input)
+
+        assert (
+            '<ol><li data-prefix="$"><span style="display:flex; background-color:#3c3d38"><span>ls\n</span></span></li>'
+            '<li data-prefix="$"><span style="display:flex;"><span>cd x\n</span></span></li></ol>\n'
+        ) in result
+        assert result.count("<li data-prefix=") == 2

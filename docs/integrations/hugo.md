@@ -28,7 +28,7 @@ The post stage reads the marker comments back to apply the fence labels and pref
 
 ## Hugo Configuration
 
-Two settings in `hugo.toml` are required.
+One setting in `hugo.toml` is required, and one is recommended.
 Without `unsafe = true`, Hugo replaces each raw-HTML node with `<!-- raw HTML omitted -->` and logs a `Raw HTML omitted` warning.
 It drops each marker comment with no placeholder and no warning.
 The build still succeeds, so the page comes out without markwright's output, and a page whose only markwright output is marker comments gives no sign of it.
@@ -44,8 +44,10 @@ The build still succeeds, so the page comes out without markwright's output, and
 `unsafe = true` lets Goldmark pass raw HTML through, which the expanded embeds and the `mw-fence` comment depend on.
 This is Goldmark's only way to preserve them; the default drops every raw-HTML node and the marker comment along with it.
 
-`noClasses = false` makes Chroma, Hugo's syntax highlighter, emit CSS classes rather than inline styles.
-The fence styling and the line prefixes hook onto those classes, so class-based highlighting is required.
+`noClasses = false` is the recommended setting.
+It makes Chroma, Hugo's syntax highlighter, emit CSS classes rather than inline styles.
+Fence labels, environments, line prefixes, and in-code highlight markers work with either setting, so the default `noClasses = true` is fine for them.
+The `(N)!` form of [Annotate](../extensions/annotate.md) finds a code comment by its class, so it needs `noClasses = false`, and a stylesheet that colors tokens by class needs it too.
 
 See [Renderer Requirements](../renderer-requirements.md) for the full contract and what degrades if a requirement is unmet.
 

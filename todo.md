@@ -80,11 +80,11 @@ The `/goal` loop checks items as it goes.
   - [x] GREEN: split at the first space or brace
   - [x] Docs: docs/extensions/fence.md; spec.md cleared
   - [x] just check, just docs-build
-- [ ] Step 14: Line Prefixes Around Spans That Wrap a Whole Line
-  - [ ] RED: Pygments hl_lines and line_spans, Chroma noClasses fixture, Hugo hugo_config argument
-  - [ ] GREEN: a line ends at its newline plus the closing tags after it
-  - [ ] spec.md cleared
-  - [ ] just check
+- [x] Step 14: Line Prefixes Around Spans That Wrap a Whole Line
+  - [x] RED: Pygments hl_lines and line_spans, Chroma noClasses fixture, Hugo hugo_config argument
+  - [x] GREEN: a line ends at its newline plus the closing tags after it
+  - [x] spec.md cleared
+  - [x] just check
 - [ ] Step 15: Line-Number Tables and Inline Line Numbers
   - [ ] RED: Pygments table and inline layouts, Chroma table and inline fixtures, Hugo lineNos
   - [ ] GREEN: _apply_marker skips the gutter cell
