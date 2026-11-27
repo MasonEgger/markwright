@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import markdown
 import pytest
 
@@ -728,3 +730,101 @@ class TestDiagnostics:
         with pytest.warns(RenderWarning):
             md.convert('<!-- mw-fence:{"version": 1, "label": "x"} -->\n\ntext')
         assert [item.reason for item in md.markwright_diagnostics] == ["no-target"]  # type: ignore[attr-defined]
+
+
+class TestDisallowedEnvironmentReport:
+    """An unlisted [environment NAME] is reported in both paths."""
+
+    ALLOWED = {"allowed_environments": ["local"]}
+    SOURCE = "```\n[environment prod]\nssh root@server\n```"
+
+    def test_the_marker_carries_the_name_and_the_directive_line(self) -> None:
+        result = expand_source(self.SOURCE, self.ALLOWED)
+        assert '"disallowed_environment": "prod"' in result
+        assert '"line": 2' in result
+        assert "[environment prod]" in result.split("-->", 1)[1]
+
+    def test_the_marker_sits_beside_a_label(self) -> None:
+        result = expand_source("```\n[label a.sh]\n[environment prod]\ncode\n```", self.ALLOWED)
+        assert '"label": "a.sh"' in result
+        assert '"disallowed_environment": "prod"' in result
+        assert '"line": 3' in result
+
+    def test_a_fence_with_only_the_disallowed_line_gets_a_marker_with_only_that_field(self) -> None:
+        result = expand_source(self.SOURCE, self.ALLOWED)
+        marker = result.split("\n", 1)[0]
+        assert marker.startswith('<!-- mw-fence:{"version": 1')
+        assert '"label"' not in marker
+        assert '"environment"' not in marker
+
+    def test_an_allowed_environment_is_not_reported(self) -> None:
+        result = expand_source("```\n[environment local]\ncode\n```", self.ALLOWED)
+        assert "disallowed_environment" not in result
+
+    def test_omitting_the_allowlist_reports_nothing(self) -> None:
+        assert "disallowed_environment" not in expand_source(self.SOURCE)
+
+    def test_the_post_stage_reports_a_diagnostic_and_changes_no_html(self) -> None:
+        rendered = _stub_render(expand_source(self.SOURCE, self.ALLOWED))
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(rendered, diagnostics)
+        assert diagnostics == [
+            Diagnostic(
+                extension="fence",
+                line=2,
+                directive="[environment prod]",
+                reason="disallowed-environment",
+                message=diagnostics[0].message,
+            )
+        ]
+        assert "prod" in diagnostics[0].message
+        assert "2" in diagnostics[0].message
+        without_field = rendered.replace(', "disallowed_environment": "prod"', "").replace(', "line": 2', "")
+        assert apply_html(without_field) == result
+
+    def test_an_in_process_render_reports_the_same_diagnostic(self) -> None:
+        md = markdown.Markdown(
+            extensions=["pymdownx.superfences", "markwright.fence"],
+            extension_configs={"markwright.fence": self.ALLOWED},
+        )
+        with pytest.warns(RenderWarning):
+            md.convert(self.SOURCE)
+        pipeline: list[Diagnostic] = []
+        apply_html(_stub_render(expand_source(self.SOURCE, self.ALLOWED)), pipeline)
+        assert md.markwright_diagnostics == pipeline  # type: ignore[attr-defined]
+
+    def test_an_in_process_render_reports_the_source_line_under_a_directive_line_above(self) -> None:
+        source = "Intro\n\n```\n[environment prod]\ncode\n```"
+        md = markdown.Markdown(
+            extensions=["pymdownx.superfences", "markwright.fence"],
+            extension_configs={"markwright.fence": self.ALLOWED},
+        )
+        with pytest.warns(RenderWarning):
+            md.convert(source)
+        assert [item.line for item in md.markwright_diagnostics] == [4]  # type: ignore[attr-defined]
+
+
+class TestDisallowedEnvironmentIsAMarkedFence:
+    """A fence marked only for a disallowed environment has the block structure of any marked fence."""
+
+    @staticmethod
+    def render_under_paragraph(environment: str) -> str:
+        md = markdown.Markdown(
+            extensions=["pymdownx.superfences", "markwright.fence"],
+            extension_configs={"markwright.fence": {"allowed_environments": ["local"]}},
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RenderWarning)
+            return md.convert(f"Run this:\n```bash\n[environment {environment}]\nssh root@x\n```")
+
+    def test_the_fence_leaves_the_paragraph_as_it_does_with_an_allowed_environment(self) -> None:
+        allowed = self.render_under_paragraph("local")
+        disallowed = self.render_under_paragraph("prod")
+        assert allowed.startswith("<p>Run this:</p>")
+        assert disallowed.startswith("<p>Run this:</p>")
+
+    def test_the_disallowed_line_stays_in_the_code(self) -> None:
+        rendered = self.render_under_paragraph("prod")
+        assert "environment" in rendered
+        assert "prod" in rendered
+        assert "environment-prod" not in rendered

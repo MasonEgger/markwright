@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- An `[environment NAME]` directive outside `fence.allowed_environments` is now reported, in `mw post --warn`, `mw render --warn`, and in-process, as a `Diagnostic` with the reason `disallowed-environment`.
+  The `mw-fence` marker (still version 1) carries `disallowed_environment` and `line` for it.
+  A fence holding an unlisted `[environment NAME]` now gains an `mw-fence` marker, so it renders as its own block like any fence with a directive.
+
 ### Fixed
 
 - A fenced code block inside a block quote, such as a `> [!NOTE]` alert, is now read as code.

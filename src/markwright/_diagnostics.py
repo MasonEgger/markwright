@@ -88,7 +88,7 @@ class _DiagnosticsResetPreprocessor(Preprocessor):
     """Start each document: empty ``md.markwright_diagnostics`` and keep the source lines.
 
     It runs ahead of every other markwright preprocessor, so ``md.markwright_source_lines`` holds the
-    lines as the author wrote them, which grid and tabs rebase their problem markers' ``line`` against.
+    lines as the author wrote them, which fence, grid, and tabs rebase their markers' ``line`` against.
     """
 
     def run(self, lines: list[str]) -> list[str]:

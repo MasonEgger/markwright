@@ -26,11 +26,11 @@ The `/goal` loop checks items as it goes.
   - [x] GREEN: _markers.rebase_marker_lines, run_pre, StageSpec.line_markers, cli front matter, source-lines preprocessor
   - [x] spec.md Host API, Containers, registry sentences cleared; CLAUDE.md
   - [x] just check
-- [ ] Step 5: Report a Disallowed Environment
-  - [ ] RED: marker field and line, Diagnostic in both paths, no HTML change
-  - [ ] GREEN: fence.py _expand_lines, FenceMarker, _apply_marker
-  - [ ] Docs: docs/extensions/fence.md; spec.md Fence sentence cleared
-  - [ ] just check, just docs-build
+- [x] Step 5: Report a Disallowed Environment
+  - [x] RED: marker field and line, Diagnostic in both paths, no HTML change
+  - [x] GREEN: fence.py _expand_lines, FenceMarker, _apply_marker
+  - [x] Docs: docs/extensions/fence.md; spec.md Fence sentence cleared
+  - [x] just check, just docs-build
 
 ## Section 2: Strict Docs Builds
 

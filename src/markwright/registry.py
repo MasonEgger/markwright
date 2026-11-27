@@ -103,6 +103,7 @@ REGISTRY: dict[str, StageSpec] = {
         post_priority=25,
         extension=fence.FenceExtension,
         check_options=fence.read_options,
+        line_markers=(fence.MARKER_NAME,),
     ),
     "highlight": StageSpec(
         pre=highlight.expand_source,

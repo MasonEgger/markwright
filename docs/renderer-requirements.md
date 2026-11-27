@@ -66,7 +66,9 @@ This comment is a cross-tool surface, so its shape is a versioned contract.
   "secondary_label": "optional second label",
   "environment": "local",
   "prefix_type": "command",
-  "prefix_value": "$"
+  "prefix_value": "$",
+  "disallowed_environment": "prod",
+  "line": 12
 }
 ```
 
@@ -74,6 +76,8 @@ This comment is a cross-tool surface, so its shape is a versioned contract.
 Every other field is optional and present only when the author used that directive.
 `prefix_type` is one of `line_numbers`, `command`, `super_user`, or `custom_prefix`.
 `prefix_value` carries the rendered prefix (`$`, `#`, or custom text) and is absent for `line_numbers`.
+`disallowed_environment` names the first `[environment NAME]` directive outside `fence.allowed_environments`, which stays in the code as text, and `line` is that directive's 1-based line in the source.
+The post stage reports it under `--warn` and changes no HTML for it; a fence with nothing else to carry gets a marker with only these two fields.
 The post stage applies whatever fields are present and ignores any it does not recognize.
 
 ### Versioning Policy

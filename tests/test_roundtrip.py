@@ -12,7 +12,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from markwright import registry
+from markwright import Diagnostic, RenderWarning, registry
 from markwright.codepen import CODEPEN_SCRIPT
 from markwright.instagram import INSTAGRAM_SCRIPT
 from markwright.twitter import TWITTER_SCRIPT
@@ -934,3 +934,28 @@ class TestRoundTripProperty:
         names = list(registry.EXTENSION_NAMES)
         pipeline = registry.run_post(stub_render(registry.run_pre(document, names)), names)
         assert _normalize(pipeline) == _normalize(in_process_render(document, names))
+
+
+class TestRoundTripDisallowedEnvironment:
+    """The pipeline and the in-process render agree on the HTML and the diagnostics."""
+
+    def test_pipeline_equals_in_process_render_and_diagnostics(self) -> None:
+        source = "# Title\n\n```bash\n[label a.sh]\n[environment prod]\necho hi\n```\n"
+        options = {"fence": {"allowed_environments": ["local"]}}
+        names = ["fence"]
+        pipeline_diagnostics: list[Diagnostic] = []
+        pipeline = registry.run_post(
+            stub_render(registry.run_pre(source, names, options)), names, pipeline_diagnostics, options
+        )
+        instance = markdown.Markdown(
+            extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.fence"],
+            extension_configs={
+                "pymdownx.highlight": {"pygments_lang_class": True},
+                "markwright.fence": options["fence"],
+            },
+        )
+        with pytest.warns(RenderWarning):
+            in_process = instance.convert(source)
+        assert _normalize(pipeline) == _normalize(in_process)
+        assert pipeline_diagnostics == instance.markwright_diagnostics  # type: ignore[attr-defined]
+        assert [item.line for item in pipeline_diagnostics] == [5]

@@ -11,7 +11,9 @@
 #       "secondary_label": "...", # optional
 #       "environment": "local",   # optional
 #       "prefix_type": "command", # optional: line_numbers | command | super_user | custom_prefix
-#       "prefix_value": "$"       # optional: rendered prefix, absent for line_numbers
+#       "prefix_value": "$",      # optional: rendered prefix, absent for line_numbers
+#       "disallowed_environment": "prod",  # optional: an [environment ...] outside the allowlist
+#       "line": 12                # optional: source line of that directive, 1-based
 #     }
 #
 # Every field other than ``version`` is optional and present only when the author used
@@ -39,7 +41,14 @@ from pydantic import BaseModel, ConfigDict
 from markwright._diagnostics import ConfigWarning, Diagnostic, OptionError, ReportingExtension, report
 from markwright._fences import FencedBlock, find_fenced_blocks, strip_quote
 from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
-from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers, skipped_diagnostic
+from markwright._markers import (
+    InvalidMarkerError,
+    decode_marker,
+    encode_marker,
+    find_markers,
+    rebase_marker_lines,
+    skipped_diagnostic,
+)
 from markwright.mermaid import MERMAID_CLASS
 
 if TYPE_CHECKING:
@@ -207,7 +216,9 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
     :param lines: Source lines to process.
     :param allowed_environments: Allowed environment names, or ``None`` to allow every environment;
         an empty list allows none.
-    :returns: Modified lines with directives replaced by mw-fence marker comments.
+    :returns: Modified lines with directives replaced by mw-fence marker comments. An environment
+        outside the allowlist stays in the code and is named in the marker's ``disallowed_environment``,
+        with its ``line`` in ``lines``.
     """
     output: list[str] = []
     cursor = 0
@@ -223,10 +234,12 @@ def _expand_lines(lines: list[str], allowed_environments: list[str] | None) -> l
 
         # Directives are the leading content lines; the first other line, or an environment
         # outside the allowlist, ends them
-        metadata: dict[str, str] = dict(prefix_metadata)
+        metadata: dict[str, str | int] = dict(prefix_metadata)
         content_index = block.opening + 1
         for directive, value in _leading_directives(lines, block):
             if directive == "environment" and allowed_environments is not None and value not in allowed_environments:
+                metadata["disallowed_environment"] = value
+                metadata["line"] = content_index + 1
                 break
             metadata[directive] = value
             content_index += 1
@@ -346,7 +359,9 @@ class FencePreprocessor(Preprocessor):
         :param lines: Source lines to process.
         :returns: Modified lines with directives replaced by metadata comments.
         """
-        return _expand_lines(lines, self.options.allowed_environments)
+        expanded = "\n".join(_expand_lines(lines, self.options.allowed_environments))
+        source_lines: list[str] = getattr(self.md, "markwright_source_lines", lines)
+        return rebase_marker_lines(source_lines, lines, expanded, (MARKER_NAME,)).split("\n")
 
 
 class FenceMarker(BaseModel):
@@ -361,6 +376,8 @@ class FenceMarker(BaseModel):
     :ivar environment: The environment name, if set.
     :ivar prefix_type: The line-prefix style, if set.
     :ivar prefix_value: The rendered prefix, absent for ``line_numbers``.
+    :ivar disallowed_environment: The name of an ``[environment ...]`` directive outside the allowlist.
+    :ivar line: The source line of that directive, 1-based.
     """
 
     model_config = ConfigDict(frozen=True, strict=True, extra="ignore")
@@ -371,6 +388,8 @@ class FenceMarker(BaseModel):
     environment: str | None = None
     prefix_type: Literal["line_numbers", "command", "super_user", "custom_prefix"] | None = None
     prefix_value: str | None = None
+    disallowed_environment: str | None = None
+    line: int | None = None
 
 
 def _apply_marker(
@@ -411,6 +430,19 @@ def _apply_marker(
                 diagnostics.append(skipped_diagnostic("fence", skipped))
             edits.append((comment.start, comment.end, ""))
             continue
+
+        if marker.disallowed_environment is not None and diagnostics is not None:
+            directive = f"[environment {marker.disallowed_environment}]"
+            where = f" on line {marker.line}" if marker.line is not None else ""
+            diagnostics.append(
+                Diagnostic(
+                    extension="fence",
+                    line=marker.line,
+                    directive=directive,
+                    reason="disallowed-environment",
+                    message=f"Leaving {directive}{where} in the code: the environment is not in allowed_environments",
+                )
+            )
 
         # Replace the comment with the label div (or nothing)
         label_html = ""

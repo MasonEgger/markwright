@@ -49,6 +49,10 @@ md = markdown.Markdown(
 | `label_class` | `code-label` | CSS class for the label div. |
 | `secondary_label_class` | `secondary-code-label` | CSS class for the secondary label div. |
 
+An `[environment NAME]` line outside `allowed_environments` stays in the code as text, and the post stage reports it (`mw post --warn`, `mw render --warn`, or a `markwright.Diagnostic` with the reason `disallowed-environment` in-process) without changing the HTML.
+A fence holding only such a line gains an `mw-fence` marker to carry the report, so it renders as its own block like any fence with a directive.
+The report names the first such line of each fence; [`disallowed_environments`](../config.md#diagnostics) lists every name in a document.
+
 All three options apply the same way in-process, through `mw render`, and through the `mw pre | renderer | mw post` pipeline.
 
 Directives work in any fenced code block CommonMark recognizes, including a fence indented up to three spaces, one nested inside a list item, and one inside a block quote (a `> [!NOTE]` alert, for example).
