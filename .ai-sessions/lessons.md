@@ -147,3 +147,4 @@
 - Extensions that emit raw HTML from a preprocessor must stash it via `self.md.htmlStash.store(html)`; otherwise Markdown keeps parsing the output (JS backticks become `<code>`, block elements get an invalid `<p>` wrap) (2026-06-27)
 - Diagnose render bugs by converting the failing case through the real extension stack and reading the HTML; that separates markdown-output bugs from theme CSS (2026-06-27)
 - A claim about what another tool does with markwright output needs a probe for each kind of node: Hugo without `unsafe = true` replaces raw HTML with a placeholder and a warning but drops HTML comments with neither, so one probe of raw HTML proved half the docs sentence (2026-11-21)
+- A shared tag grammar that a transform reads across (highlight) must admit its own marker only inside a quoted attribute value, and use an atomic group with a possessive loop; admitting it anywhere lets prose like `a<b and <^>q<^> then c>d` read as one tag (2026-11-27)

@@ -76,7 +76,7 @@ class ButtonExtension(Extension):
 
         :param md: The Markdown instance to extend.
         """
-        md.preprocessors.register(ButtonPreprocessor(md), "mw-button", 20)
+        md.preprocessors.register(ButtonPreprocessor(md), "mw-button", 21)
 
 
 def makeExtension(**kwargs: object) -> ButtonExtension:  # noqa: N802 - Python-Markdown's loader name

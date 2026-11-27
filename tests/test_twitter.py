@@ -207,3 +207,17 @@ class TestTwitterSkipsIndentedCode:
 
     def test_directive_under_a_list_item_still_expands(self) -> None:
         assert 'class="twitter"' in render("- item\n\n    [twitter https://x.com/User/status/123]\n")
+
+
+class TestTwitterInsideRawHtml:
+    """A directive line in a raw ``<div>`` with no blank lines expands in-process, as ``expand_source`` does."""
+
+    DIRECTIVE = "[twitter https://twitter.com/User/status/123]"
+    SOURCE = f'<div class="note">\n{DIRECTIVE}\n</div>'
+
+    def test_the_directive_expands_in_the_div(self) -> None:
+        rendered = render(self.SOURCE)
+
+        assert expand_source(self.DIRECTIVE) in rendered
+        assert self.DIRECTIVE not in rendered
+        assert rendered.startswith('<div class="note">')

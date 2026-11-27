@@ -173,3 +173,17 @@ class TestInsideVerbatimRegions:
         assert expand_source(source) == source
         assert "<iframe" not in render_youtube(source)
         assert "[youtube dQw4w9WgXcQ]" in render_youtube(source)
+
+
+class TestYouTubeInsideRawHtml:
+    """A directive line in a raw ``<div>`` with no blank lines expands in-process, as ``expand_source`` does."""
+
+    DIRECTIVE = "[youtube dQw4w9WgXcQ]"
+    SOURCE = f'<div class="note">\n{DIRECTIVE}\n</div>'
+
+    def test_the_directive_expands_in_the_div(self) -> None:
+        rendered = render_youtube(self.SOURCE)
+
+        assert expand_source(self.DIRECTIVE) in rendered
+        assert self.DIRECTIVE not in rendered
+        assert rendered.startswith('<div class="note">')

@@ -132,7 +132,7 @@ class YouTubeExtension(Extension):
         :raises OptionError: If the ``load`` config is not a supported value.
         """
         preprocessor = YouTubePreprocessor(md, load_mode(self.getConfigs(), LOAD_MODES))
-        md.preprocessors.register(preprocessor, "do-youtube", 20)
+        md.preprocessors.register(preprocessor, "do-youtube", 21)
 
 
 def makeExtension(**kwargs: object) -> YouTubeExtension:  # noqa: N802 - Python-Markdown's loader name

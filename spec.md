@@ -175,14 +175,15 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
   A directive, a fence, a highlight marker, or an icon shortcode inside it stays as the author wrote it, in both paths, so commented-out text stays commented out.
   A comment that closes on its opening line is not a region, so the marker comments markwright emits keep being read.
 - Raw HTML is not a barrier.
-  Planned (polish-gaps): markwright syntax works inside a raw HTML block the author wrote (a `<div>` and its content), in both paths, as containers already do: a directive line expands, and a highlight pair or an icon shortcode in the text between tags renders.
-  In-process the directive preprocessors run ahead of Python-Markdown's `html_block` (20), at 21 beside grid and tabs, and the highlight and icons source transforms run over the lines of a raw HTML block, which the inline processors never see.
+  Planned (polish-gaps): a highlight pair or an icon shortcode in the text between tags of a raw HTML block the author wrote (a `<div>` and its content) renders in both paths, as a directive line and the containers already do.
+  In-process the highlight and icons source transforms run over the lines of a raw HTML block, which the inline processors never see.
   In-process a block runs through its matching closing tag, as Python-Markdown reads it, and through `mw pre` through the first blank line, as CommonMark reads it; the markwright markup agrees in both paths, and what each renderer does with plain text after a blank line inside a block stays the renderer's.
+  The directive preprocessors (the embeds, button, lightbox, and annotate) run at 21 in-process, beside grid and tabs and ahead of Python-Markdown's `html_block` (20), so a directive line inside a raw HTML block with no blank lines expands there as it does through `mw pre`.
   The highlight pre stage skips HTML tags, comments, and autolinks, as the icons pre stage does, so a marker inside a tag's attribute never breaks the tag.
   An embed inside a raw HTML block gains no blank line around it, since under CommonMark a blank line ends the block and turns the lines after it into Markdown.
   A `<pre>`, `<script>`, `<style>`, or `<textarea>` block (CommonMark's first HTML block kind, which runs through its closing tag in both renderers) is verbatim content: every pre stage skips it, in both paths, the way it skips fenced code, so a block the mermaid stage emitted keeps its text with no rule of its own.
   The tag name is read in any case, the block ends at the line holding the matching close tag (an unclosed block runs to the end of the document), and text after the close tag on its line is prose.
-  Today a directive line inside a raw HTML block expands through `mw pre`, and in-process only when it is a `[grid]`, `[card]`, or `[tab]` container line; a highlight pair or a shortcode in one renders through `mw pre` and stays literal in-process and the highlight pre stage rewrites a pair inside a tag's attribute.
+  Today a highlight pair or a shortcode in a raw HTML block renders through `mw pre` and stays literal in-process.
 - Two paths give one result: the in-process Python-Markdown render and `mw pre | renderer | mw post` produce the same HTML for the same source apart from blank lines between blocks, and `tests/test_roundtrip.py` asserts it after dropping blank lines outside `<pre>`, a hypothesis property over markwright's grammar included.
   Where the two paths differ on a document an author is likely to write, the entry says so under `Known gap`.
 - A pre stage that needs its post stage hands data over in a marker comment, `<!-- NAME:{JSON} -->`, with `"version": 1` in the payload.
@@ -206,7 +207,8 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
   Exactly one backslash is removed for an escape, a paired marker's characters are removed, and every tag stays where it is, so a `<span>` that held only a backslash or part of a marker remains, empty; a revealed literal marker is written `&lt;&#94;&gt;`, so a second `mw post` leaves it alone.
   In prose `mw pre` reads the backslashes before a marker in pairs: an odd run escapes the marker, and `mw pre` then adds one backslash and writes the marker's `<` as `&lt;`, so Python-Markdown and a CommonMark renderer both hand `mw post` the escaped form; an even run leaves the marker live, as the in-process path already reads it.
 - The pre stage wraps prose markers only, outside fenced code, indented code, and inline code spans.
-  Planned (polish-gaps): it also skips HTML tags, comments, and autolinks, and works inside a raw HTML block, by the raw HTML rule under Rules Every Feature Follows.
+  It also skips HTML tags, comments, and autolinks, in both paths (the in-process inline processor reads the same grammar), so a marker inside a tag's attribute stays as written and a pair may still span a tag.
+  Planned (polish-gaps): it works inside a raw HTML block, by the raw HTML rule under Rules Every Feature Follows.
   The post stage reads the escaped `&lt;^&gt;` form from text tokens only (never an attribute, a `<script>`, a `<style>`, a `<title>`, or a `<textarea>`, whose content a browser shows as characters) and wraps each text run between a pair on its own, so a `<mark>` never crosses a syntax-highlight `<span>`.
 - It takes no options.
 
@@ -401,7 +403,8 @@ Both paths:
 - `mw` is a stdin-to-stdout filter, so the syntax works around any renderer: `mw pre < in.md | some-renderer | mw post > out.html`.
   `mw` reads and writes UTF-8 whatever the locale or `PYTHONIOENCODING` says, and input that is not UTF-8 is one `mw: error:` line and exit 2.
   `mw pre` passes a leading YAML (`---`) or TOML (`+++`) front matter block through untouched: the block starts on the first line and ends at the next line that is the same delimiter, and a first line of `---` with no closing line is read as Markdown.
-- `mw pre` runs every selected extension's source stage, and `mw post` runs every HTML stage, in the registry's priority order, which mirrors the in-process order; CLAUDE.md, Processor Priority Reference, holds the full table.
+- `mw pre` runs every selected extension's source stage, and `mw post` runs every HTML stage, in the registry's priority order; CLAUDE.md, Processor Priority Reference, holds the full table.
+  The registry keeps 20 for the embeds, button, lightbox, and annotate, so the CLI runs grid and tabs ahead of them, while in-process all of them tie at 21 and run in load order; no order among them changes the output.
 - `mw post` is complete on its own: it needs no marker to inject a provider script, and running it twice neither double-injects a script nor double-wraps a mark.
 - `mw render` is the one-shot in-process path: a `markdown.Markdown` with `pymdownx.superfences`, `pymdownx.highlight`, and the selected extensions, and no other extension, so it renders no admonitions and no `md_in_html`; its syntax highlighting needs Pygments, which markwright does not depend on.
 - `mw config` prints the resolved configuration and the source of every value, `mw list` prints each extension and its stages and takes no flags, and `mw --version` prints the version.

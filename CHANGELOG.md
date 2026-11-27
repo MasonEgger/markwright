@@ -15,6 +15,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A directive line inside a raw HTML block, such as a `[youtube ...]` or `[button ...]` line in a `<div class="note">`, now expands in-process, as `mw pre` already expanded it.
+  The embed, button, lightbox, and annotate preprocessors moved from priority 20 to 21, ahead of Python-Markdown's `html_block`, beside grid and tabs.
+  Output for a directive outside raw HTML does not change.
+- The highlight pre stage now skips HTML tags, comments, and autolinks, as the icons stage does.
+  A `<^>` pair inside an attribute, such as `<a title="<^>x<^>">`, no longer breaks the tag, in `mw pre` or in-process, and a backtick in an attribute no longer opens an inline code span.
+  A pair in the text beside a tag still wraps, and a pair may still span a tag.
 - A multi-line HTML comment is now skipped by every stage, in both paths: a `[tab]`, `[youtube ...]`, or `[annotate]` line, a fence directive, a highlight marker, or an icon shortcode inside one stays as written.
   Before, the `-->` of a marker comment `mw pre` wrote inside the author's comment ended it, and the commented-out text was published.
 - A `<pre>`, `<script>`, `<style>`, or `<textarea>` block is now verbatim to every pre stage, so a directive, a highlight marker, or an icon shortcode inside one stays literal.

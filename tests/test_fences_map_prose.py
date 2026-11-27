@@ -71,10 +71,10 @@ class TestMapProseHtml:
     def test_a_tag_inside_a_code_span_does_not_split_it(self) -> None:
         assert map_prose("`a <b` hit>", _mark_hit, skip_html=True) == "`a <b` HIT>"
 
-    def test_a_tag_holding_an_angle_bracket_is_prose(self) -> None:
+    def test_a_tag_holding_a_highlight_marker_is_still_a_tag(self) -> None:
         assert (
             map_prose('<span title="<^>hit<^>">x</span> hit', _mark_hit, skip_html=True)
-            == '<span title="<^>HIT<^>">X</span> HIT'
+            == '<span title="<^>hit<^>">X</span> HIT'
         )
 
 

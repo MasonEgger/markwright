@@ -241,7 +241,7 @@ class InstagramExtension(Extension):
         """
         preprocessor = InstagramPreprocessor(md, load_mode(self.getConfigs(), LOAD_MODES))
         postprocessor = InstagramPostprocessor(md)
-        md.preprocessors.register(preprocessor, "do-instagram", 20)
+        md.preprocessors.register(preprocessor, "do-instagram", 21)
         md.postprocessors.register(postprocessor, "do-instagram-script", 15)
 
 

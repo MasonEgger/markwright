@@ -95,3 +95,17 @@ class TestButtonKeepsIndentation:
         html = md.convert("!!! note\n\n    [button /start Go]\n")
 
         assert html.index('class="mw-button"') < html.rindex("</div>")
+
+
+class TestButtonInsideRawHtml:
+    """A directive line in a raw ``<div>`` with no blank lines expands in-process, as ``expand_source`` does."""
+
+    DIRECTIVE = "[button /start Get started]"
+    SOURCE = f'<div class="note">\n{DIRECTIVE}\n</div>'
+
+    def test_the_directive_expands_in_the_div(self) -> None:
+        rendered = render_button(self.SOURCE)
+
+        assert expand_source(self.DIRECTIVE) in rendered
+        assert self.DIRECTIVE not in rendered
+        assert rendered.startswith('<div class="note">')

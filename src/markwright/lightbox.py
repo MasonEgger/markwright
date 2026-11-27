@@ -75,7 +75,7 @@ class LightboxExtension(Extension):
 
         :param md: The Markdown instance to extend.
         """
-        md.preprocessors.register(LightboxPreprocessor(md), "mw-lightbox", 20)
+        md.preprocessors.register(LightboxPreprocessor(md), "mw-lightbox", 21)
 
 
 def makeExtension(**kwargs: object) -> LightboxExtension:  # noqa: N802 - Python-Markdown's loader name

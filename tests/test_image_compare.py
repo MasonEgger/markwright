@@ -166,3 +166,17 @@ class TestImageCompareSkipsIndentedCode:
 
     def test_directive_under_a_list_item_still_expands(self) -> None:
         assert 'class="image-compare"' in render_compare("- item\n\n    [compare https://l.png https://r.png]\n")
+
+
+class TestImageCompareInsideRawHtml:
+    """A directive line in a raw ``<div>`` with no blank lines expands in-process, as ``expand_source`` does."""
+
+    DIRECTIVE = "[compare https://left.png https://right.png]"
+    SOURCE = f'<div class="note">\n{DIRECTIVE}\n</div>'
+
+    def test_the_directive_expands_in_the_div(self) -> None:
+        rendered = render_compare(self.SOURCE)
+
+        assert expand_source(self.DIRECTIVE) in rendered
+        assert self.DIRECTIVE not in rendered
+        assert rendered.startswith('<div class="note">')

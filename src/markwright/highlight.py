@@ -12,7 +12,7 @@ from markdown.inlinepatterns import InlineProcessor
 from markdown.postprocessors import Postprocessor
 from markdown.util import HTML_PLACEHOLDER_RE
 
-from markwright._fences import find_inline_code_spans, map_prose
+from markwright._fences import find_html_spans, find_inline_code_spans, map_prose
 from markwright._html import RAW_TEXT_ELEMENTS, apply_edits, tokenize
 
 if TYPE_CHECKING:
@@ -147,8 +147,10 @@ def _wrap_prose_markers(prose: str) -> str:
     """Wrap prose markers in ``<mark>`` and write each escaped marker in a form both renderers hand back.
 
     Inline code spans stay as they are and so do the markers inside them, which :func:`apply_html` resolves
-    after rendering. The backslashes before a marker outside a span are read in pairs: an even run leaves the
-    marker live, an odd run escapes it. For an escape one backslash is added and the marker's ``<`` is written
+    after rendering. An HTML tag, comment, or autolink stays as it is as well, with any marker inside it, so a
+    marker in an attribute never breaks the tag; a pair may still span a tag (``<^>a <b>c</b><^>``).
+    The backslashes before a marker outside a span are read in pairs: an even run leaves the marker live, an odd
+    run escapes it. For an escape one backslash is added and the marker's ``<`` is written
     ``&lt;``, so Python-Markdown and a CommonMark renderer both render a backslash and a literal marker, which
     :func:`apply_html` then reveals. A live marker pairs with the next live marker on the same line, and a
     pair wraps everything between them, code spans included. A code span that holds a line end does not
@@ -158,11 +160,12 @@ def _wrap_prose_markers(prose: str) -> str:
     :returns: The prose with live pairs wrapped and escapes rewritten.
     """
     code_spans = find_inline_code_spans(prose)
+    skipped_spans = [*code_spans, *find_html_spans(prose)]
     edits: list[tuple[int, int, str]] = []
     live_markers: list[tuple[int, int]] = []
     for marker_match in _PROSE_MARKER_RE.finditer(prose):
         marker_start = marker_match.end(1)
-        if any(span_start <= marker_start < span_end for span_start, span_end in code_spans):
+        if any(span_start <= marker_start < span_end for span_start, span_end in skipped_spans):
             continue
         if len(marker_match.group(1)) % 2:
             edits.append((marker_start, marker_start + 1, "\\&lt;"))
@@ -189,8 +192,9 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
     """Wrap prose highlight markers in ``<mark>`` outside code.
 
     The source-stage transform for ``mw pre``. Fenced code blocks (found by the shared CommonMark
-    scanner the fence stage uses) are left untouched, and so are the markers inside inline code spans: they
-    are HTML-escaped during rendering and resolved by :func:`apply_html` in the post stage. A prose pair
+    scanner the fence stage uses) are left untouched, and so are HTML tags, comments, and autolinks. So are the
+    markers inside inline code spans: they are HTML-escaped during rendering and resolved by :func:`apply_html`
+    in the post stage. A prose pair
     sits on one line and wraps everything between its markers in one ``<mark>``, code spans included. In prose an
     odd run of backslashes before a marker escapes it and is rewritten as ``mw post`` expects (see
     :func:`_wrap_prose_markers`); an even run leaves the marker live.
@@ -207,7 +211,8 @@ class HighlightInlineProcessor(InlineProcessor):
 
     The pattern matches an opener alone. The closer is the next marker on the opener's own line, so
     a pair never holds a line end; an opener with no closer there, or whose text holds the placeholder
-    of a stashed block, is declined and stays literal, and matching resumes just after it.
+    of a stashed block, is declined and stays literal, and matching resumes just after it. A marker inside an
+    HTML tag, comment, or autolink is never an opener or a closer.
 
     :param pattern: Regex pattern for matching a highlight opener.
     :param md: The Markdown instance.
@@ -224,8 +229,20 @@ class HighlightInlineProcessor(InlineProcessor):
         :param data: The full source string being processed.
         :returns: A tuple of (element, start, end), or ``(None, None, None)`` to decline the opener.
         """
+        # A marker inside an HTML tag, comment, or autolink is part of it, as it is to the pre stage
+        tag_spans = find_html_spans(data)
+        if any(span_start <= match.start(0) < span_end for span_start, span_end in tag_spans):
+            return None, None, None
+
         line_end = data.find("\n", match.end())
-        closer_match = _MARKER_RE.search(data, match.end(), len(data) if line_end == -1 else line_end)
+        closer_match = next(
+            (
+                candidate
+                for candidate in _MARKER_RE.finditer(data, match.end(), len(data) if line_end == -1 else line_end)
+                if not any(span_start <= candidate.start() < span_end for span_start, span_end in tag_spans)
+            ),
+            None,
+        )
         if closer_match is None:
             return None, None, None
 

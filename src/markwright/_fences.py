@@ -57,10 +57,16 @@ _INLINE_CODE_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`).+?(?<!`)(?P=ticks)(?!`)"
 _PARAGRAPH_CODE_SPAN_RE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)(?P=ticks)(?!`)", re.DOTALL)
 
 # An HTML tag or comment, in the shape of Python-Markdown's inline HTML_RE. The letter after "<" keeps
-# "a < b" prose. It also covers autolinks and automail ("<https://x>"), which start with a letter too and
-# must not be rewritten for the same reason. Like Python-Markdown's, neither body admits "<" or ">", so a
-# span holding a "<^>" marker is prose, as it is to in-process highlight.
-_HTML_TAG_RE = re.compile(r"<(?:/?[A-Za-z][^<>]*|!--(?:(?!-->)[^<>])*--)>")
+# "a < b" prose. A tag body admits no "<" or ">" except a highlight marker "<^>" inside a quoted attribute value
+# ('<a title="<^>x<^>">'), so prose such as "a<b and <^>q<^> then c>d" is not one tag. A comment body admits the
+# marker too, and so does an autolink ("<https://x/<^>q<^>>", a scheme, a colon, then no whitespace), so a marker
+# inside any of them is part of the token and is not read. The atomic group and possessive loop keep a tag with
+# many quotes and no closing ">" from backtracking.
+_HTML_TAG_RE = re.compile(
+    r"<(?:/?[A-Za-z](?:(?>\"(?:[^\"<>]|<\^>)*\"|'(?:[^'<>]|<\^>)*'|[^<>]))*+"
+    r"|!--(?:(?!-->)(?:[^<>]|<\^>))*--"
+    r"|[A-Za-z][A-Za-z0-9+.\-]*:(?:[^<>\s]|<\^>)*)>"
+)
 
 # The start of an HTML block that CommonMark and Python-Markdown pass through whole, so its lines are never
 # prose: a comment (up to three columns in) that does not close on its own line, which runs through the first
@@ -72,6 +78,9 @@ _VERBATIM_OPEN_RE = re.compile(r"\s*<(?P<tag>pre|script|style|textarea)(?=[\s>]|
 
 # One left-to-right pass over both grammars, so whichever starts first wins
 _SKIPPED_SPAN_RE = re.compile(f"{_INLINE_CODE_RE.pattern}|{_HTML_TAG_RE.pattern}")
+
+# The same pass over a paragraph's spans, where a code span may hold a line end
+_PARAGRAPH_SKIPPED_SPAN_RE = re.compile(f"{_PARAGRAPH_CODE_SPAN_RE.pattern}|{_HTML_TAG_RE.pattern}", re.DOTALL)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -445,13 +454,30 @@ def find_inline_code_spans(prose: str) -> list[tuple[int, int]]:
 
     A span is a backtick run, content, and a closing run of exactly the same length. Unlike the spans
     :func:`map_prose` skips, the content may cross a line end, as a paragraph's code span does, but never a
-    blank line, which ends the paragraph.
+    blank line, which ends the paragraph. A backtick inside an HTML tag opens no span, and a tag inside a
+    span is part of it, as in :func:`map_prose`.
 
     :param prose: A run of prose, such as the one :func:`map_prose` hands a transform with
         ``skip_inline_code`` off.
     :returns: ``(start, end)`` offsets of each span, backticks included, in source order.
     """
-    return [span_match.span() for span_match in _PARAGRAPH_CODE_SPAN_RE.finditer(prose)]
+    return [span_match.span() for span_match in _PARAGRAPH_SKIPPED_SPAN_RE.finditer(prose) if span_match.group("ticks")]
+
+
+def find_html_spans(prose: str) -> list[tuple[int, int]]:
+    """Find the HTML tags, comments, and autolinks of a run of prose.
+
+    The grammar :func:`map_prose` skips with ``skip_html``, for a transform that must read across tags
+    (highlight, whose pair may span ``<b>c</b>``) yet leave what is inside one alone. A tag inside an inline
+    code span is part of the span and not listed.
+
+    :param prose: A run of prose, such as the one :func:`map_prose` hands a transform with
+        ``skip_inline_code`` off.
+    :returns: ``(start, end)`` offsets of each tag, comment, or autolink, in source order.
+    """
+    return [
+        span_match.span() for span_match in _PARAGRAPH_SKIPPED_SPAN_RE.finditer(prose) if not span_match.group("ticks")
+    ]
 
 
 def map_prose(

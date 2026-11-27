@@ -208,3 +208,17 @@ class TestSlideshowKeepsIndentation:
         html = md.convert("!!! note\n\n    [slideshow /a.png /b.png]\n\n    after\n")
 
         assert html.index('class="slideshow"') < html.index("<p>after</p>")
+
+
+class TestSlideshowInsideRawHtml:
+    """A directive line in a raw ``<div>`` with no blank lines expands in-process, as ``expand_source`` does."""
+
+    DIRECTIVE = "[slideshow https://a.png https://b.png]"
+    SOURCE = f'<div class="note">\n{DIRECTIVE}\n</div>'
+
+    def test_the_directive_expands_in_the_div(self) -> None:
+        rendered = render_slideshow(self.SOURCE)
+
+        assert expand_source(self.DIRECTIVE) in rendered
+        assert self.DIRECTIVE not in rendered
+        assert rendered.startswith('<div class="note">')

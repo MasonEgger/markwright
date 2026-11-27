@@ -242,15 +242,6 @@ class TestHighlightExpandSource:
         source = "use `<^>x<^>` here"
         assert expand_source(source) == source
 
-    def test_marker_in_an_html_attribute_is_wrapped_as_released(self) -> None:
-        assert expand_source('<span title="<^>s<^>">y</span>') == '<span title="<mark>s</mark>">y</span>'
-
-    def test_marker_in_an_autolink_is_wrapped_as_released(self) -> None:
-        assert expand_source("<https://x.test/<^>q<^>>") == "<https://x.test/<mark>q</mark>>"
-
-    def test_marker_in_an_inline_comment_is_wrapped_as_released(self) -> None:
-        assert expand_source("x <!-- <^>a<^> --> y") == "x <!-- <mark>a</mark> --> y"
-
     def test_marker_in_a_tags_text_content_is_wrapped(self) -> None:
         assert expand_source('<span title="x"><^>y<^></span>') == '<span title="x"><mark>y</mark></span>'
 
@@ -262,8 +253,8 @@ class TestHighlightExpandSource:
     def test_pair_around_an_inline_comment_is_wrapped_as_released(self) -> None:
         assert expand_source("<^>a <!-- c --> b<^>") == "<mark>a <!-- c --> b</mark>"
 
-    def test_backtick_in_an_attribute_pairs_the_code_span_as_released(self) -> None:
-        assert expand_source('<a title="`"><^>d<^></a> `<^>e<^>`') == '<a title="`"><^>d<^></a> `<mark>e</mark>`'
+    def test_backtick_in_an_attribute_opens_no_code_span(self) -> None:
+        assert expand_source('<a title="`"><^>d<^></a> `<^>e<^>`') == '<a title="`"><mark>d</mark></a> `<^>e<^>`'
 
     def test_marker_in_tab_indented_list_fence_untouched(self) -> None:
         source = "- item\n\n\t```\n\t<^>x<^>\n\t```"
@@ -517,3 +508,67 @@ class TestVerbatimBlocks:
         source = "<!--\n<^>y<^>\n-->\n"
 
         assert expand_source(source) == source
+
+
+class TestHighlightSkipsTags:
+    """A marker inside an HTML tag, comment, or autolink is part of it; markers in the text beside it still pair."""
+
+    def test_a_pair_in_an_attribute_is_untouched(self) -> None:
+        source = '<a title="<^>x<^>">link</a> and <^>y<^>'
+
+        assert expand_source(source) == '<a title="<^>x<^>">link</a> and <mark>y</mark>'
+
+    def test_a_pair_in_a_comment_is_untouched(self) -> None:
+        source = "<!-- <^>x<^> --> and <^>y<^>"
+
+        assert expand_source(source) == "<!-- <^>x<^> --> and <mark>y</mark>"
+
+    def test_a_pair_in_an_autolink_is_untouched(self) -> None:
+        source = "<https://e.com/<^>x<^>> and <^>y<^>"
+
+        assert expand_source(source) == "<https://e.com/<^>x<^>> and <mark>y</mark>"
+
+    def test_a_pair_spanning_a_tag_still_wraps(self) -> None:
+        assert expand_source("<^>a <b>c</b><^>") == "<mark>a <b>c</b></mark>"
+
+    def test_a_marker_in_an_attribute_does_not_pair_with_one_in_the_text(self) -> None:
+        source = '<a title="<^>">x</a> <^>y<^>'
+
+        assert expand_source(source) == '<a title="<^>">x</a> <mark>y</mark>'
+
+    def test_an_escaped_marker_in_an_attribute_is_untouched(self) -> None:
+        source = '<a title="\\<^>">x</a>'
+
+        assert expand_source(source) == source
+
+    def test_a_backtick_in_an_attribute_does_not_open_a_code_span(self) -> None:
+        source = '<a title="`">x</a> <^>y<^> `z`'
+
+        assert expand_source(source) == '<a title="`">x</a> <mark>y</mark> `z`'
+
+
+class TestInProcessSkipsTags:
+    """The inline processor leaves a marker inside a tag, comment, or autolink literal, as ``mw pre`` does."""
+
+    def test_a_pair_in_an_attribute_is_untouched(self) -> None:
+        rendered = _render('See <a title="<^>x<^>" href="/y">link</a> and <^>z<^>.')
+
+        assert "<mark>x</mark>" not in rendered
+        assert "<mark>z</mark>" in rendered
+
+    def test_a_pair_in_an_inline_comment_is_untouched(self) -> None:
+        rendered = _render("See <!-- <^>x<^> --> and <^>z<^>.")
+
+        assert "<mark>x</mark>" not in rendered
+        assert "<mark>z</mark>" in rendered
+
+    def test_a_closer_in_an_attribute_does_not_close_a_pair(self) -> None:
+        rendered = _render('<^>a <b title="<^>">c</b> d<^>')
+
+        assert rendered == '<p><mark>a <b title="<^>">c</b> d</mark></p>'
+
+    def test_a_pair_after_a_bare_angle_bracket_still_wraps_in_both_stages(self) -> None:
+        source = "a<b and <^>q<^> then c>d"
+
+        assert expand_source(source) == "a<b and <mark>q</mark> then c>d"
+        assert "<mark>q</mark>" in _render(source)

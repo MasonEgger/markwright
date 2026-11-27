@@ -234,7 +234,7 @@ class TwitterExtension(Extension):
         """
         preprocessor = TwitterPreprocessor(md, load_mode(self.getConfigs(), LOAD_MODES))
         postprocessor = TwitterPostprocessor(md)
-        md.preprocessors.register(preprocessor, "do-twitter", 20)
+        md.preprocessors.register(preprocessor, "do-twitter", 21)
         md.postprocessors.register(postprocessor, "do-twitter-script", 15)
 
 

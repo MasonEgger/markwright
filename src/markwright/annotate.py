@@ -271,7 +271,7 @@ class AnnotateExtension(ReportingExtension):
         :param md: The Markdown instance to extend.
         """
         self.attach_reporting(md)
-        md.preprocessors.register(AnnotatePreprocessor(md), "mw-annotate-pre", 20)
+        md.preprocessors.register(AnnotatePreprocessor(md), "mw-annotate-pre", 21)
         md.postprocessors.register(AnnotatePostprocessor(md), "mw-annotate-post", 27)
 
 

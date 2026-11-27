@@ -169,6 +169,21 @@ class TestRoundTripEquivalence:
         assert '<li id="mw-annotation-2-1">A prose note.</li>' in pipeline
 
 
+class TestRoundTripRawHtml:
+    """Embeds inside a raw ``<div>`` with no blank lines render the same in both paths."""
+
+    SOURCE = '<div class="note">\n[youtube dQw4w9WgXcQ]\n[button /start Get started]\n</div>\n'
+
+    def test_both_paths_agree(self) -> None:
+        names = ["youtube", "button"]
+        pipeline = registry.run_post(stub_render(registry.run_pre(self.SOURCE, names)), names, None)
+        in_process = in_process_render(self.SOURCE, names)
+
+        assert _normalize(pipeline) == _normalize(in_process)
+        assert "youtube.com/embed/dQw4w9WgXcQ" in in_process
+        assert '<a class="mw-button" href="/start">Get started</a>' in in_process
+
+
 class TestRoundTripIcons:
     """Icon shortcodes expand from a configured pack the same through the pipeline and in-process."""
 
@@ -279,6 +294,9 @@ class TestRoundTripHighlightEscape:
             r"<^>a\<^> b",
             r"\<^>x<^>",
             r"x \<^>y\<^> and <^>z<^>",
+            'See <a title="<^>x<^>" href="/y">link</a> and <^>z<^>.',
+            "See <!-- <^>x<^> --> and <^>z<^>.",
+            "See <https://e.com/<^>x<^>> and <^>z<^>.",
         ],
     )
     def test_prose_escape_matches_in_process(self, source: str) -> None:

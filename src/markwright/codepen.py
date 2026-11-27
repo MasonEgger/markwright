@@ -258,7 +258,7 @@ class CodePenExtension(Extension):
         """
         preprocessor = CodePenPreprocessor(md, load_mode(self.getConfigs(), LOAD_MODES))
         postprocessor = CodePenPostprocessor(md)
-        md.preprocessors.register(preprocessor, "do-codepen", 20)
+        md.preprocessors.register(preprocessor, "do-codepen", 21)
         md.postprocessors.register(postprocessor, "do-codepen-script", 15)
 
 

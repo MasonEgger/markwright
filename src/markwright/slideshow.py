@@ -133,7 +133,7 @@ class SlideshowExtension(Extension):
         :param md: The Markdown instance to extend.
         """
         preprocessor = SlideshowPreprocessor(md)
-        md.preprocessors.register(preprocessor, "do-slideshow", 20)
+        md.preprocessors.register(preprocessor, "do-slideshow", 21)
 
 
 def makeExtension(**kwargs: object) -> SlideshowExtension:  # noqa: N802 - Python-Markdown's loader name

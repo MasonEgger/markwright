@@ -358,3 +358,15 @@ class TestCommentedOutDirective:
 
         assert rendered.startswith("<!--\n[annotate]")
         assert "mw-annotation" not in rendered
+
+
+class TestAnnotateInsideRawHtml:
+    """An [annotate] line in a raw ``<div>`` with no blank lines is read in-process, as ``mw pre`` reads it."""
+
+    SOURCE = '<div class="note">\n[annotate]\nRun (1) now.\n\n1. first\n</div>'
+
+    def test_the_directive_line_is_consumed(self) -> None:
+        rendered = render_annotate(self.SOURCE)
+
+        assert "[annotate]" not in rendered
+        assert "mw-annotate" not in rendered

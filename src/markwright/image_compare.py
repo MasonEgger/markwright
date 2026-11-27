@@ -110,7 +110,7 @@ class ImageCompareExtension(Extension):
         :param md: The Markdown instance to extend.
         """
         preprocessor = ImageComparePreprocessor(md)
-        md.preprocessors.register(preprocessor, "do-image-compare", 20)
+        md.preprocessors.register(preprocessor, "do-image-compare", 21)
 
 
 def makeExtension(**kwargs: object) -> ImageCompareExtension:  # noqa: N802 - Python-Markdown's loader name
