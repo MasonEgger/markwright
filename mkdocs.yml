@@ -98,3 +98,9 @@ nav:
       - Hugo: integrations/hugo.md
       - Material Mapping: material-mapping.md
   - Demo: demo.md
+
+hooks:
+  - docs/hooks/strict_warnings.py
+
+exclude_docs: |
+  hooks/

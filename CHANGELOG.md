@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - An `[environment NAME]` directive outside `fence.allowed_environments` is now reported, in `mw post --warn`, `mw render --warn`, and in-process, as a `Diagnostic` with the reason `disallowed-environment`.
   The `mw-fence` marker (still version 1) carries `disallowed_environment` and `line` for it.
   A fence holding an unlisted `[environment NAME]` now gains an `mw-fence` marker, so it renders as its own block like any fence with a directive.
+- The docs site loads `docs/hooks/strict_warnings.py`, which logs each `RenderWarning` at WARNING so `mkdocs build --strict` fails on a markwright diagnostic.
+  The MkDocs integration page documents it as a host example.
 
 ### Fixed
 

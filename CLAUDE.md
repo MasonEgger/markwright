@@ -87,7 +87,7 @@ Regex remains for single-line token grammars (the `[youtube ...]`-style directiv
 
 8. **Tabs** (`tabs.py`): `expand_source` swaps each `[tab NAME]` ... `[/tab]` of a run of consecutive tab blocks for an `mw-tab`/`mw-tab-end` marker pair, pairing through `_containers.scan_containers`; `apply_html` orders the markers by position, groups consecutive tabs into sets, and emits pymdownx `tabbed` alternate-style markup: `<div class="tabbed-set tabbed-alternate mw-tabs">`, one radio `<input id="mw-tab-S-T" name="mw-tab-S">` per tab (the first checked), a `tabbed-labels` div, and a `tabbed-content` div with one block per tab. The `mw-tab-` id prefix keeps the ids from colliding with pymdown-extensions' own `__tabbed_` ids. An unclosed `[tab]` or a stray `[/tab]` stays literal and gains an inline `mw-tab-problem` marker; an empty `[tab ]` is not an opener and stays literal with no report. The `mw-tab`/`mw-tab-end` markers, the `mw-tabs` class, and the `mw-tab-S-T` id scheme are public contracts, versioned like `mw-fence`; the `mw-tab-problem` marker carries a versioned payload (`version`, `line`, `directive`, `reason`) from `mw pre` to `mw post`, is listed in the tabs page's Marker Contracts table, is reported under `--warn`, and is removed from the output by `apply_html`.
 
-markwright emits classes and markup only and ships no CSS, JavaScript, or icons; the docs site (`docs/stylesheets/extra.css`, `docs/javascripts/`, `docs/icons/`) is the worked host example.
+markwright emits classes and markup only and ships no CSS, JavaScript, or icons; the docs site (`docs/stylesheets/extra.css`, `docs/javascripts/`, `docs/hooks/strict_warnings.py`, `docs/icons/`) is the worked host example.
 
 ### Processor Priority Reference (in-process)
 

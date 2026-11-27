@@ -103,7 +103,7 @@ Cached by `/bpe:plan` on 2026-11-26 from `bpe:cheap-research`; unverified commun
 - Pre-stage scan cost: the fence and indented-code scan runs once per stage and is quadratic for a document of unclosed fence openers, and two directive regexes backtrack on a line of thousands of spaces; ordinary documents scale linearly (about 0.09 s for the 25 pages under `docs/` on the development machine, measured by timing `run_pre` over each page, with the result of a scan remembered per document so stages that leave the text unchanged share it); a stage that rewrites the text still makes the next stage scan it again, and one scan per `run_pre` shared by every stage is the fix, and a host that renders untrusted Markdown should know before 1.0
 - Parser hygiene (cut from the 0.4.0 plan on 2026-11-20): no abbreviated long options, the missing-subcommand usage on stderr, `--config ""` as an error, and the source named in every no-op warning; none changes a correct invocation
 - Hardening for input no author types (cut from the 0.4.0 plan on 2026-11-20): one integer helper for directive and annotation integers, and `decode_marker` skipping a payload no JSON reader accepts; each needs a digit string past 4,300 characters, a non-ASCII digit, or a marker comment edited by hand, and ends the stage in a traceback today; revisit if a host renders untrusted Markdown
-- A MkDocs plugin in the package: the docs site's hook (`docs/hooks/markwright.py`) is the worked example of routing `RenderWarning` into MkDocs' logger for `--strict`; a plugin needs an entry point in `pyproject.toml` and ties markwright to MkDocs, which reaches end of life on May 5, 2027; revisit if a second MkDocs host asks
+- A MkDocs plugin in the package: the docs site's hook (`docs/hooks/strict_warnings.py`) is the worked example of routing `RenderWarning` into MkDocs' logger for `--strict`; a plugin needs an entry point in `pyproject.toml` and ties markwright to MkDocs, which reaches end of life on May 5, 2027; revisit if a second MkDocs host asks
 - Release pipeline hygiene: actions pinned by SHA, protection rules on the `pypi` environment and on `main`, a tag-equals-version check in the publish workflow, and the `Typing :: Typed` classifier; none changes what installs or runs
 
 ## Goals
@@ -453,12 +453,11 @@ Both paths:
 
 - The MkDocs Material site in `docs/` documents and demonstrates every feature: one page per extension with its usage, its syntax, rendered examples, the HTML and marker contracts where the extension has them, and a Host CSS and Script section.
   The grid page leads with a block-grid demo and the tabs page with a tab-set demo.
-- It is also the worked host example: `docs/stylesheets/extra.css`, `docs/javascripts/` (a pinned mermaid.js from a CDN, the lightbox `<dialog>`, the annotation tooltips), and two small, credited, liberally licensed icon packs (`lucide` and `mw`) under `docs/icons/`.
+- It is also the worked host example: `docs/stylesheets/extra.css`, `docs/javascripts/` (a pinned mermaid.js from a CDN, the lightbox `<dialog>`, the annotation tooltips), `docs/hooks/strict_warnings.py` (the strict-mode hook), and two small, credited, liberally licensed icon packs (`lucide` and `mw`) under `docs/icons/`.
   None of it ships in the package.
 - The reference pages are Configuration, Click-to-Load, the CLI reference, the Pipeline Guide, Renderer Requirements, the MkDocs and Hugo integration guides, the Material Mapping page (each Material reference feature against its in-process and Hugo providers, with the gaps), and the Demo page.
 - `just docs-build` (strict) is the gate for it.
-  Planned (polish-gaps): `docs/hooks/markwright.py`, loaded through `hooks:` in `mkdocs.yml`, sends each `RenderWarning` to the `mkdocs.plugins.markwright` logger at WARNING with the `always` filter, so `mkdocs build --strict`, and with it `just docs-build`, fails on a markwright diagnostic; the MkDocs integration page documents the hook as the host example, and no docs page renders a live problem.
-  Today MkDocs logs a Python warning at INFO with a traceback, which `--strict` does not count.
+  `docs/hooks/strict_warnings.py`, loaded through `hooks:` in `mkdocs.yml`, sends each `RenderWarning` to the `mkdocs.plugins.markwright` logger at WARNING with the `always` filter, so `mkdocs build --strict`, and with it `just docs-build`, fails on a markwright diagnostic; the MkDocs integration page documents the hook as the host example, and no docs page renders a live problem.
 
 ## Non-goals
 

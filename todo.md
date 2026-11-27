@@ -34,11 +34,11 @@ The `/goal` loop checks items as it goes.
 
 ## Section 2: Strict Docs Builds
 
-- [ ] Step 6: The MkDocs Strict-Mode Hook (task)
-  - [ ] docs/hooks/markwright.py and the mkdocs.yml hooks line
-  - [ ] docs/integrations/mkdocs.md
-  - [ ] Verify: just docs-build, a scratch stray [/tab] fails --strict, just check
-  - [ ] spec.md Docs Site cleared; CLAUDE.md
+- [x] Step 6: The MkDocs Strict-Mode Hook (task)
+  - [x] docs/hooks/strict_warnings.py and the mkdocs.yml hooks line
+  - [x] docs/integrations/mkdocs.md
+  - [x] Verify: just docs-build, a scratch stray [/tab] fails --strict, just check
+  - [x] spec.md Docs Site cleared; CLAUDE.md
 
 ## Section 3: Regions Every Stage Skips or Reads
 

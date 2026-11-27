@@ -12,13 +12,15 @@ STALE_DIRECTIVE = "[image_compare "
 
 
 def _doc_files() -> list[Path]:
-    """Return README.md and every file under docs/.
+    """Return README.md and every file under docs/, bytecode caches excluded.
+
+    ``mkdocs`` compiles ``docs/hooks/strict_warnings.py`` into ``__pycache__``.
 
     :returns: List of paths to scan for reader-facing example text.
     """
     doc_files = [REPO_ROOT / "README.md"]
     doc_files.extend(sorted((REPO_ROOT / "docs").rglob("*")))
-    return [doc_file for doc_file in doc_files if doc_file.is_file()]
+    return [doc_file for doc_file in doc_files if doc_file.is_file() and "__pycache__" not in doc_file.parts]
 
 
 class TestAuthorFacingCompareToken:
