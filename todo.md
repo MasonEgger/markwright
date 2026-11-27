@@ -85,11 +85,11 @@ The `/goal` loop checks items as it goes.
   - [x] GREEN: a line ends at its newline plus the closing tags after it
   - [x] spec.md cleared
   - [x] just check
-- [ ] Step 15: Line-Number Tables and Inline Line Numbers
-  - [ ] RED: Pygments table and inline layouts, Chroma table and inline fixtures, Hugo lineNos
-  - [ ] GREEN: _apply_marker skips the gutter cell
-  - [ ] Docs: docs/extensions/fence.md; spec.md cleared
-  - [ ] just check, just docs-build
+- [x] Step 15: Line-Number Tables and Inline Line Numbers
+  - [x] RED: Pygments table and inline layouts, Chroma table and inline fixtures, Hugo lineNos
+  - [x] GREEN: _apply_marker skips the gutter cell
+  - [x] Docs: docs/extensions/fence.md; spec.md cleared
+  - [x] just check, just docs-build
 
 ## Section 5: Records
 

@@ -655,3 +655,110 @@ def test_prefixed_fence_with_inline_styles_keeps_each_line_in_its_item(tmp_path:
     for item in items:
         assert item.count("<span") == item.count("</span>")
         assert item.count("<span") > 0
+
+
+@requires_tools
+@pytest.mark.parametrize(
+    ("hugo_settings", "info_attribute", "in_table"),
+    [
+        ("lineNos = true", "", True),
+        ("lineNos = true\nnoClasses = true", "", True),
+        ("lineNos = true\nlineNumbersInTable = false", "", False),
+        ("lineNos = true\nlineNumbersInTable = false\nnoClasses = true", "", False),
+        ("", " {linenos=table}", True),
+        ("", " {linenos=inline}", False),
+    ],
+    ids=["table", "table-inline-styles", "inline", "inline-inline-styles", "fence-table", "fence-inline"],
+)
+def test_prefixed_labeled_fence_beside_line_numbers_styles_the_code_pre(
+    tmp_path: Path, hugo_settings: str, info_attribute: str, in_table: bool
+) -> None:
+    highlight_settings = f"[markup.highlight]\nnoClasses = false\n{hugo_settings}\n"
+    hugo_config = HUGO_CONFIG.replace("[markup.highlight]\nnoClasses = false\n", highlight_settings)
+    if "noClasses = true" in hugo_settings:
+        hugo_config = hugo_config.replace("noClasses = false\n", "", 1)
+    source = (
+        f"```command{info_attribute}\n[label deploy.sh]\n[secondary_label out]\n[environment local]\n"
+        "ls <^>-la<^>\ncd x\n```\n"
+    )
+
+    final = _pipeline_through_hugo(tmp_path, source, hugo_config)
+
+    pre_tags = re.findall(r"<pre\b[^>]*>", final)
+    prefixed_pres = [pre_tag for pre_tag in pre_tags if "prefixed" in pre_tag]
+    assert len(prefixed_pres) == 1
+    assert final.index('<div class="code-label"') < final.index(prefixed_pres[0])
+    assert len(pre_tags) == (2 if in_table else 1)
+    if in_table:
+        # The gutter <pre> comes first, with no class and no <li> of its own
+        gutter = final[final.index(pre_tags[0]) : final.index("</pre>")]
+        assert "prefixed" not in gutter
+        assert "<li" not in gutter
+        assert "environment-local" not in gutter
+    code_inner = final[final.index("<ol>") : final.index("</ol>")]
+    items = re.findall(r'<li data-prefix="\$">(.*?)</li>', code_inner, flags=re.DOTALL)
+    assert len(items) == 2
+    for item in items:
+        assert item.count("<span") == item.count("</span>")
+    assert final.count("secondary-code-label") == 1
+    assert "<mark>-la</mark>" in final
+    assert "[label" not in final
+    assert "<!-- mw-fence" not in final
+
+
+@requires_tools
+def test_annotate_fence_beside_a_line_number_table_binds_to_the_code_pre(tmp_path: Path) -> None:
+    hugo_config = HUGO_CONFIG.replace("noClasses = false\n", "noClasses = false\nlineNos = true\n")
+    source = "[annotate]\n```command\n[label deploy.sh]\n./deploy.sh --prod # (1)!\n```\n\n1. The first note.\n"
+
+    final = _pipeline_through_hugo(tmp_path, source, hugo_config)
+
+    assert final.count("<li data-prefix=") == 1
+    gutter = final[final.index("<pre") : final.index("</pre>")]
+    assert "<li" not in gutter
+    assert "mw-annotation" in final
+    assert "(1)!" not in final
+
+
+AUTHOR_TABLE_SOURCE = """\
+<table>
+<tr><th>Linux</th><th>Windows</th></tr>
+<tr>
+<td>
+
+```command
+[label linux.sh]
+ls
+```
+
+</td>
+<td>
+
+```custom_prefix(>\\s),bash
+[label win.cmd]
+dir
+```
+
+</td>
+</tr>
+</table>
+"""
+
+
+@requires_tools
+@pytest.mark.parametrize("hugo_settings", ["", "lineNos = true"], ids=["no-numbers", "line-number-table"])
+@pytest.mark.parametrize("no_classes", ["false", "true"])
+def test_marked_fences_in_an_authors_table_are_styled_each_on_its_own_pre(
+    tmp_path: Path, hugo_settings: str, no_classes: str
+) -> None:
+    hugo_config = HUGO_CONFIG.replace("noClasses = false", f"noClasses = {no_classes}\n{hugo_settings}")
+
+    final = _pipeline_through_hugo(tmp_path, AUTHOR_TABLE_SOURCE, hugo_config)
+
+    prefixed_pres = [pre_tag for pre_tag in re.findall(r"<pre\b[^>]*>", final) if "prefixed" in pre_tag]
+    assert len(prefixed_pres) == 2
+    assert "prefixed command" in prefixed_pres[0]
+    assert "prefixed custom_prefix" in prefixed_pres[1]
+    assert final.count('<li data-prefix="$">') == 1
+    assert final.count('<li data-prefix="&gt; ">') == 1
+    assert final.count('<div class="code-label"') == 2

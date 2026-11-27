@@ -235,9 +235,12 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 - Line prefixes handle every highlighter output through one rule: a line ends at its newline plus the closing tags right after it, so a span the highlighter wraps around a whole line stays inside that line's `<li>`.
   That covers Pygments flat lines, Pygments `hl_lines` and `line_spans`, Chroma's `<span class="line">` with `noClasses = false`, and Chroma's `<span style="display:flex;">` with Hugo's default `noClasses = true`.
   A line that already ends with a newline gains no second one, and no empty prefixed line follows the last line.
-  Planned (polish-gaps): with line numbers in a table (`linenums` under Pygments, `lineNos = true` under Hugo) the marker skips the gutter cell (`td.linenos`, or Chroma's first `td.lntd`) and binds to the code `<pre>` in the same table, so the classes and the prefixes land on the code; the label sits before the table.
-  An inline line-number layout (Pygments `linenums_style` `inline` or `pymdownx-inline`, Hugo `lineNumbersInTable = false`) keeps each number in its line's `<li>`, so a prefixed line shows its prefix, its number, and its code.
-  Today the marker binds to the gutter `<pre>`, so the classes and the prefixes land on the line numbers.
+  Beside the highlighter's own line numbers, the marker binds to the code `<pre>`: with numbers in a table (`linenums` under Pygments, `lineNos = true` or `{linenos=table}` under Hugo) the first `<pre>` is the gutter's, so the post stage takes the `<pre>` in the table's second cell instead.
+  The gutter is found by position: the first `<td>` of a table that opens after the marker comment and before the `<pre>` and has a second `<td>`, whatever classes or inline styles the cells carry (Hugo's `noClasses = true` gives them none) and whatever else the highlighter adds around them, such as the `<th>` filename row Pygments writes for a `title`, anchor links, and line spans.
+  A table the author wrote opens before the marker, so it is never a gutter, and each marked fence in it is styled on its own `<pre>`.
+  The classes, the secondary label, and the prefix `<li>` elements land on that code `<pre>`, the gutter `<pre>` stays as the highlighter wrote it, and the label sits before the table.
+  An inline layout (Pygments `linenums_style` `inline` or `pymdownx-inline`, Hugo `lineNumbersInTable = false` or `{linenos=inline}`) has one `<pre>`, and each `<li>` holds its number and its code, so a prefixed line shows its prefix, its number, and its code.
+  In-code `<^>` highlight and `[annotate]` bind to the same code `<pre>`, so both work beside a table.
 
 ### Embeds
 

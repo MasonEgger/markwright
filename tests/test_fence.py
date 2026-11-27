@@ -1076,3 +1076,309 @@ class TestPrefixAroundSpansThatWrapAWholeLine:
             '<li data-prefix="$"><span style="display:flex;"><span>cd x\n</span></span></li></ol>\n'
         ) in result
         assert result.count("<li data-prefix=") == 2
+
+
+def render_with_highlight(source: str, highlight_config: dict[str, object]) -> str:
+    """Render source in-process with ``pymdownx.highlight`` set to ``highlight_config``."""
+    instance = markdown.Markdown(
+        extensions=["pymdownx.superfences", "pymdownx.highlight", "markwright.fence"],
+        extension_configs={"pymdownx.highlight": highlight_config},
+    )
+    return instance.convert(source)
+
+
+class TestPrefixBesideLineNumbers:
+    """Line numbers beside a label or a prefix: the code <pre> is styled and the gutter <pre> is not."""
+
+    LABELED_COMMAND = "```command\n[label a.sh]\n[secondary_label sec]\n[environment local]\nls\ncd x\n```\n"
+    COMMAND_MARKER = (
+        '<!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$", '
+        '"label": "a.sh", "secondary_label": "sec", "environment": "local"} -->\n'
+    )
+    LABEL = '<div class="code-label" title="a.sh">a.sh</div>\n\n'
+    SECONDARY = '<div class="secondary-code-label" title="sec">sec</div>'
+    PYGMENTS_GUTTER = (
+        '<td class="linenos"><div class="linenodiv"><pre><span></span>'
+        '<span class="normal">1</span>\n<span class="normal">2</span></pre></div></td>'
+    )
+
+    def test_in_process_table_binds_the_classes_and_prefixes_to_the_code_pre(self) -> None:
+        result = render_with_highlight(self.LABELED_COMMAND, {"linenums": True})
+
+        assert self.PYGMENTS_GUTTER in result
+        assert (
+            '<td class="code"><div><pre class="prefixed command environment-local"><span></span><code>'
+            f'{self.SECONDARY}<ol><li data-prefix="$">ls\n</li><li data-prefix="$">'
+            '<span class="nb">cd</span><span class="w"> </span>x\n</li></ol>\n</code></pre></div></td>'
+        ) in result
+        assert result.index("code-label") < result.index("<table")
+        assert result.count("<li data-prefix=") == 2
+
+    def test_in_process_line_numbers_flag_numbers_the_code_lines_beside_a_table(self) -> None:
+        result = render_with_highlight("```line_numbers\nls\ncd x\n```\n", {"linenums": True})
+
+        assert self.PYGMENTS_GUTTER in result
+        assert '<pre class="prefixed line_numbers"><span></span><code><ol><li data-prefix="1">ls\n</li>' in result
+        assert result.count("<li data-prefix=") == 2
+
+    @pytest.mark.parametrize(
+        ("style", "number"),
+        [
+            ("inline", '<span class="linenos">{n}</span>'),
+            ("pymdownx-inline", '<span class="linenos" data-linenos="{n} "></span>'),
+        ],
+    )
+    def test_in_process_inline_layouts_keep_each_number_in_its_line_item(self, style: str, number: str) -> None:
+        result = render_with_highlight(self.LABELED_COMMAND, {"linenums": True, "linenums_style": style})
+
+        assert f'<ol><li data-prefix="$">{number.format(n=1)}ls\n</li>' in result
+        assert f'<li data-prefix="$">{number.format(n=2)}<span class="nb">cd</span>' in result
+        assert '<pre class="prefixed command environment-local"><span></span><code>' in result
+        assert result.count("<li data-prefix=") == 2
+
+    @pytest.mark.parametrize(
+        "highlight_config",
+        [
+            {"linenums": True},
+            {"linenums": True, "linenums_style": "inline"},
+            {"linenums": True, "linenums_style": "pymdownx-inline"},
+        ],
+    )
+    def test_registry_round_trip_matches_the_in_process_render(self, highlight_config: dict[str, object]) -> None:
+        stub = markdown.Markdown(
+            extensions=["pymdownx.superfences", "pymdownx.highlight"],
+            extension_configs={"pymdownx.highlight": highlight_config},
+        )
+
+        result = run_post(stub.convert(run_pre(self.LABELED_COMMAND, ["fence"])), ["fence"])
+
+        assert result == render_with_highlight(self.LABELED_COMMAND, highlight_config)
+
+    TITLED_COMMAND = (
+        '```command title="x.sh"\n[label a.sh]\n[secondary_label sec]\n[environment local]\nls\ncd x\n```\n'
+    )
+
+    @pytest.mark.parametrize(
+        "highlight_config",
+        [
+            {"linenums": True},
+            {"linenums": True, "anchor_linenums": True, "line_spans": "__span"},
+        ],
+        ids=["table", "table-anchors-and-line-spans"],
+    )
+    def test_a_titled_fence_beside_a_table_styles_the_code_pre_and_leaves_the_title_row(
+        self, highlight_config: dict[str, object]
+    ) -> None:
+        result = render_with_highlight(self.TITLED_COMMAND, highlight_config)
+
+        assert '<tr><th colspan="2" class="filename"><span class="filename">x.sh</span></th></tr>' in result
+        assert '<td class="linenos"><div class="linenodiv"><pre><span></span>' in result
+        assert '<td class="code"><div><pre class="prefixed command environment-local"><span></span><code>' in result
+        assert result.count("prefixed") == 1
+        assert result.count("<li data-prefix=") == 2
+        assert result.index("code-label") < result.index("<table")
+
+    def test_registry_round_trip_of_a_titled_fence_matches_the_in_process_render(self) -> None:
+        highlight_config: dict[str, object] = {"linenums": True}
+        stub = markdown.Markdown(
+            extensions=["pymdownx.superfences", "pymdownx.highlight"],
+            extension_configs={"pymdownx.highlight": highlight_config},
+        )
+
+        result = run_post(stub.convert(run_pre(self.TITLED_COMMAND, ["fence"])), ["fence"])
+
+        assert result == render_with_highlight(self.TITLED_COMMAND, highlight_config)
+        assert '<td class="code"><div><pre class="prefixed command environment-local">' in result
+
+    def test_chroma_table_fixture_styles_the_code_pre_and_leaves_the_gutter(self) -> None:
+        # Markup captured from a Hugo build (lineNos = true, noClasses = false)
+        html_input = (
+            self.COMMAND_MARKER + '<div class="highlight"><div class="chroma">\n'
+            '<table class="lntable"><tr><td class="lntd">\n'
+            '<pre tabindex="0" class="chroma"><code><span class="lnt">1\n</span>'
+            '<span class="lnt">2\n</span></code></pre></td>\n'
+            '<td class="lntd">\n'
+            '<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">'
+            '<span class="line"><span class="cl">ls\n</span></span>'
+            '<span class="line"><span class="cl"><span class="nb">cd</span> x\n</span></span>'
+            "</code></pre></td></tr></table>\n"
+            "</div>\n</div>"
+        )
+
+        result = apply_html(html_input)
+
+        assert (
+            '<pre tabindex="0" class="chroma"><code><span class="lnt">1\n</span>'
+            '<span class="lnt">2\n</span></code></pre></td>'
+        ) in result
+        assert (
+            '<pre tabindex="0" class="prefixed command environment-local chroma">'
+            f'<code class="language-bash" data-lang="bash">{self.SECONDARY}<ol>'
+            '<li data-prefix="$"><span class="line"><span class="cl">ls\n</span></span></li>'
+            '<li data-prefix="$"><span class="line"><span class="cl"><span class="nb">cd</span> x\n</span></span></li>'
+            "</ol>\n</code></pre></td>"
+        ) in result
+        assert result.startswith(self.LABEL)
+        assert result.count("<li data-prefix=") == 2
+
+    def test_chroma_inline_style_table_fixture_styles_the_code_pre_and_leaves_the_gutter(self) -> None:
+        # Markup captured from a Hugo build (lineNos = true, noClasses = true); each long <pre> and <td>
+        # style value is shortened to its first declaration, which changes nothing the test reads
+        html_input = (
+            self.COMMAND_MARKER + '<div class="highlight"><div style="color:#f8f8f2;">\n'
+            '<table style="border-spacing:0;"><tr><td style="vertical-align:top;">\n'
+            '<pre tabindex="0" style="color:#f8f8f2;"><code>'
+            '<span style="white-space:pre;">1\n</span><span style="white-space:pre;">2\n</span></code></pre></td>\n'
+            '<td style="vertical-align:top;;width:100%">\n'
+            '<pre tabindex="0" style="color:#f8f8f2;"><code class="language-bash" data-lang="bash">'
+            '<span style="display:flex;"><span>ls\n</span></span>'
+            '<span style="display:flex;"><span>cd x\n</span></span></code></pre></td></tr></table>\n'
+            "</div>\n</div>"
+        )
+
+        result = apply_html(html_input)
+
+        assert '<pre tabindex="0" style="color:#f8f8f2;"><code><span style="white-space:pre;">1\n' in result
+        assert (
+            '<pre class="prefixed command environment-local" tabindex="0" style="color:#f8f8f2;">'
+            f'<code class="language-bash" data-lang="bash">{self.SECONDARY}<ol>'
+            '<li data-prefix="$"><span style="display:flex;"><span>ls\n</span></span></li>'
+            '<li data-prefix="$"><span style="display:flex;"><span>cd x\n</span></span></li></ol>'
+        ) in result
+        assert result.count("<li data-prefix=") == 2
+
+    def test_chroma_inline_layout_fixture_keeps_each_number_in_its_line_item(self) -> None:
+        # Markup captured from a Hugo build (lineNos = true, lineNumbersInTable = false, noClasses = false)
+        html_input = (
+            self.COMMAND_MARKER + '<div class="highlight"><pre tabindex="0" class="chroma">'
+            '<code class="language-bash" data-lang="bash">'
+            '<span class="line"><span class="ln">1</span><span class="cl">ls\n</span></span>'
+            '<span class="line"><span class="ln">2</span><span class="cl"><span class="nb">cd</span> x\n</span></span>'
+            "</code></pre></div>"
+        )
+
+        result = apply_html(html_input)
+
+        assert (
+            '<pre tabindex="0" class="prefixed command environment-local chroma">'
+            f'<code class="language-bash" data-lang="bash">{self.SECONDARY}<ol>'
+            '<li data-prefix="$"><span class="line"><span class="ln">1</span><span class="cl">ls\n</span></span></li>'
+            '<li data-prefix="$"><span class="line"><span class="ln">2</span><span class="cl">'
+        ) in result
+        assert result.count("<li data-prefix=") == 2
+
+    def test_a_pre_after_a_closed_table_is_not_a_gutter(self) -> None:
+        html_input = (
+            "<table><tr><td>cell</td></tr></table>\n"
+            + self.COMMAND_MARKER
+            + '<div class="highlight"><pre><code>ls\n</code></pre></div>'
+        )
+
+        result = apply_html(html_input)
+
+        assert '<pre class="prefixed command environment-local"><code>' in result
+        assert result.count("<li data-prefix=") == 1
+
+    def test_a_pre_in_a_table_with_one_cell_is_not_a_gutter(self) -> None:
+        html_input = self.COMMAND_MARKER + "<table><tr><td><pre><code>ls\n</code></pre></td></tr></table>"
+
+        result = apply_html(html_input)
+
+        assert '<pre class="prefixed command environment-local"><code>' in result
+        assert result.count("<li data-prefix=") == 1
+
+    def test_a_pre_in_the_second_cell_of_a_table_is_not_a_gutter(self) -> None:
+        html_input = self.COMMAND_MARKER + "<table><tr><td>note</td><td><pre><code>ls\n</code></pre></td></tr></table>"
+
+        result = apply_html(html_input)
+
+        assert '<td><pre class="prefixed command environment-local"><code>' in result
+
+
+class TestPrefixInAnAuthorsTable:
+    """A table the author wrote is not a line-number gutter: each marked fence in it is styled on its own <pre>."""
+
+    LINUX_MARKER = '<!-- mw-fence:{"version": 1, "prefix_type": "command", "prefix_value": "$"} -->\n'
+    WINDOWS_MARKER = '<!-- mw-fence:{"version": 1, "prefix_type": "custom_prefix", "prefix_value": ">"} -->\n'
+    LINUX_BLOCK = '<div class="highlight"><pre><span></span><code>ls\n</code></pre></div>'
+    WINDOWS_BLOCK = '<div class="highlight"><pre><span></span><code>dir\n</code></pre></div>'
+    LINUX_STYLED = (
+        '<pre class="prefixed command"><span></span><code><ol><li data-prefix="$">ls\n</li></ol>\n</code></pre>'
+    )
+    WINDOWS_STYLED = (
+        '<pre class="prefixed custom_prefix"><span></span><code>'
+        '<ol><li data-prefix="&gt;">dir\n</li></ol>\n</code></pre>'
+    )
+
+    def side_by_side(self, header: str = "") -> str:
+        return (
+            f"<table>{header}<tr><td>\n{self.LINUX_MARKER}{self.LINUX_BLOCK}\n</td>"
+            f"<td>\n{self.WINDOWS_MARKER}{self.WINDOWS_BLOCK}\n</td></tr></table>"
+        )
+
+    def test_a_marked_fence_in_each_cell_of_a_two_column_table_is_styled(self) -> None:
+        result = apply_html(self.side_by_side())
+
+        assert self.LINUX_STYLED in result
+        assert self.WINDOWS_STYLED in result
+
+    def test_a_table_with_a_header_row_styles_each_fence(self) -> None:
+        result = apply_html(self.side_by_side("<tr><th>Linux</th><th>Windows</th></tr>"))
+
+        assert self.LINUX_STYLED in result
+        assert self.WINDOWS_STYLED in result
+
+    def test_a_one_column_table_styles_the_fence_in_each_row(self) -> None:
+        html_input = (
+            f"<table><tr><td>{self.LINUX_MARKER}{self.LINUX_BLOCK}</td></tr>"
+            f"<tr><td>{self.WINDOWS_MARKER}{self.WINDOWS_BLOCK}</td></tr></table>"
+        )
+
+        result = apply_html(html_input)
+
+        assert self.LINUX_STYLED in result
+        assert self.WINDOWS_STYLED in result
+
+    def test_an_unmarked_fence_in_the_second_cell_stays_as_it_was(self) -> None:
+        html_input = (
+            f"<table><tr><td>{self.LINUX_MARKER}{self.LINUX_BLOCK}</td><td>{self.WINDOWS_BLOCK}</td></tr></table>"
+        )
+
+        result = apply_html(html_input)
+
+        assert self.LINUX_STYLED in result
+        assert f"<td>{self.WINDOWS_BLOCK}</td>" in result
+
+    def test_a_marked_fence_with_no_numbers_ignores_a_table_after_it(self) -> None:
+        # The unmarked fence's line-number table sits in the first fence's block, after its own <pre>
+        numbered = (
+            '<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv">'
+            '<pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div>'
+            "<pre><span></span><code>dir\n</code></pre></div></td></tr></table></div>"
+        )
+
+        result = apply_html(self.LINUX_MARKER + self.LINUX_BLOCK + "\n" + numbered)
+
+        assert self.LINUX_STYLED in result
+        assert result.count("<li data-prefix=") == 1
+        assert numbered in result
+
+    def test_a_line_number_table_inside_an_authors_cell_styles_its_code_pre(self) -> None:
+        numbered = (
+            '<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv">'
+            '<pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div>'
+            "<pre><span></span><code>ls\n</code></pre></div></td></tr></table></div>"
+        )
+        html_input = f"<table><tr><td>{self.LINUX_MARKER}{numbered}</td><td>other</td></tr></table>"
+
+        result = apply_html(html_input)
+
+        assert '<pre><span></span><span class="normal">1</span></pre>' in result
+        assert f'<td class="code"><div>{self.LINUX_STYLED}</div></td>' in result
+
+    def test_a_table_closed_before_the_fence_is_not_read_as_its_gutter(self) -> None:
+        html_input = f"<table><tr><td>a</td><td>b</td></tr></table>{self.LINUX_MARKER}{self.LINUX_BLOCK}"
+
+        result = apply_html(html_input)
+
+        assert self.LINUX_STYLED in result

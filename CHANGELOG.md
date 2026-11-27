@@ -31,6 +31,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A label, a secondary label, an environment, or a prefix flag on a fence now works beside the highlighter's line numbers in a table (Pygments `linenums`, Hugo `lineNos = true` or `{linenos=table}`).
+  Before, the classes and the `<li>` prefixes landed on the line-number gutter's `<pre>`, so the numbers were prefixed and the code was not.
+  The post stage now skips the first cell of the table the highlighter wrote for the fence (one that opens after the marker and has a second cell), whatever its classes (Hugo's `noClasses = true` gives it none) and whatever sits around it, such as the `<th>` filename row Pygments writes for a `title`, and styles the code cell's `<pre>`.
+  A table the author wrote is never a gutter, so a marked fence in each cell of a two-column table is styled on its own `<pre>`.
+  Inline line numbers (`linenums_style: inline` or `pymdownx-inline`, `lineNumbersInTable = false`) already worked and keep each number in its line's `<li>`.
 - A line prefix now keeps a span the highlighter wraps around a whole line inside that line's `<li>`: Pygments `hl_lines` and `line_spans`, and Chroma with Hugo's default `noClasses = true`.
   Before, the span closed in the next `<li>`, and when the last line was wrapped (`line_spans`, or `hl_lines` on the last line) the wrap added one empty prefixed line after it.
 - A prefix flag beside a highlighter attribute now works: `command hl_lines="1"`, `command title="x.sh"`, and Hugo's `command {hl_lines=[1]}` give the `$` prefix, and `mw pre` writes `bash hl_lines="1"`; with no language left (`line_numbers hl_lines="1"`) it writes `text` before the attribute.

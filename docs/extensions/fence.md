@@ -249,6 +249,31 @@ sudo apt install nginx
 
 Under Hugo, `command {hl_lines=[1]}` keeps both the prefix and Chroma's highlighting.
 
+### Beside Highlighter Line Numbers
+
+A label, a secondary label, an environment, and every prefix flag work with the highlighter's own line numbers, in every layout: Pygments `linenums` (a table, `linenums_style: inline`, or `pymdownx-inline`) and Hugo's `lineNos = true` (a table, or `lineNumbersInTable = false` for inline numbers), set for the site or per fence (`{linenos=table}`, `{linenos=inline}`).
+
+- In a table, the code goes in the second cell.
+  The classes (`prefixed`, `environment-NAME`), the secondary label, and the prefix `<li>` elements land on that cell's `<pre>`.
+  The first cell's `<pre>` holds the numbers and stays as the highlighter wrote it.
+  The label sits before the whole table.
+- With inline numbers, each `<li>` holds its number and its code, so a prefixed line shows the prefix, the number, and the code.
+
+The gutter is the first cell of the table the highlighter wrote for that fence, which opens after the fence's marker and before its code.
+It is found by position, not by class, so this holds with Hugo's `noClasses = true` (inline styles) as well as `noClasses = false`.
+Whatever the highlighter adds around the cells stays where it put it: the filename row Pygments writes above the table for a `title` (the label still sits before the table), anchor links, and line spans.
+A table you wrote yourself, such as a two-column table with a fence in each cell, is never a gutter: each marked fence in it is styled on its own `<pre>`.
+
+```html
+<div class="code-label" title="deploy.sh">deploy.sh</div>
+
+<table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre class="prefixed command"><span></span><code><ol><li data-prefix="$">ls
+</li></ol>
+</code></pre></div></td></tr></table>
+```
+
+A `line_numbers` flag numbers the lines with `data-prefix` as well, so it shows a second set of numbers beside the highlighter's own; use one or the other.
+
 ## HTML Contract
 
 A label is a `<div class="code-label">` before the highlighted block, and a secondary label is a `<div class="secondary-code-label">` inside its `<code>` element:

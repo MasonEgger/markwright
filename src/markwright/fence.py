@@ -41,7 +41,7 @@ from pydantic import BaseModel, ConfigDict
 
 from markwright._diagnostics import ConfigWarning, Diagnostic, OptionError, ReportingExtension, report
 from markwright._fences import FencedBlock, find_fenced_blocks, is_shallow_indent, item_text_end, strip_quote
-from markwright._html import add_classes, apply_edits, tokenize
+from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
 from markwright._markers import (
     InvalidMarkerError,
     decode_marker,
@@ -174,6 +174,43 @@ def _wrap_lines_with_prefix(code_content: str, prefix_type: str, prefix_value: s
         current_prefix = str(line_index + 1) if prefix_type == "line_numbers" else prefix_value
         wrapped_lines.append(f'<li data-prefix="{html.escape(current_prefix)}">{line_text}</li>')
     return "<ol>" + "".join(wrapped_lines) + "</ol>\n"
+
+
+def _in_gutter_cell(tokens: list[HtmlToken], marker_index: int, pre_index: int) -> bool:
+    """Report whether a ``<pre>`` sits in the line-number gutter of the table written for its fence.
+
+    Pygments (``linenums``) and Chroma (``lineNos = true``) put the numbers in the first ``<td>`` of
+    a table and the code in the second, whatever classes or inline styles the cells carry.
+    Pygments adds a ``<th>`` filename row above them for a ``title``, and wraps the numbers in
+    ``<div>``, ``<span>``, and ``<a>`` elements; only the ``<table>`` and ``<td>`` tags decide.
+    That table opens after the fence's marker comment and before the ``<pre>``, so a table the author
+    wrote, which opens before the marker, is never a gutter.
+
+    :param tokens: Every token of the page.
+    :param marker_index: The index of the fence's marker comment.
+    :param pre_index: The index of the ``<pre>`` start tag.
+    :returns: ``True`` when the ``<pre>`` is in the first ``<td>`` of a table that opens after the
+        marker and has a second ``<td>``.
+    """
+    # Table and cell tags between the marker and the <pre>, nearest first: the gutter's cell, then its table
+    table_parts = [
+        (tokens[index].tag, tokens[index].kind)
+        for index in range(pre_index - 1, marker_index, -1)
+        if tokens[index].tag in {"table", "td"}
+    ]
+    if table_parts[:2] != [("td", "start"), ("table", "start")]:
+        return False
+
+    # A second cell follows the gutter's, before any table tag closes or opens
+    following = next(
+        (
+            (tokens[index].tag, tokens[index].kind)
+            for index in range(pre_index + 1, len(tokens))
+            if tokens[index].tag == "table" or (tokens[index].tag == "td" and tokens[index].kind == "start")
+        ),
+        ("", ""),
+    )
+    return following == ("td", "start")
 
 
 def _leading_directives(lines: list[str], block: FencedBlock) -> Iterator[tuple[str, str]]:
@@ -476,9 +513,29 @@ def _apply_marker(
         comment = tokens[marker_comment.token_index]
 
         # The marker's block is everything up to the next marker
-        block = tokens[marker_comment.token_index + 1 : marker_comment.block_end]
-        pre_tag = next((token for token in block if token.kind == "start" and token.tag == "pre"), None)
-        code_tag = next((token for token in block if token.kind == "start" and token.tag == "code"), None)
+        block_indices = range(marker_comment.token_index + 1, marker_comment.block_end)
+
+        # Beside line numbers in a table the first <pre> is the gutter's; the code's is the next one
+        pre_tag = next(
+            (
+                tokens[index]
+                for index in block_indices
+                if tokens[index].kind == "start"
+                and tokens[index].tag == "pre"
+                and not _in_gutter_cell(tokens, marker_comment.token_index, index)
+            ),
+            None,
+        )
+        code_tag = next(
+            (
+                tokens[index]
+                for index in block_indices
+                if tokens[index].kind == "start"
+                and tokens[index].tag == "code"
+                and (pre_tag is None or tokens[index].start > pre_tag.start)
+            ),
+            None,
+        )
 
         try:
             marker = decode_marker(MARKER_NAME, marker_comment.raw_payload, FenceMarker)
