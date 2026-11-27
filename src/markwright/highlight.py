@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
     from markdown import Markdown
 
+    from markwright._diagnostics import Diagnostic
+
 # A backslash before a marker (``\<^>``) escapes it. The in-process InlineProcessor shares this guard
 # so the escape survives as a literal marker no matter which stage resolves it.
 _ESCAPE_GUARD = r"(?<!\\)"
@@ -78,7 +80,7 @@ def _visible_text(rendered_html: str) -> tuple[str, list[int]]:
 
 
 def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, diagnostics: list[Diagnostic] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Convert HTML-escaped ``&lt;^&gt;`` markers in rendered text to ``<mark>``.
 
@@ -92,7 +94,7 @@ def apply_html(
     a literal ``&lt;&#94;&gt;``, which a second pass leaves alone.
 
     :param rendered_html: Rendered HTML content.
-    :param skip_reasons: Ignored (highlighting never skips anything); accepted so the registry calls
+    :param diagnostics: Ignored (highlighting never skips anything); accepted so the registry calls
         every post stage with one signature.
     :param options: Ignored; accepted so the registry calls every post stage with one signature.
     :returns: HTML with escaped highlight markers converted to ``<mark>``.

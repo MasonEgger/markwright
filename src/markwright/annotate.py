@@ -6,11 +6,11 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
+from markwright._diagnostics import Diagnostic, ReportingExtension, report
 from markwright._fences import map_lines
 from markwright._html import (
     RAW_TEXT_ELEMENTS,
@@ -21,12 +21,19 @@ from markwright._html import (
     render_start_tag,
     tokenize,
 )
-from markwright._markers import InvalidMarkerError, decode_marker, find_markers, marker_block
+from markwright._markers import (
+    InvalidMarkerError,
+    decode_marker,
+    find_markers,
+    marker_block,
+    skipped_diagnostic,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from markdown import Markdown
+
 
 MARKER_NAME = "mw-annotate"
 BLOCK_CLASS = "mw-annotated"
@@ -99,7 +106,7 @@ def _locate(rendered_html: str, tokens: list[HtmlToken], token_index: int, block
     )
     block_close = None if block_start is None else matching_end(tokens, block_start)
     if block_start is None or block_close is None:
-        raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following block")
+        raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following block", "no-target")
 
     list_start = next(
         (
@@ -116,7 +123,7 @@ def _locate(rendered_html: str, tokens: list[HtmlToken], token_index: int, block
     if list_start is not None and tokens[list_start].kind == "start" and tokens[list_start].tag == "ol":
         list_close = matching_end(tokens, list_start)
     if list_start is None or list_close is None:
-        raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no annotation list after the block")
+        raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no annotation list after the block", "no-target")
     return block_start, block_close, list_start, list_close
 
 
@@ -140,17 +147,17 @@ def _enclosing_comment_span(tokens: list[HtmlToken], token_index: int) -> tuple[
 
 
 def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, diagnostics: list[Diagnostic] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Link annotation markers from their mw-annotate marker comments.
 
     Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
-    pass a ``skip_reasons`` list to collect why.
+    pass a ``diagnostics`` list to collect why.
     A marker is skipped when its payload is invalid, no block follows it, or no ``<ol>`` follows the block.
     A recognized marker comment is always removed.
 
     :param rendered_html: Rendered HTML containing mw-annotate marker comments.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
+    :param diagnostics: Optional list collecting diagnostics; ``None`` drops them.
     :param options: Accepted for the registry's shared signature; annotate has no options.
     :returns: HTML with the blocks, lists, and markers annotated and the markers removed.
     """
@@ -167,8 +174,8 @@ def apply_html(
                 rendered_html, tokens, marker_comment.token_index, marker_comment.block_end
             )
         except InvalidMarkerError as skipped:
-            if skip_reasons is not None:
-                skip_reasons.append(str(skipped))
+            if diagnostics is not None:
+                diagnostics.append(skipped_diagnostic("annotate", skipped))
             continue
 
         block_number += 1
@@ -245,10 +252,14 @@ class AnnotatePostprocessor(Postprocessor):
         :param text: Rendered HTML string.
         :returns: Modified HTML.
         """
-        return apply_html(text)
+        diagnostics: list[Diagnostic] = []
+        rendered = apply_html(text, diagnostics)
+        for diagnostic in diagnostics:
+            report(self.md, diagnostic)
+        return rendered
 
 
-class AnnotateExtension(Extension):
+class AnnotateExtension(ReportingExtension):
     """Python-Markdown extension for annotations."""
 
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
@@ -259,6 +270,7 @@ class AnnotateExtension(Extension):
 
         :param md: The Markdown instance to extend.
         """
+        self.attach_reporting(md)
         md.preprocessors.register(AnnotatePreprocessor(md), "mw-annotate-pre", 20)
         md.postprocessors.register(AnnotatePostprocessor(md), "mw-annotate-post", 27)
 

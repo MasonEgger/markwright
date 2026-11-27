@@ -22,9 +22,12 @@ from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from markwright._diagnostics import Diagnostic
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
+    from markwright._diagnostics import DiagnosticReason
     from markwright._html import HtmlToken
 
 MARKER_VERSION = 1
@@ -38,7 +41,25 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class InvalidMarkerError(Exception):
-    """A marker the post stage skips fail-soft; the message is the skip reason."""
+    """A marker the post stage skips fail-soft; the message is the skip reason.
+
+    :param message: The skip reason, printed by ``--warn``.
+    :param reason: The diagnostic code; a payload that fails to decode is ``malformed-marker``.
+    """
+
+    def __init__(self, message: str, reason: DiagnosticReason = "malformed-marker") -> None:
+        super().__init__(message)
+        self.reason: DiagnosticReason = reason
+
+
+def skipped_diagnostic(extension: str, skipped: InvalidMarkerError) -> Diagnostic:
+    """Build the diagnostic for a marker the post stage skipped.
+
+    :param extension: The extension whose post stage skipped the marker.
+    :param skipped: The error that carries the skip reason and its code.
+    :returns: A diagnostic with no line or directive, since a skipped marker has neither.
+    """
+    return Diagnostic(extension=extension, line=None, directive=None, reason=skipped.reason, message=str(skipped))
 
 
 class MarkerComment(BaseModel):
@@ -54,6 +75,23 @@ class MarkerComment(BaseModel):
     token_index: int
     raw_payload: str
     block_end: int
+
+
+def unmatched_diagnostic(extension: str, found_name: str, missing_name: str) -> Diagnostic:
+    """Build the diagnostic for an open or close marker with no partner.
+
+    :param extension: The extension whose post stage skipped the marker.
+    :param found_name: The marker name that was present.
+    :param missing_name: The partner marker name that was not.
+    :returns: A diagnostic with no line or directive, since a skipped marker has neither.
+    """
+    return Diagnostic(
+        extension=extension,
+        line=None,
+        directive=None,
+        reason="unmatched-marker",
+        message=f"Skipping {found_name} marker with no matching {missing_name}",
+    )
 
 
 def encode_marker(name: str, payload: Mapping[str, object]) -> str:
@@ -199,25 +237,27 @@ def decode_marker(name: str, raw_payload: str, model: type[ModelT]) -> ModelT:
 
 def report_problem_markers(
     name: str,
+    extension: str,
     rendered_html: str,
     tokens: list[HtmlToken],
     model: type[ModelT],
-    message_for: Callable[[ModelT], str],
-    skip_reasons: list[str] | None,
+    diagnostic_for: Callable[[ModelT], Diagnostic],
+    diagnostics: list[Diagnostic] | None,
 ) -> list[tuple[int, int, str]]:
     """Read every inline problem marker of a kind, report it, and remove its comment.
 
     Shared by grid and tabs: both leave a container problem literal and attach an inline marker
     so the post stage can surface it under ``--warn``. A marker that decodes contributes its
-    composed message; a malformed one contributes its skip reason. Either way the comment is
-    removed.
+    composed diagnostic; a malformed one contributes a ``malformed-marker`` diagnostic. Either way
+    the comment is removed.
 
     :param name: The problem marker name, such as ``mw-grid-problem``.
+    :param extension: The extension reporting, named on a malformed marker's diagnostic.
     :param rendered_html: The HTML the tokens were produced from.
     :param tokens: The tokens of ``rendered_html``.
     :param model: The pydantic model that validates the payload.
-    :param message_for: Composes the ``--warn`` message from a decoded marker.
-    :param skip_reasons: Optional list collecting the reports and skips; ``None`` drops them.
+    :param diagnostic_for: Composes the diagnostic from a decoded marker.
+    :param diagnostics: Optional list collecting the reports and skips; ``None`` drops them.
     :returns: The edits that remove every problem-marker comment.
     """
     edits: list[tuple[int, int, str]] = []
@@ -227,9 +267,9 @@ def report_problem_markers(
         try:
             problem = decode_marker(name, marker_comment.raw_payload, model)
         except InvalidMarkerError as skipped:
-            if skip_reasons is not None:
-                skip_reasons.append(str(skipped))
+            if diagnostics is not None:
+                diagnostics.append(skipped_diagnostic(extension, skipped))
             continue
-        if skip_reasons is not None:
-            skip_reasons.append(message_for(problem))
+        if diagnostics is not None:
+            diagnostics.append(diagnostic_for(problem))
     return edits

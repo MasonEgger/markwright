@@ -3,7 +3,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from markwright.registry import EXTENSION_NAMES, OPTION_NAMES, REGISTRY, describe, run_post, run_pre
+
+if TYPE_CHECKING:
+    from markwright import Diagnostic
 
 
 class TestRunPre:
@@ -33,9 +38,9 @@ class TestRunPost:
 
     def test_threads_warnings_into_fence_stage(self) -> None:
         html_input = "<!-- mw-fence:{not json -->\n<pre><code>x\n</code></pre>"
-        warnings: list[str] = []
-        run_post(html_input, ["fence"], warnings)
-        assert len(warnings) == 1
+        diagnostics: list[Diagnostic] = []
+        run_post(html_input, ["fence"], diagnostics)
+        assert len(diagnostics) == 1
 
     def test_threads_options_into_fence_stage(self) -> None:
         html_input = '<!-- mw-fence:{"version": 1, "label": "a.sh"} -->\n<pre><code>x\n</code></pre>'

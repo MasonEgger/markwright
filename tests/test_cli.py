@@ -859,3 +859,80 @@ class TestCliConfig:
         captured = capsys.readouterr()
         assert exit_code == 2
         assert "bogus" in captured.err
+
+
+class TestCliRenderWarn:
+    """Tests for ``mw render --warn``: in-process diagnostics printed as ``mw: warning:`` lines."""
+
+    SOURCE = "[tab One]\n\ntext\n\n[/tab]\n\n[/tab]"
+    MESSAGE = "Leaving [/tab] on line 7 literal: no matching opener"
+
+    def test_warn_prints_each_diagnostic_as_one_line(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin(self.SOURCE)
+        exit_code = main(["render", "--warn"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.err == f"mw: warning: {self.MESSAGE}\n"
+
+    def test_no_flag_with_warn_unset_prints_none(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin(self.SOURCE)
+        exit_code = main(["render"])
+        assert exit_code == 0
+        assert capsys.readouterr().err == ""
+
+    def test_the_html_is_the_same_with_and_without_warn(
+        self, feed_stdin: Callable[[str], None], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feed_stdin(self.SOURCE)
+        main(["render", "--warn"])
+        warned = capsys.readouterr().out
+        feed_stdin(self.SOURCE)
+        main(["render", "--no-warn"])
+        assert capsys.readouterr().out == warned
+
+    @pytest.mark.parametrize(
+        ("config_text", "flags", "expect_warning"),
+        [
+            ("warn = true\n", ["--no-warn"], False),
+            ("warn = true\n", [], True),
+            ("warn = false\n", ["--warn"], True),
+            ("", ["--warn", "--no-warn"], False),
+            ("", ["--no-warn", "--warn"], True),
+        ],
+    )
+    def test_flags_and_config_resolve_like_post(
+        self,
+        feed_stdin: Callable[[str], None],
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        config_text: str,
+        flags: list[str],
+        expect_warning: bool,  # noqa: FBT001 - a parametrized expectation
+    ) -> None:
+        (tmp_path / "markwright.toml").write_text(config_text, encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        feed_stdin(self.SOURCE)
+        exit_code = main(["render", *flags])
+        assert exit_code == 0
+        assert (self.MESSAGE in capsys.readouterr().err) is expect_warning
+
+    def test_warnings_as_errors_never_fail_the_render(
+        self,
+        feed_stdin: Callable[[str], None],
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("PYTHONWARNINGS", "error")
+        feed_stdin(self.SOURCE)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            exit_code = main(["render", "--warn"])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert self.MESSAGE in captured.err
+        assert "<p>text</p>" in captured.out

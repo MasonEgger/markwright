@@ -32,15 +32,14 @@ import re
 import warnings
 from typing import TYPE_CHECKING, Literal
 
-from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict
 
-from markwright._diagnostics import ConfigWarning, OptionError
+from markwright._diagnostics import ConfigWarning, Diagnostic, OptionError, ReportingExtension, report
 from markwright._fences import FencedBlock, find_fenced_blocks, strip_quote
 from markwright._html import HtmlToken, add_classes, apply_edits, tokenize
-from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
+from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers, skipped_diagnostic
 from markwright.mermaid import MERMAID_CLASS
 
 if TYPE_CHECKING:
@@ -376,7 +375,7 @@ class FenceMarker(BaseModel):
 
 def _apply_marker(
     rendered_html: str,
-    skip_reasons: list[str] | None,
+    diagnostics: list[Diagnostic] | None,
     label_class: str,
     secondary_label_class: str,
 ) -> str:
@@ -388,7 +387,7 @@ def _apply_marker(
     removed from the output.
 
     :param rendered_html: Rendered HTML containing mw-fence marker comments.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
+    :param diagnostics: Optional list collecting diagnostics; ``None`` drops them.
     :param label_class: CSS class for the label div.
     :param secondary_label_class: CSS class for the secondary label div.
     :returns: HTML with label divs, environment classes, and line prefixes injected.
@@ -406,10 +405,10 @@ def _apply_marker(
         try:
             marker = decode_marker(MARKER_NAME, marker_comment.raw_payload, FenceMarker)
             if pre_tag is None and code_tag is None:
-                raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following code block")
+                raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following code block", "no-target")
         except InvalidMarkerError as skipped:
-            if skip_reasons is not None:
-                skip_reasons.append(str(skipped))
+            if diagnostics is not None:
+                diagnostics.append(skipped_diagnostic("fence", skipped))
             edits.append((comment.start, comment.end, ""))
             continue
 
@@ -454,21 +453,21 @@ def _apply_marker(
 
 
 def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, diagnostics: list[Diagnostic] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Style code blocks from their mw-fence marker comments.
 
     Used by the ``mw post`` CLI stage. Markers are validated and skipped fail-soft;
-    pass a ``skip_reasons`` list to collect why.
+    pass a ``diagnostics`` list to collect why.
 
     :param rendered_html: Rendered HTML containing mw-fence marker comments.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
+    :param diagnostics: Optional list collecting diagnostics; ``None`` drops them.
     :param options: The fence option table from config; its label classes style the label divs.
     :returns: HTML with label divs, environment classes, and line prefixes injected.
     :raises OptionError: If an option is invalid (see :func:`read_options`).
     """
     fence_options = read_options(options)
-    return _apply_marker(rendered_html, skip_reasons, fence_options.label_class, fence_options.secondary_label_class)
+    return _apply_marker(rendered_html, diagnostics, fence_options.label_class, fence_options.secondary_label_class)
 
 
 class FencePostprocessor(Postprocessor):
@@ -488,15 +487,19 @@ class FencePostprocessor(Postprocessor):
         :param text: Rendered HTML string.
         :returns: Modified HTML with label divs, environment classes, and line prefixes injected.
         """
-        return _apply_marker(
+        diagnostics: list[Diagnostic] = []
+        rendered = _apply_marker(
             text,
-            None,
+            diagnostics,
             self.options.label_class,
             self.options.secondary_label_class,
         )
+        for diagnostic in diagnostics:
+            report(self.md, diagnostic)
+        return rendered
 
 
-class FenceExtension(Extension):
+class FenceExtension(ReportingExtension):
     """Python-Markdown extension for fence labels, environments, and prefixes.
 
     :param \\*\\*kwargs: Configuration options passed to the extension.
@@ -523,6 +526,7 @@ class FenceExtension(Extension):
         :raises OptionError: If an option is invalid (see :func:`read_options`).
         """
         options = read_options(self.getConfigs())
+        self.attach_reporting(md)
         preprocessor = FencePreprocessor(md, options)
         md.preprocessors.register(preprocessor, "mw-fence-pre", 40)
 

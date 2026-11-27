@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from markwright._diagnostics import ConfigWarning, OptionError
+from markwright._diagnostics import ConfigWarning, Diagnostic, OptionError, RenderWarning
 from markwright.config import (
     Config,
     ConfigError,
@@ -17,7 +17,9 @@ __all__ = [
     "Config",
     "ConfigError",
     "ConfigWarning",
+    "Diagnostic",
     "OptionError",
+    "RenderWarning",
     "config_from_mapping",
     "disallowed_environments",
     "extension_configs",

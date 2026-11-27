@@ -3,9 +3,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import markdown
 
 from markwright.twitter import apply_html, expand_source
+
+if TYPE_CHECKING:
+    from markwright import Diagnostic
 
 
 def render(source: str) -> str:
@@ -183,9 +188,9 @@ class TestTwitterStageFunctions:
         assert "widgets.js" not in result
 
     def test_apply_html_warnings_stay_empty(self) -> None:
-        warnings: list[str] = []
-        apply_html('<blockquote class="twitter-tweet"></blockquote>', warnings)
-        assert warnings == []
+        diagnostics: list[Diagnostic] = []
+        apply_html('<blockquote class="twitter-tweet"></blockquote>', diagnostics)
+        assert diagnostics == []
 
     def test_directive_inside_fence_is_unchanged(self) -> None:
         source = "```\n[twitter https://twitter.com/User/status/123]\n```"

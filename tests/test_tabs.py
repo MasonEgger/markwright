@@ -3,9 +3,18 @@
 
 from __future__ import annotations
 
-import markdown
+import warnings
 
+import markdown
+import pytest
+
+from markwright import Diagnostic, RenderWarning
 from markwright.tabs import apply_html, expand_source
+
+
+def messages(diagnostics: list[Diagnostic]) -> list[str]:
+    """Return the --warn message of each diagnostic."""
+    return [diagnostic.message for diagnostic in diagnostics]
 
 
 def render_plain(source: str) -> str:
@@ -15,9 +24,9 @@ def render_plain(source: str) -> str:
 
 def report_markers(source: str) -> list[str]:
     """Expand, render, and post-process source, collecting the --warn reports."""
-    skip_reasons: list[str] = []
-    apply_html(render_plain(expand_source(source)), skip_reasons)
-    return skip_reasons
+    diagnostics: list[Diagnostic] = []
+    apply_html(render_plain(expand_source(source)), diagnostics)
+    return messages(diagnostics)
 
 
 def render_tabs(source: str) -> str:
@@ -173,22 +182,22 @@ class TestApplyHtml:
 
 class TestSkippedMarkers:
     def test_malformed_payload_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"<!-- mw-tab:{{nope -->\n<p>x</p>\n{TAB_END}", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"<!-- mw-tab:{{nope -->\n<p>x</p>\n{TAB_END}", diagnostics)
         assert "tabbed-set" not in result
-        assert skip_reasons == ["Skipping malformed mw-tab marker: '{nope'"]
+        assert messages(diagnostics) == ["Skipping malformed mw-tab marker: '{nope'"]
 
     def test_open_with_no_close_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"{TAB_OPEN}\n<p>x</p>", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"{TAB_OPEN}\n<p>x</p>", diagnostics)
         assert "tabbed-set" not in result
-        assert skip_reasons == ["Skipping mw-tab marker with no matching mw-tab-end"]
+        assert messages(diagnostics) == ["Skipping mw-tab marker with no matching mw-tab-end"]
 
     def test_close_with_no_open_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"<p>x</p>\n{TAB_END}", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"<p>x</p>\n{TAB_END}", diagnostics)
         assert result == "<p>x</p>\n"
-        assert skip_reasons == ["Skipping mw-tab-end marker with no matching mw-tab"]
+        assert messages(diagnostics) == ["Skipping mw-tab-end marker with no matching mw-tab"]
 
     def test_first_false_with_no_preceding_tab_starts_a_set(self) -> None:
         marker = '<!-- mw-tab:{"version": 1, "name": "Lonely", "first": false} -->'
@@ -201,7 +210,7 @@ class TestSkippedMarkers:
         page = "<pre><code>&lt;!-- mw-tab:x --&gt;\nx\n</code></pre>"
         assert apply_html(page) == page
 
-    def test_fail_soft_without_a_skip_reasons_list(self) -> None:
+    def test_fail_soft_without_a_diagnostics_list(self) -> None:
         assert "mw-tab-end" not in apply_html(f"<p>x</p>\n{TAB_END}")
         assert "mw-tab" not in apply_html(f"{TAB_OPEN}\n<p>x</p>")
         assert "mw-tab" not in apply_html(f"<!-- mw-tab:{{nope -->\n<p>x</p>\n{TAB_END}")
@@ -226,10 +235,10 @@ class TestProblems:
         assert "mw-tab-problem" not in apply_html(render_plain(expand_source("text\n\n[/tab]")))
 
     def test_malformed_problem_marker_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html("<p>x</p>\n<!-- mw-tab-problem:{nope -->", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html("<p>x</p>\n<!-- mw-tab-problem:{nope -->", diagnostics)
         assert "mw-tab-problem" not in result
-        assert skip_reasons == ["Skipping malformed mw-tab-problem marker: '{nope'"]
+        assert messages(diagnostics) == ["Skipping malformed mw-tab-problem marker: '{nope'"]
 
 
 class TestSiblingRule:
@@ -316,22 +325,22 @@ class TestPreBlock:
 
 class TestCloserValidation:
     def test_a_closer_with_an_unsupported_version_does_not_close_its_tab(self) -> None:
-        skip_reasons: list[str] = []
+        diagnostics: list[Diagnostic] = []
         page = f'{TAB_OPEN}\n<p>x</p>\n<!-- mw-tab-end:{{"version": 2}} -->'
-        result = apply_html(page, skip_reasons)
+        result = apply_html(page, diagnostics)
         assert "tabbed-set" not in result
         assert "mw-tab" not in result
-        assert skip_reasons == ["Skipping mw-tab-end marker with unsupported version 2"]
+        assert messages(diagnostics) == ["Skipping mw-tab-end marker with unsupported version 2"]
 
     def test_a_malformed_closer_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html(f"{TAB_OPEN}\n<p>x</p>\n<!-- mw-tab-end:{{nope -->", skip_reasons)
-        assert skip_reasons == ["Skipping malformed mw-tab-end marker: '{nope'"]
+        diagnostics: list[Diagnostic] = []
+        apply_html(f"{TAB_OPEN}\n<p>x</p>\n<!-- mw-tab-end:{{nope -->", diagnostics)
+        assert messages(diagnostics) == ["Skipping malformed mw-tab-end marker: '{nope'"]
 
     def test_a_valid_closer_is_unaffected(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html(f"{TAB_OPEN}\n<p>x</p>\n{TAB_END}", skip_reasons)
-        assert skip_reasons == []
+        diagnostics: list[Diagnostic] = []
+        apply_html(f"{TAB_OPEN}\n<p>x</p>\n{TAB_END}", diagnostics)
+        assert messages(diagnostics) == []
 
 
 class TestCrlfProblemMarker:
@@ -403,10 +412,101 @@ class TestOrderIndependenceWithGrid:
 class TestEscapedDirective:
     def test_an_escaped_tab_pair_stays_literal_in_both_paths(self) -> None:
         source = "\\[tab Name]\n\ntext\n\n\\[/tab]"
-        skip_reasons: list[str] = []
-        piped = apply_html(render_plain(expand_source(source)), skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        piped = apply_html(render_plain(expand_source(source)), diagnostics)
         assert piped == render_tabs(source)
         assert "<p>[tab Name]</p>" in piped
         assert "<p>[/tab]</p>" in piped
         assert "tabbed-set" not in piped
-        assert skip_reasons == []
+        assert messages(diagnostics) == []
+
+
+class TestDiagnostics:
+    def collect(self, source: str) -> list[Diagnostic]:
+        diagnostics: list[Diagnostic] = []
+        apply_html(render_plain(expand_source(source)), diagnostics)
+        return diagnostics
+
+    def test_a_problem_marker_carries_its_line_and_directive(self) -> None:
+        assert self.collect("[tab One]\n\ntext") == [
+            Diagnostic(
+                extension="tabs",
+                line=1,
+                directive="[tab]",
+                reason="unclosed",
+                message="Leaving [tab] on line 1 literal: unclosed, no matching closer",
+            )
+        ]
+
+    def test_a_stray_closer_is_a_stray_closer_report(self) -> None:
+        diagnostics = self.collect("text\n\n[/tab]")
+        assert [(item.reason, item.line, item.directive) for item in diagnostics] == [("stray-closer", 3, "[/tab]")]
+
+    def test_a_malformed_marker_is_a_malformed_marker_report_with_no_line(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html(f"<!-- mw-tab:{{nope -->\n<p>x</p>\n{TAB_END}", diagnostics)
+        assert [(item.extension, item.reason, item.line) for item in diagnostics] == [
+            ("tabs", "malformed-marker", None)
+        ]
+
+    def test_an_unpaired_marker_is_an_unmatched_marker_report(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html(f"{TAB_OPEN}\n<p>x</p>", diagnostics)
+        assert [(item.reason, item.line) for item in diagnostics] == [("unmatched-marker", None)]
+
+
+class TestInProcessDiagnostics:
+    SOURCE = "[tab One]\n\ntext\n\n[/tab]\n\n[/tab]"
+
+    def make_md(self) -> markdown.Markdown:
+        return markdown.Markdown(extensions=["markwright.tabs"])
+
+    def test_the_list_matches_the_pipeline_and_one_warning_is_emitted_per_entry(self) -> None:
+        md = self.make_md()
+        with pytest.warns(RenderWarning) as recorded:
+            md.convert(self.SOURCE)
+        expected: list[Diagnostic] = []
+        apply_html(render_plain(expand_source(self.SOURCE)), expected)
+        assert md.markwright_diagnostics == expected  # type: ignore[attr-defined]
+        assert [warning.message.diagnostic for warning in recorded] == expected  # type: ignore[union-attr]
+        assert len(expected) == 1
+
+    def test_a_second_convert_starts_with_an_empty_list(self) -> None:
+        md = self.make_md()
+        with pytest.warns(RenderWarning):
+            md.convert(self.SOURCE)
+        md.convert("plain text")
+        assert md.markwright_diagnostics == []  # type: ignore[attr-defined]
+
+    def test_reset_empties_the_list(self) -> None:
+        md = self.make_md()
+        with pytest.warns(RenderWarning):
+            md.convert(self.SOURCE)
+        md.reset()
+        assert md.markwright_diagnostics == []  # type: ignore[attr-defined]
+
+    def test_a_clean_document_reports_nothing(self) -> None:
+        md = self.make_md()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            md.convert("[tab One]\n\ntext\n\n[/tab]")
+        assert md.markwright_diagnostics == []  # type: ignore[attr-defined]
+
+    def test_the_html_is_byte_identical_whatever_the_warning_filter(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ignored = self.make_md().convert(self.SOURCE)
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            shown = self.make_md().convert(self.SOURCE)
+        assert ignored == shown
+
+    def test_a_blank_document_keeps_the_earlier_entries_until_reset(self) -> None:
+        # Python-Markdown returns before any preprocessor runs on blank input; reset() is the documented way out.
+        md = self.make_md()
+        with pytest.warns(RenderWarning):
+            md.convert(self.SOURCE)
+        md.convert("  \n")
+        assert len(md.markwright_diagnostics) == 1  # type: ignore[attr-defined]
+        md.reset()
+        assert md.markwright_diagnostics == []  # type: ignore[attr-defined]

@@ -27,10 +27,11 @@ from markwright import (
     twitter,
     youtube,
 )
+from markwright._diagnostics import Diagnostic
 from markwright._embed_load import load_mode
 
 PreFn = Callable[[str, Mapping[str, object] | None], str]
-PostFn = Callable[[str, list[str] | None, Mapping[str, object] | None], str]
+PostFn = Callable[[str, list[Diagnostic] | None, Mapping[str, object] | None], str]
 OptionCheck = Callable[[Mapping[str, object]], object]
 
 
@@ -166,14 +167,14 @@ def run_pre(text: str, names: list[str], options: Mapping[str, Mapping[str, obje
 def run_post(
     html: str,
     names: list[str],
-    skip_reasons: list[str] | None = None,
+    diagnostics: list[Diagnostic] | None = None,
     options: Mapping[str, Mapping[str, object]] | None = None,
 ) -> str:
     """Apply each selected post-stage transform to ``html`` in descending priority order.
 
     :param html: Rendered HTML.
     :param names: Selected extension names.
-    :param skip_reasons: Optional list collecting skip reasons from stages that validate markers.
+    :param diagnostics: Optional list collecting diagnostics from stages that validate markers.
     :param options: Per-extension option tables keyed by extension name; each stage receives
         its own table, or ``None`` when it has none.
     :returns: HTML after every selected post stage has run.
@@ -186,7 +187,7 @@ def run_post(
 
     # A stable sort keeps registry order between stages of equal priority
     for name, post_fn, _ in sorted(selected, key=lambda entry: entry[2], reverse=True):
-        html = post_fn(html, skip_reasons, options.get(name) if options is not None else None)
+        html = post_fn(html, diagnostics, options.get(name) if options is not None else None)
     return html
 
 

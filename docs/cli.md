@@ -12,7 +12,7 @@ After `uv add markwright` (or `pip install markwright`), the `mw` command is on 
 ```
 mw pre    [--config PATH] [--exclude NAME]
 mw post   [--config PATH] [--exclude NAME] [--warn | --no-warn]
-mw render [--config PATH] [--exclude NAME]
+mw render [--config PATH] [--exclude NAME] [--warn | --no-warn]
 mw config [--config PATH] [--exclude NAME]
 mw list
 mw --version
@@ -51,6 +51,7 @@ This is the standalone renderer for callers who do not have their own.
 It builds a `markdown.Markdown` with `pymdownx.superfences` and `pymdownx.highlight` plus the selected `markwright.*` extensions, matching the bundled site stack.
 It loads no other extension, so tables, admonitions, and the rest of Python-Markdown's and pymdownx's syntax are not available through it.
 Its syntax highlighting needs Pygments, which markwright does not install; without it code blocks render unhighlighted.
+`--warn` prints each problem the render found (an unclosed `[card]`, a stray `[/tab]`) as an `mw: warning:` line on stderr; see [`--warn` and `--no-warn`](#-warn-and-no-warn-post-and-render).
 
 ### `mw config`
 
@@ -139,7 +140,7 @@ An empty `fence.allowed_environments` warns the same way.
 Warnings from other libraries keep Python's standard format, so `mw: warning:` always means markwright's own.
 See [Config Rules](config.md#config-rules).
 
-### `--warn` and `--no-warn` (`post` only)
+### `--warn` and `--no-warn` (`post` and `render`)
 
 `--warn` turns the diagnostics on and `--no-warn` turns them off, whatever the [`warn` config key](config.md) says.
 When both appear, the last one wins.
@@ -149,6 +150,9 @@ The diagnostics are advisory lines on stderr for markers the post stage sees but
 They change no output and do not change the exit code.
 They are plain stderr lines, not Python warnings, so `PYTHONWARNINGS=error` does not escalate them.
 
+`mw render` reports the same problems from its in-process render.
+Each one prints as one `mw: warning: <message>` line, only when the diagnostics are on, and `PYTHONWARNINGS=error` does not escalate them there either.
+
 They report the conditions a post-only filter can detect, for the `mw-fence`, `mw-grid`, `mw-annotate`, and `mw-tab` markers and the others the pre stage writes (see [Renderer Requirements](renderer-requirements.md#marker-comments)):
 
 - A malformed JSON payload, which is skipped rather than executed.
@@ -156,6 +160,18 @@ They report the conditions a post-only filter can detect, for the `mw-fence`, `m
 - A marker with nothing to apply to, such as a fence marker with no code block after it or an annotate marker with no block after it.
 - An open marker with no matching close marker, or the reverse.
 - A grid or tab directive the pre stage left literal because it had no partner or no grid around it (an unclosed `[card]`, a stray `[/tab]`, a `[card]` outside a grid).
+
+Each report has a `reason` code from a closed vocabulary, which a host reads from a `markwright.Diagnostic` (see [Diagnostics](config.md#diagnostics)):
+
+- `unclosed`: an opener with no closer.
+- `stray-closer`: a closer with no opener.
+- `card-outside-grid`: a `[card]` that is not directly inside a block grid.
+- `disallowed-environment`: a fence environment outside `fence.allowed_environments`.
+- `malformed-marker`: a payload that is malformed, not an object, an unsupported version, or has a wrongly typed field.
+- `no-target`: a marker with no block, list, or code block to act on.
+- `unmatched-marker`: an open or close marker with no partner.
+
+`mw post` prints only the message of each report.
 
 With the diagnostics off, each of these is a silent no-op.
 A renderer that strips a marker comment outright is undetectable here, since the marker is simply gone; that case is covered by the [renderer requirements](renderer-requirements.md), not by runtime detection.

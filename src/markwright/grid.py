@@ -23,7 +23,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict, Field
@@ -36,6 +35,7 @@ from markwright._containers import (
     parse_grid_tokens,
     scan_containers,
 )
+from markwright._diagnostics import Diagnostic, ReportingExtension, report
 from markwright._html import add_classes, apply_edits, tokenize
 from markwright._markers import (
     InvalidMarkerError,
@@ -45,6 +45,8 @@ from markwright._markers import (
     marker_block,
     match_marker_pairs,
     report_problem_markers,
+    skipped_diagnostic,
+    unmatched_diagnostic,
 )
 
 if TYPE_CHECKING:
@@ -283,13 +285,19 @@ def _card_class(raw_payload: str) -> str:
     return CARD_CLASS
 
 
-def _problem_message(problem: GridProblemMarker) -> str:
-    """Compose a ``--warn`` message from a validated problem marker.
+def _problem_diagnostic(problem: GridProblemMarker) -> Diagnostic:
+    """Compose a diagnostic from a validated problem marker.
 
     :param problem: The decoded marker carrying the directive, line, and reason code.
-    :returns: A one-line diagnostic naming the directive and its source line.
+    :returns: A diagnostic whose message names the directive and its source line.
     """
-    return f"Leaving {problem.directive} on line {problem.line} literal: {_PROBLEM_DETAIL[problem.reason]}"
+    return Diagnostic(
+        extension="grid",
+        line=problem.line,
+        directive=problem.directive,
+        reason=problem.reason,
+        message=f"Leaving {problem.directive} on line {problem.line} literal: {_PROBLEM_DETAIL[problem.reason]}",
+    )
 
 
 def _wrap_paired(
@@ -298,7 +306,7 @@ def _wrap_paired(
     open_name: str,
     close_name: str,
     div_class_for: Callable[[str], str],
-    skip_reasons: list[str] | None,
+    diagnostics: list[Diagnostic] | None,
 ) -> list[tuple[int, int, str]]:
     """Wrap the span between each open and close marker of a kind in a ``<div>``.
 
@@ -314,7 +322,7 @@ def _wrap_paired(
     :param close_name: The close marker name, such as ``mw-grid-end``.
     :param div_class_for: Reads an open marker's raw payload and returns its div class, raising
         ``InvalidMarkerError`` for a payload to skip.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
+    :param diagnostics: Optional list collecting diagnostics; ``None`` drops them.
     :returns: The span edits that wrap each matched pair and remove every marker comment.
     """
     match = match_marker_pairs(open_name, close_name, rendered_html, tokens)
@@ -327,8 +335,8 @@ def _wrap_paired(
         except InvalidMarkerError as skipped:
             edits.append((open_comment.start, open_comment.end, ""))
             edits.append((close_comment.start, close_comment.end, ""))
-            if skip_reasons is not None:
-                skip_reasons.append(str(skipped))
+            if diagnostics is not None:
+                diagnostics.append(skipped_diagnostic("grid", skipped))
             continue
         edits.append((open_comment.start, open_comment.end, f'<div class="{div_class}">'))
         edits.append((close_comment.start, close_comment.end, "</div>"))
@@ -336,18 +344,18 @@ def _wrap_paired(
     for close_marker in match.unmatched_closes:
         comment = tokens[close_marker.token_index]
         edits.append((comment.start, comment.end, ""))
-        if skip_reasons is not None:
-            skip_reasons.append(f"Skipping {close_name} marker with no matching {open_name}")
+        if diagnostics is not None:
+            diagnostics.append(unmatched_diagnostic("grid", close_name, open_name))
     for open_marker in match.unmatched_opens:
         comment = tokens[open_marker.token_index]
         edits.append((comment.start, comment.end, ""))
-        if skip_reasons is not None:
-            skip_reasons.append(f"Skipping {open_name} marker with no matching {close_name}")
+        if diagnostics is not None:
+            diagnostics.append(unmatched_diagnostic("grid", open_name, close_name))
     return edits
 
 
 def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, diagnostics: list[Diagnostic] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Class shortcut lists and wrap block grids and cards from their marker comments.
 
@@ -355,18 +363,18 @@ def apply_html(
     mw-grid-block and mw-grid-end pair wraps its content in a grid ``<div>``; an mw-card and
     mw-card-end pair wraps its content in ``<div class="mw-card">``. An mw-grid-problem marker
     reports a container problem left literal and is removed. Markers are validated and skipped
-    fail-soft; pass a ``skip_reasons`` list to collect the reports and the skips. Every recognized
+    fail-soft; pass a ``diagnostics`` list to collect the reports and the skips. Every recognized
     marker comment is removed. A shortcut marker is skipped when its payload is invalid or no list
     follows it.
 
     :param rendered_html: Rendered HTML containing grid and card marker comments.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
+    :param diagnostics: Optional list collecting diagnostics; ``None`` drops them.
     :param options: Accepted for the registry's shared signature; grid has no options.
     :returns: HTML with the grids and cards wrapped or classed and the markers removed.
     """
     tokens = tokenize(rendered_html)
     edits = report_problem_markers(
-        PROBLEM_MARKER_NAME, rendered_html, tokens, GridProblemMarker, _problem_message, skip_reasons
+        PROBLEM_MARKER_NAME, "grid", rendered_html, tokens, GridProblemMarker, _problem_diagnostic, diagnostics
     )
 
     for marker_comment in find_markers(MARKER_NAME, rendered_html, tokens):
@@ -378,15 +386,15 @@ def apply_html(
         try:
             marker = decode_marker(MARKER_NAME, marker_comment.raw_payload, GridMarker)
             if list_tag is None:
-                raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following list")
+                raise InvalidMarkerError(f"Skipping {MARKER_NAME} marker with no following list", "no-target")
         except InvalidMarkerError as skipped:
-            if skip_reasons is not None:
-                skip_reasons.append(str(skipped))
+            if diagnostics is not None:
+                diagnostics.append(skipped_diagnostic("grid", skipped))
             continue
         edits.append((list_tag.start, list_tag.end, add_classes(list_tag, _grid_classes(marker))))
 
-    edits += _wrap_paired(rendered_html, tokens, BLOCK_MARKER_NAME, BLOCK_END_NAME, _grid_block_class, skip_reasons)
-    edits += _wrap_paired(rendered_html, tokens, CARD_MARKER_NAME, CARD_END_NAME, _card_class, skip_reasons)
+    edits += _wrap_paired(rendered_html, tokens, BLOCK_MARKER_NAME, BLOCK_END_NAME, _grid_block_class, diagnostics)
+    edits += _wrap_paired(rendered_html, tokens, CARD_MARKER_NAME, CARD_END_NAME, _card_class, diagnostics)
     return apply_edits(rendered_html, edits)
 
 
@@ -411,10 +419,14 @@ class GridPostprocessor(Postprocessor):
         :param text: Rendered HTML string.
         :returns: Modified HTML.
         """
-        return apply_html(text)
+        diagnostics: list[Diagnostic] = []
+        rendered = apply_html(text, diagnostics)
+        for diagnostic in diagnostics:
+            report(self.md, diagnostic)
+        return rendered
 
 
-class GridExtension(Extension):
+class GridExtension(ReportingExtension):
     """Python-Markdown extension for grids and cards."""
 
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
@@ -425,6 +437,7 @@ class GridExtension(Extension):
 
         :param md: The Markdown instance to extend.
         """
+        self.attach_reporting(md)
         md.preprocessors.register(GridPreprocessor(md), "mw-grid-pre", 21)
         md.postprocessors.register(GridPostprocessor(md), "mw-grid-post", 27)
 

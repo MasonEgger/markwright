@@ -3,9 +3,22 @@
 
 from __future__ import annotations
 
-import markdown
+import warnings
+from typing import TYPE_CHECKING
 
+import markdown
+import pytest
+
+from markwright import RenderWarning
 from markwright.grid import apply_html, expand_source
+
+if TYPE_CHECKING:
+    from markwright import Diagnostic
+
+
+def messages(diagnostics: list[Diagnostic]) -> list[str]:
+    """Return the --warn message of each diagnostic."""
+    return [diagnostic.message for diagnostic in diagnostics]
 
 
 def render_plain(source: str) -> str:
@@ -15,9 +28,9 @@ def render_plain(source: str) -> str:
 
 def report_markers(source: str) -> list[str]:
     """Expand, render, and post-process source, collecting the --warn reports."""
-    skip_reasons: list[str] = []
-    apply_html(render_plain(expand_source(source)), skip_reasons)
-    return skip_reasons
+    diagnostics: list[Diagnostic] = []
+    apply_html(render_plain(expand_source(source)), diagnostics)
+    return messages(diagnostics)
 
 
 GRID_MARKER = '<!-- mw-grid:{"version": 1} -->'
@@ -155,42 +168,42 @@ class TestApplyHtml:
 
 class TestSkippedMarkers:
     def test_no_following_list_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(CARDS_MARKER + "\n<p>text</p>", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(CARDS_MARKER + "\n<p>text</p>", diagnostics)
         assert result == "\n<p>text</p>"
-        assert skip_reasons == ["Skipping mw-grid marker with no following list"]
+        assert messages(diagnostics) == ["Skipping mw-grid marker with no following list"]
 
     def test_malformed_marker_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html("<!-- mw-grid:{nope -->\n" + LIST_HTML, skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html("<!-- mw-grid:{nope -->\n" + LIST_HTML, diagnostics)
         assert result == "\n" + LIST_HTML
-        assert skip_reasons == ["Skipping malformed mw-grid marker: '{nope'"]
+        assert messages(diagnostics) == ["Skipping malformed mw-grid marker: '{nope'"]
 
     def test_unsupported_version_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html('<!-- mw-grid:{"version": 2} -->\n' + LIST_HTML, skip_reasons)
-        assert skip_reasons == ["Skipping mw-grid marker with unsupported version 2"]
+        diagnostics: list[Diagnostic] = []
+        apply_html('<!-- mw-grid:{"version": 2} -->\n' + LIST_HTML, diagnostics)
+        assert messages(diagnostics) == ["Skipping mw-grid marker with unsupported version 2"]
 
     def test_wrongly_typed_field_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html('<!-- mw-grid:{"version": 1, "cards": "yes"} -->\n' + LIST_HTML, skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html('<!-- mw-grid:{"version": 1, "cards": "yes"} -->\n' + LIST_HTML, diagnostics)
         assert result == "\n" + LIST_HTML
         expected = 'Skipping mw-grid marker with invalid fields (cards): \'{"version": 1, "cards": "yes"}\''
-        assert skip_reasons == [expected]
+        assert messages(diagnostics) == [expected]
 
     def test_columns_out_of_range_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html('<!-- mw-grid:{"version": 1, "columns": 7} -->\n' + LIST_HTML, skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html('<!-- mw-grid:{"version": 1, "columns": 7} -->\n' + LIST_HTML, diagnostics)
         assert result == "\n" + LIST_HTML
         expected = 'Skipping mw-grid marker with invalid fields (columns): \'{"version": 1, "columns": 7}\''
-        assert skip_reasons == [expected]
+        assert messages(diagnostics) == [expected]
 
     def test_non_integer_columns_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html('<!-- mw-grid:{"version": 1, "columns": "3"} -->\n' + LIST_HTML, skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html('<!-- mw-grid:{"version": 1, "columns": "3"} -->\n' + LIST_HTML, diagnostics)
         assert result == "\n" + LIST_HTML
         expected = 'Skipping mw-grid marker with invalid fields (columns): \'{"version": 1, "columns": "3"}\''
-        assert skip_reasons == [expected]
+        assert messages(diagnostics) == [expected]
 
 
 class TestInProcess:
@@ -356,34 +369,35 @@ class TestApplyHtmlContainers:
 
 class TestSkippedContainerMarkers:
     def test_malformed_block_payload_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"<!-- mw-grid-block:{{nope -->\n<p>x</p>\n{BLOCK_END_MARKER}", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"<!-- mw-grid-block:{{nope -->\n<p>x</p>\n{BLOCK_END_MARKER}", diagnostics)
         assert "<div" not in result
-        assert skip_reasons == ["Skipping malformed mw-grid-block marker: '{nope'"]
+        assert messages(diagnostics) == ["Skipping malformed mw-grid-block marker: '{nope'"]
 
     def test_close_marker_with_no_open_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"<p>x</p>\n{BLOCK_END_MARKER}", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"<p>x</p>\n{BLOCK_END_MARKER}", diagnostics)
         assert result == "<p>x</p>\n"
-        assert skip_reasons == ["Skipping mw-grid-end marker with no matching mw-grid-block"]
+        assert messages(diagnostics) == ["Skipping mw-grid-end marker with no matching mw-grid-block"]
 
     def test_open_marker_with_no_close_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"{BLOCK_MARKER}\n<p>x</p>", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"{BLOCK_MARKER}\n<p>x</p>", diagnostics)
         assert result == "\n<p>x</p>"
-        assert skip_reasons == ["Skipping mw-grid-block marker with no matching mw-grid-end"]
+        assert messages(diagnostics) == ["Skipping mw-grid-block marker with no matching mw-grid-end"]
 
     def test_card_open_with_no_close_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html(f"{CARD_MARKER}\n<p>x</p>", skip_reasons)
-        assert skip_reasons == ["Skipping mw-card marker with no matching mw-card-end"]
+        diagnostics: list[Diagnostic] = []
+        apply_html(f"{CARD_MARKER}\n<p>x</p>", diagnostics)
+        assert messages(diagnostics) == ["Skipping mw-card marker with no matching mw-card-end"]
 
-    def test_fail_soft_without_a_skip_reasons_list(self) -> None:
-        # The in-process path passes no skip_reasons; hostile markers must still not raise, and
+    def test_fail_soft_without_a_diagnostics_list(self) -> None:
+        # The in-process path passes no diagnostics; hostile markers must still not raise, and
         # every recognized marker comment is removed.
         assert "mw-grid-end" not in apply_html(f"<p>x</p>\n{BLOCK_END_MARKER}")
         assert "mw-grid-block" not in apply_html(f"{BLOCK_MARKER}\n<p>x</p>")
         assert "mw-grid-block" not in apply_html(f"<!-- mw-grid-block:{{nope -->\n<p>x</p>\n{BLOCK_END_MARKER}")
+        assert "mw-grid" not in apply_html(CARDS_MARKER + "\n<p>text</p>")
 
 
 class TestInProcessContainers:
@@ -437,12 +451,12 @@ class TestInvalidGridOpener:
         assert result.count("mw-grid-problem") == 2
 
     def test_apply_html_reports_the_card_and_the_stray_closer(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(render_plain(expand_source(self.SOURCE)), skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(render_plain(expand_source(self.SOURCE)), diagnostics)
 
         assert "mw-grid" not in result
         assert "[grid 7]" in result
-        assert skip_reasons == [self.CARD_REPORT, self.CLOSER_REPORT]
+        assert messages(diagnostics) == [self.CARD_REPORT, self.CLOSER_REPORT]
 
     def test_the_in_process_render_matches(self) -> None:
         result = render_grid(self.SOURCE)
@@ -470,12 +484,12 @@ class TestCardInUnclosedGrid:
         assert "[card]" in result
 
     def test_apply_html_reports_the_card_and_renders_no_card_div(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(render_plain(expand_source(self.SOURCE)), skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(render_plain(expand_source(self.SOURCE)), diagnostics)
 
         assert "mw-card" not in result
         assert "[card]" in result
-        assert self.CARD_REPORT in skip_reasons
+        assert self.CARD_REPORT in messages(diagnostics)
 
     def test_the_in_process_render_matches(self) -> None:
         result = render_grid(self.SOURCE)
@@ -491,28 +505,32 @@ class TestCardInUnclosedGrid:
 
 class TestContainerProblems:
     def test_card_outside_grid_is_reported_by_apply_html(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"<p>[card]{CARD_OUTSIDE_PROBLEM}</p>", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"<p>[card]{CARD_OUTSIDE_PROBLEM}</p>", diagnostics)
         assert result == "<p>[card]</p>"
-        assert skip_reasons == ["Leaving [card] on line 1 literal: a card must be directly inside a block grid"]
+        assert messages(diagnostics) == [
+            "Leaving [card] on line 1 literal: a card must be directly inside a block grid"
+        ]
 
     def test_top_level_card_pair_reports_once_and_stays_literal(self) -> None:
         source = "[card]\n\ntext\n\n[/card]"
-        skip_reasons: list[str] = []
-        result = apply_html(render_plain(expand_source(source)), skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(render_plain(expand_source(source)), diagnostics)
         assert "mw-card" not in result
         assert "mw-grid-problem" not in result
         assert "[card]" in result
         assert "[/card]" in result
-        assert skip_reasons == ["Leaving [card] on line 1 literal: a card must be directly inside a block grid"]
+        assert messages(diagnostics) == [
+            "Leaving [card] on line 1 literal: a card must be directly inside a block grid"
+        ]
 
     def test_unclosed_card_inside_a_grid_is_reported(self) -> None:
         source = "[grid]\n\n[card]\n\ntext\n\n[/grid]"
-        skip_reasons: list[str] = []
-        result = apply_html(render_plain(expand_source(source)), skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(render_plain(expand_source(source)), diagnostics)
         assert '<div class="mw-grid">' in result
         assert '<div class="mw-card">' not in result
-        assert skip_reasons == ["Leaving [card] on line 3 literal: unclosed, no matching closer"]
+        assert messages(diagnostics) == ["Leaving [card] on line 3 literal: unclosed, no matching closer"]
 
     def test_stray_card_closer_is_reported(self) -> None:
         assert report_markers("text\n\n[/card]") == ["Leaving [/card] on line 3 literal: no matching opener"]
@@ -535,18 +553,18 @@ class TestContainerProblems:
         assert "mw-grid-problem" not in apply_html(render_plain(expanded), [])
 
     def test_malformed_problem_marker_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html("<p>x</p>\n<!-- mw-grid-problem:{nope -->", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html("<p>x</p>\n<!-- mw-grid-problem:{nope -->", diagnostics)
         assert "mw-grid-problem" not in result
-        assert skip_reasons == ["Skipping malformed mw-grid-problem marker: '{nope'"]
+        assert messages(diagnostics) == ["Skipping malformed mw-grid-problem marker: '{nope'"]
 
     def test_wrongly_typed_problem_marker_is_skipped(self) -> None:
         bad = '<!-- mw-grid-problem:{"version": 1, "line": 1, "directive": "[div]", "reason": "unclosed"} -->'
-        skip_reasons: list[str] = []
-        result = apply_html(f"<p>x{bad}</p>", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"<p>x{bad}</p>", diagnostics)
         assert result == "<p>x</p>"
-        assert len(skip_reasons) == 1
-        assert skip_reasons[0].startswith("Skipping mw-grid-problem marker with invalid fields")
+        assert len(diagnostics) == 1
+        assert diagnostics[0].message.startswith("Skipping mw-grid-problem marker with invalid fields")
 
     def test_a_problem_directive_inside_a_fence_produces_no_marker(self) -> None:
         source = "```\n[/card]\n```"
@@ -574,7 +592,7 @@ class TestContainerProblems:
         assert expand_source("[tab x]\n\ntext") == "[tab x]\n\ntext"
         assert "mw-grid-problem" not in expand_source("[/tab]")
 
-    def test_malformed_problem_marker_without_a_skip_reasons_list(self) -> None:
+    def test_malformed_problem_marker_without_a_diagnostics_list(self) -> None:
         assert "mw-grid-problem" not in apply_html("<p>x</p>\n<!-- mw-grid-problem:{nope -->")
 
 
@@ -630,15 +648,91 @@ class TestMarkerSourcedContainers:
 class TestEscapedDirective:
     def test_an_escaped_grid_line_stays_literal_in_both_paths(self) -> None:
         source = "\\[grid 3]\n\n- a"
-        skip_reasons: list[str] = []
-        piped = apply_html(render_plain(expand_source(source)), skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        piped = apply_html(render_plain(expand_source(source)), diagnostics)
         assert piped == render_grid(source)
         assert "<p>[grid 3]</p>" in piped
         assert "mw-grid" not in piped
-        assert skip_reasons == []
+        assert messages(diagnostics) == []
 
     def test_escaped_card_and_grid_closers_stay_literal_with_no_report(self) -> None:
         source = "\\[/grid]\n\n\\[/card]"
         assert expand_source(source) == source
         assert report_markers(source) == []
         assert render_grid(source) == "<p>[/grid]</p>\n<p>[/card]</p>"
+
+
+class TestDiagnostics:
+    def test_a_problem_marker_carries_its_line_and_directive(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html(render_plain(expand_source("[grid]\n\n[card]\n\ntext\n\n[/grid]")), diagnostics)
+        assert [(item.extension, item.reason, item.line, item.directive) for item in diagnostics] == [
+            ("grid", "unclosed", 3, "[card]")
+        ]
+
+    def test_a_card_outside_a_grid_is_a_card_outside_grid_report(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html(render_plain(expand_source("[card]\n\ntext\n\n[/card]")), diagnostics)
+        assert [(item.reason, item.line, item.directive) for item in diagnostics] == [
+            ("card-outside-grid", 1, "[card]")
+        ]
+
+    def test_a_malformed_marker_is_a_malformed_marker_report_with_no_line(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html('<!-- mw-grid:{"version": 2} -->\n' + LIST_HTML, diagnostics)
+        assert [(item.extension, item.reason, item.line) for item in diagnostics] == [
+            ("grid", "malformed-marker", None)
+        ]
+
+    def test_a_shortcut_with_no_list_is_a_no_target_report(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html(CARDS_MARKER + "\n<p>text</p>", diagnostics)
+        assert [item.reason for item in diagnostics] == ["no-target"]
+
+    def test_an_unpaired_marker_is_an_unmatched_marker_report(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html(f"{BLOCK_MARKER}\n<p>x</p>", diagnostics)
+        assert [item.reason for item in diagnostics] == ["unmatched-marker"]
+
+
+class TestInProcessDiagnostics:
+    SOURCE = "[grid]\n\n[card]\n\ntext\n\n[/grid]"
+
+    def test_the_list_matches_the_pipeline_and_one_warning_is_emitted_per_entry(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.grid"])
+        with pytest.warns(RenderWarning) as recorded:
+            md.convert(self.SOURCE)
+        expected: list[Diagnostic] = []
+        apply_html(render_plain(expand_source(self.SOURCE)), expected)
+        assert md.markwright_diagnostics == expected  # type: ignore[attr-defined]
+        assert [warning.message.diagnostic for warning in recorded] == expected  # type: ignore[union-attr]
+        assert [item.reason for item in expected] == ["unclosed"]
+
+    def test_a_second_convert_starts_with_an_empty_list(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.grid"])
+        with pytest.warns(RenderWarning):
+            md.convert(self.SOURCE)
+        md.convert("plain text")
+        assert md.markwright_diagnostics == []  # type: ignore[attr-defined]
+
+    def test_a_clean_document_reports_nothing(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.grid"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            md.convert("[grid]\n\n[card]\n\ntext\n\n[/card]\n\n[/grid]")
+        assert md.markwright_diagnostics == []  # type: ignore[attr-defined]
+
+    def test_the_html_is_byte_identical_whatever_the_warning_filter(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ignored = render_grid(self.SOURCE)
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            shown = render_grid(self.SOURCE)
+        assert ignored == shown
+
+    def test_extensions_loaded_together_share_one_list_reset_once(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.grid", "markwright.tabs", "markwright.annotate"])
+        with pytest.warns(RenderWarning) as recorded:
+            md.convert(self.SOURCE + "\n\n[/tab]")
+        assert len(md.markwright_diagnostics) == len(recorded) == 2  # type: ignore[attr-defined]

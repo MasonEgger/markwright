@@ -6,21 +6,21 @@ The `/goal` loop checks items as it goes.
 
 ## Section 1: Diagnostics
 
-- [ ] Step 1: Diagnostic Records and the Report Call
-  - [ ] RED: tests/test_diagnostics.py (frozen record, reason vocabulary, RenderWarning, report)
-  - [ ] Docs: docs/config.md Diagnostics section
-  - [ ] GREEN: _diagnostics.py Diagnostic, RenderWarning, report; __init__.py re-exports
-  - [ ] CLAUDE.md __init__ list; just check, just docs-build
-- [ ] Step 2: Post Stages Return Diagnostics
-  - [ ] RED: fence, grid, tabs, annotate, markers tests take a Diagnostic list
-  - [ ] GREEN: every apply_html, report_problem_markers, run_post; cli prints message
-  - [ ] Docs: docs/cli.md reason vocabulary; CLAUDE.md signature
-  - [ ] just check, just docs-build
-- [ ] Step 3: In-Process Reporting and `mw render --warn`
-  - [ ] RED: in-process list and warnings, reset per document, byte-identical HTML, mw render flags
-  - [ ] GREEN: postprocessors call report; reset; mw render --warn/--no-warn
-  - [ ] Docs: docs/cli.md, docs/config.md; spec.md CLI entry cleared
-  - [ ] just check, just docs-build
+- [x] Step 1: Diagnostic Records and the Report Call
+  - [x] RED: tests/test_diagnostics.py (frozen record, reason vocabulary, RenderWarning, report)
+  - [x] Docs: docs/config.md Diagnostics section
+  - [x] GREEN: _diagnostics.py Diagnostic, RenderWarning, report; __init__.py re-exports
+  - [x] CLAUDE.md __init__ list; just check, just docs-build
+- [x] Step 2: Post Stages Return Diagnostics
+  - [x] RED: fence, grid, tabs, annotate, markers tests take a Diagnostic list
+  - [x] GREEN: every apply_html, report_problem_markers, run_post; cli prints message
+  - [x] Docs: docs/cli.md reason vocabulary; CLAUDE.md signature
+  - [x] just check, just docs-build
+- [x] Step 3: In-Process Reporting and `mw render --warn`
+  - [x] RED: in-process list and warnings, reset per document, byte-identical HTML, mw render flags
+  - [x] GREEN: postprocessors call report; reset; mw render --warn/--no-warn
+  - [x] Docs: docs/cli.md, docs/config.md; spec.md CLI entry cleared
+  - [x] just check, just docs-build
 - [ ] Step 4: Source Lines Through a Line Map
   - [ ] RED: rebase_marker_lines, true lines in both paths, front matter counted
   - [ ] GREEN: _markers.rebase_marker_lines, run_pre, StageSpec.line_markers, cli front matter, source-lines preprocessor

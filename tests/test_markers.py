@@ -8,8 +8,15 @@ import json
 import pytest
 from pydantic import BaseModel, ConfigDict
 
+from markwright import Diagnostic
 from markwright._html import tokenize
-from markwright._markers import InvalidMarkerError, decode_marker, encode_marker, find_markers
+from markwright._markers import (
+    InvalidMarkerError,
+    decode_marker,
+    encode_marker,
+    find_markers,
+    report_problem_markers,
+)
 
 
 class _Marker(BaseModel):
@@ -99,3 +106,37 @@ class TestDecodeMarker:
             decode_marker("mw-x", raw_payload, _Marker)
 
         assert str(skipped.value) == f"Skipping mw-x marker with invalid fields (size): {raw_payload!r}"
+
+
+class _ProblemMarker(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    version: int
+    line: int
+
+
+def _problem_diagnostic(problem: _ProblemMarker) -> Diagnostic:
+    return Diagnostic(
+        extension="demo", line=problem.line, directive="[x]", reason="unclosed", message=f"problem on {problem.line}"
+    )
+
+
+class TestReportProblemMarkers:
+    def test_collects_a_diagnostic_per_marker_and_removes_each_comment(self) -> None:
+        html = encode_marker("mw-demo-problem", {"line": 2}) + "<p>x</p>" + "<!-- mw-demo-problem:{nope -->"
+        diagnostics: list[Diagnostic] = []
+        edits = report_problem_markers(
+            "mw-demo-problem", "demo", html, tokenize(html), _ProblemMarker, _problem_diagnostic, diagnostics
+        )
+        assert [(item.extension, item.reason, item.line, item.message) for item in diagnostics] == [
+            ("demo", "unclosed", 2, "problem on 2"),
+            ("demo", "malformed-marker", None, "Skipping malformed mw-demo-problem marker: '{nope'"),
+        ]
+        assert len(edits) == 2
+
+    def test_drops_the_reports_without_a_list(self) -> None:
+        html = encode_marker("mw-demo-problem", {"line": 2})
+        edits = report_problem_markers(
+            "mw-demo-problem", "demo", html, tokenize(html), _ProblemMarker, _problem_diagnostic, None
+        )
+        assert len(edits) == 1

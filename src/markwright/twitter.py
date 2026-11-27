@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
     from markdown import Markdown
 
+    from markwright._diagnostics import Diagnostic
+
 # Scheme, "www.", and the twitter.com/x.com host are all optional, and when
 # present must be followed by a "/", so inputs from a bare "user/status/id"
 # up to a full "https://www.twitter.com/user/status/id" all match. Ported
@@ -152,7 +154,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
 
 
 def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, diagnostics: list[Diagnostic] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Inject the Twitter widgets script once if an eager Twitter embed is present.
 
@@ -162,7 +164,7 @@ def apply_html(
     is idempotent.
 
     :param rendered_html: Rendered HTML content.
-    :param skip_reasons: Ignored (script injection never skips anything); accepted so the registry calls
+    :param diagnostics: Ignored (script injection never skips anything); accepted so the registry calls
         every post stage with one signature.
     :param options: Ignored; accepted so the registry calls every post stage with one signature.
     :returns: HTML with the Twitter script appended if needed.

@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
     from markdown import Markdown
 
+    from markwright._diagnostics import Diagnostic
+
 CODEPEN_RE = re.compile(r"^\[codepen\s+(\S+)\s+(\S+)((?:\s+(?:lazy|light|dark|editable|html|css|js|result|\d+))*)\]$")
 
 TAB_PRIORITY = ["html", "css", "js"]
@@ -176,7 +178,7 @@ def expand_source(text: str, options: Mapping[str, object] | None = None) -> str
 
 
 def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, diagnostics: list[Diagnostic] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Inject the CodePen embed script once if an eager CodePen embed is present.
 
@@ -186,7 +188,7 @@ def apply_html(
     is idempotent.
 
     :param rendered_html: Rendered HTML content.
-    :param skip_reasons: Ignored (script injection never skips anything); accepted so the registry calls
+    :param diagnostics: Ignored (script injection never skips anything); accepted so the registry calls
         every post stage with one signature.
     :param options: Ignored; accepted so the registry calls every post stage with one signature.
     :returns: HTML with the CodePen script appended if needed.

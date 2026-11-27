@@ -32,12 +32,12 @@ from __future__ import annotations
 import html
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from markdown.extensions import Extension
 from markdown.postprocessors import Postprocessor
 from markdown.preprocessors import Preprocessor
 from pydantic import BaseModel, ConfigDict, Field
 
 from markwright._containers import TAB_END_MARKER_NAME, TAB_MARKER_NAME, scan_containers
+from markwright._diagnostics import Diagnostic, ReportingExtension, report
 from markwright._fences import _indent_width
 from markwright._html import apply_edits, tokenize
 from markwright._markers import (
@@ -47,6 +47,8 @@ from markwright._markers import (
     marker_block,
     match_marker_pairs,
     report_problem_markers,
+    skipped_diagnostic,
+    unmatched_diagnostic,
 )
 
 if TYPE_CHECKING:
@@ -138,13 +140,19 @@ class TabProblemMarker(BaseModel):
     reason: _ProblemReason
 
 
-def _problem_message(problem: TabProblemMarker) -> str:
-    """Compose a ``--warn`` message from a validated problem marker.
+def _problem_diagnostic(problem: TabProblemMarker) -> Diagnostic:
+    """Compose a diagnostic from a validated problem marker.
 
     :param problem: The decoded marker carrying the directive, line, and reason code.
-    :returns: A one-line diagnostic naming the directive and its source line.
+    :returns: A diagnostic whose message names the directive and its source line.
     """
-    return f"Leaving {problem.directive} on line {problem.line} literal: {_PROBLEM_DETAIL[problem.reason]}"
+    return Diagnostic(
+        extension="tabs",
+        line=problem.line,
+        directive=problem.directive,
+        reason=problem.reason,
+        message=f"Leaving {problem.directive} on line {problem.line} literal: {_PROBLEM_DETAIL[problem.reason]}",
+    )
 
 
 def expand_source(text: str, options: Mapping[str, object] | None = None) -> str:
@@ -244,7 +252,7 @@ def _render_set(
 
 
 def apply_html(
-    rendered_html: str, skip_reasons: list[str] | None = None, options: Mapping[str, object] | None = None
+    rendered_html: str, diagnostics: list[Diagnostic] | None = None, options: Mapping[str, object] | None = None
 ) -> str:
     """Group tab markers into sets and wrap each set in the tabbed markup.
 
@@ -255,17 +263,17 @@ def apply_html(
     decode is skipped. Each set wraps in a ``tabbed-set`` ``<div>`` with one radio ``<input>`` and ``<label>`` per
     tab and one ``tabbed-block`` per tab's body. An mw-tab-problem marker reports a tab container
     left literal and is removed. Markers are validated and skipped fail-soft; pass a
-    ``skip_reasons`` list to collect the reports and the skips. Every recognized marker comment is
+    ``diagnostics`` list to collect the reports and the skips. Every recognized marker comment is
     removed.
 
     :param rendered_html: Rendered HTML containing tab marker comments.
-    :param skip_reasons: Optional list collecting skip reasons; ``None`` drops them.
+    :param diagnostics: Optional list collecting diagnostics; ``None`` drops them.
     :param options: Accepted for the registry's shared signature; tabs has no options.
     :returns: HTML with the tab sets wrapped and the markers removed.
     """
     tokens = tokenize(rendered_html)
     edits = report_problem_markers(
-        PROBLEM_MARKER_NAME, rendered_html, tokens, TabProblemMarker, _problem_message, skip_reasons
+        PROBLEM_MARKER_NAME, "tabs", rendered_html, tokens, TabProblemMarker, _problem_diagnostic, diagnostics
     )
 
     match = match_marker_pairs(MARKER_OPEN, MARKER_CLOSE, rendered_html, tokens)
@@ -279,8 +287,8 @@ def apply_html(
         except InvalidMarkerError as skipped:
             edits.append((tokens[open_marker.token_index].start, tokens[open_marker.token_index].end, ""))
             edits.append((tokens[close_marker.token_index].start, tokens[close_marker.token_index].end, ""))
-            if skip_reasons is not None:
-                skip_reasons.append(str(skipped))
+            if diagnostics is not None:
+                diagnostics.append(skipped_diagnostic("tabs", skipped))
             continue
         while enclosing_closers and enclosing_closers[-1].token_index < open_marker.token_index:
             enclosing_closers.pop()
@@ -299,13 +307,13 @@ def apply_html(
     for close_marker in match.unmatched_closes:
         comment = tokens[close_marker.token_index]
         edits.append((comment.start, comment.end, ""))
-        if skip_reasons is not None:
-            skip_reasons.append(f"Skipping {MARKER_CLOSE} marker with no matching {MARKER_OPEN}")
+        if diagnostics is not None:
+            diagnostics.append(unmatched_diagnostic("tabs", MARKER_CLOSE, MARKER_OPEN))
     for open_marker in match.unmatched_opens:
         comment = tokens[open_marker.token_index]
         edits.append((comment.start, comment.end, ""))
-        if skip_reasons is not None:
-            skip_reasons.append(f"Skipping {MARKER_OPEN} marker with no matching {MARKER_CLOSE}")
+        if diagnostics is not None:
+            diagnostics.append(unmatched_diagnostic("tabs", MARKER_OPEN, MARKER_CLOSE))
     return apply_edits(rendered_html, edits)
 
 
@@ -330,10 +338,14 @@ class TabsPostprocessor(Postprocessor):
         :param text: Rendered HTML string.
         :returns: Modified HTML.
         """
-        return apply_html(text)
+        diagnostics: list[Diagnostic] = []
+        rendered = apply_html(text, diagnostics)
+        for diagnostic in diagnostics:
+            report(self.md, diagnostic)
+        return rendered
 
 
-class TabsExtension(Extension):
+class TabsExtension(ReportingExtension):
     """Python-Markdown extension for tabs."""
 
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 - Python-Markdown's hook name
@@ -344,6 +356,7 @@ class TabsExtension(Extension):
 
         :param md: The Markdown instance to extend.
         """
+        self.attach_reporting(md)
         md.preprocessors.register(TabsPreprocessor(md), "mw-tabs-pre", 21)
         md.postprocessors.register(TabsPostprocessor(md), "mw-tabs-post", 27)
 

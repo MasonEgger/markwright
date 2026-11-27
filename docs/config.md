@@ -52,7 +52,7 @@ An unknown name is an error.
 
 ### `warn`
 
-A boolean default for the `mw post` stage's marker diagnostics.
+A boolean default for the marker diagnostics of `mw post` and `mw render`.
 It defaults to `false`.
 
 ### Per-Extension Options
@@ -222,3 +222,58 @@ from markwright import ConfigWarning
 
 warnings.simplefilter("error", ConfigWarning)
 ```
+
+## Diagnostics
+
+A post stage that skips a marker or leaves a directive literal reports it as a `markwright.Diagnostic`, and never changes the rendered HTML or an exit code because of it.
+A `Diagnostic` is a frozen record with five fields:
+
+- `extension`: the extension that reported it, such as `tabs`.
+- `line`: the 1-based source line of the directive, or `None` when the report has none.
+- `directive`: the literal directive text, such as `[/tab]`, or `None` when the report has none.
+- `reason`: a code from a closed vocabulary.
+- `message`: the one-line text `mw post --warn` prints.
+
+The `reason` vocabulary is:
+
+- `unclosed`: an opener with no closer.
+- `stray-closer`: a closer with no opener.
+- `card-outside-grid`: a `[card]` that is not directly inside a block grid.
+- `disallowed-environment`: a fence environment outside `fence.allowed_environments`.
+- `malformed-marker`: a marker whose payload is malformed, not an object, an unsupported version, or has a wrongly typed field.
+- `no-target`: a marker with no block, list, or code block after it to act on.
+- `unmatched-marker`: an open or close marker with no partner.
+
+`markwright.RenderWarning` is a `UserWarning` subclass that carries one `Diagnostic` in its `diagnostic` attribute, and its text is the diagnostic's message.
+
+### In-Process Reports
+
+A render through Python-Markdown reports the same problems.
+Each post stage that reports (`fence`, `grid`, `tabs`, and `annotate`) appends every `Diagnostic` to `md.markwright_diagnostics` and emits one `RenderWarning` that carries it, so the list is the record and the warning is a side effect of the same call.
+The list is empty at the start of each `md.convert()` and after `md.reset()`, and it exists (empty) as soon as one of those extensions is loaded.
+The one exception is a blank document: Python-Markdown returns an empty string before any preprocessor runs, so the list keeps the previous document's entries.
+A host that reuses one instance calls `md.reset()` between documents, or reads the list only after a non-blank `convert()`.
+A document with no problem leaves the list empty and emits no warning, and a diagnostic never changes the rendered HTML.
+
+```python
+import markdown
+
+md = markdown.Markdown(extensions=["markwright.tabs"])
+md.convert("[tab One]\n\ntext")
+for diagnostic in md.markwright_diagnostics:
+    print(diagnostic.line, diagnostic.reason, diagnostic.message)
+```
+
+Python's default warning filter shows an identical message once per location.
+A host that wants every report from a multi-page build reads the list, or sets the `always` filter for `RenderWarning`:
+
+```python
+import warnings
+
+from markwright import RenderWarning
+
+warnings.simplefilter("always", RenderWarning)
+```
+
+A host that runs with warnings as errors gets the exception it asked for.
+`mw render` sets its own filter, so `PYTHONWARNINGS=error` never turns a diagnostic into a failure there.

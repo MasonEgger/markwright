@@ -14,7 +14,7 @@ from typing import TextIO
 import markdown
 
 from markwright import config, registry
-from markwright._diagnostics import ConfigWarning, OptionError
+from markwright._diagnostics import ConfigWarning, Diagnostic, OptionError, RenderWarning
 from markwright._embed_load import LOAD_EAGER
 from markwright.config import Config, ConfigError
 
@@ -32,8 +32,23 @@ def build_parser() -> argparse.ArgumentParser:
     _add_selection_flags(pre_parser)
     post_parser = subparsers.add_parser("post", help="Post-process rendered HTML read from stdin.")
     _add_selection_flags(post_parser)
-    # Both flags write ``warn``; None means neither was given, so the config default applies and the last flag wins
-    post_parser.add_argument(
+    _add_warn_flags(post_parser)
+    render_parser = subparsers.add_parser("render", help="Render Markdown from stdin to final HTML.")
+    _add_selection_flags(render_parser)
+    _add_warn_flags(render_parser)
+    config_parser = subparsers.add_parser("config", help="Print the resolved configuration and each value's source.")
+    _add_selection_flags(config_parser)
+    return parser
+
+
+def _add_warn_flags(subparser: argparse.ArgumentParser) -> None:
+    """Add the shared ``--warn`` and ``--no-warn`` flags to a subparser.
+
+    Both flags write ``warn``; ``None`` means neither was given, so the config default applies and the last flag wins.
+
+    :param subparser: The ``post`` or ``render`` subparser.
+    """
+    subparser.add_argument(
         "--warn",
         action="store_const",
         const=True,
@@ -41,18 +56,23 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Report skipped markers to stderr (overrides the config 'warn' key).",
     )
-    post_parser.add_argument(
+    subparser.add_argument(
         "--no-warn",
         action="store_const",
         const=False,
         dest="warn",
         help="Do not report skipped markers (overrides the config 'warn' key).",
     )
-    render_parser = subparsers.add_parser("render", help="Render Markdown from stdin to final HTML.")
-    _add_selection_flags(render_parser)
-    config_parser = subparsers.add_parser("config", help="Print the resolved configuration and each value's source.")
-    _add_selection_flags(config_parser)
-    return parser
+
+
+def _warn_enabled(args: argparse.Namespace, resolved_config: Config) -> bool:
+    """Decide whether diagnostics are on: the last of ``--warn`` and ``--no-warn``, else the config key.
+
+    :param args: Parsed arguments carrying ``warn`` (``None`` when no flag was given).
+    :param resolved_config: The resolved config, whose ``warn`` is the default.
+    :returns: ``True`` when diagnostics should be reported.
+    """
+    return resolved_config.warn if args.warn is None else args.warn
 
 
 def _add_selection_flags(subparser: argparse.ArgumentParser) -> None:
@@ -202,13 +222,12 @@ def _run_post(args: argparse.Namespace) -> None:
     :raises _StreamError: If stdin cannot be read or stdout cannot be written.
     """
     resolved_config, names = _resolve(args)
-    warn = resolved_config.warn if args.warn is None else args.warn
-    marker_warnings: list[str] | None = [] if warn else None
-    rendered_html = registry.run_post(_read_stdin(), names, marker_warnings, resolved_config.options)
+    marker_diagnostics: list[Diagnostic] | None = [] if _warn_enabled(args, resolved_config) else None
+    rendered_html = registry.run_post(_read_stdin(), names, marker_diagnostics, resolved_config.options)
     _write_stdout(rendered_html)
-    if marker_warnings is not None:
-        for marker_warning in marker_warnings:
-            print(marker_warning, file=sys.stderr)
+    if marker_diagnostics is not None:
+        for diagnostic in marker_diagnostics:
+            print(diagnostic.message, file=sys.stderr)
 
 
 def _run_render(args: argparse.Namespace) -> None:
@@ -218,7 +237,11 @@ def _run_render(args: argparse.Namespace) -> None:
     and ``pymdownx.highlight`` plus the selected ``markwright.*`` extensions, mirroring
     the site stack so fence and highlight render correctly.
 
-    :param args: Parsed arguments carrying ``config`` and ``exclude``.
+    A reported :class:`RenderWarning` prints as one ``mw: warning:`` line when diagnostics are on
+    (the same rule as ``post``) and is dropped when they are off. The filter is set inside the
+    run, so ``PYTHONWARNINGS=error`` never turns a diagnostic into a failure.
+
+    :param args: Parsed arguments carrying ``config``, ``exclude``, and ``warn``.
     :raises ConfigError: If the config is invalid.
     :raises _StreamError: If stdin cannot be read or stdout cannot be written.
     """
@@ -231,7 +254,10 @@ def _run_render(args: argparse.Namespace) -> None:
             **config.extension_configs(resolved_config, names),
         },
     )
-    _write_stdout(instance.convert(_read_stdin()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("always" if _warn_enabled(args, resolved_config) else "ignore", RenderWarning)
+        rendered_html = instance.convert(_read_stdin())
+    _write_stdout(rendered_html)
 
 
 def _run_config(args: argparse.Namespace) -> None:
@@ -301,7 +327,7 @@ def _show_warning(
     :param file: The stream the default handler would write to; unused, stderr is always used.
     :param line: The source line, or ``None`` to read it from ``filename``.
     """
-    if issubclass(category, ConfigWarning):
+    if issubclass(category, ConfigWarning | RenderWarning):
         print(f"mw: warning: {message}", file=sys.stderr)
     else:
         sys.stderr.write(warnings.formatwarning(message, category, filename, lineno, line))

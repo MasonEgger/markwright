@@ -3,9 +3,16 @@
 
 from __future__ import annotations
 
-import markdown
+from typing import TYPE_CHECKING
 
+import markdown
+import pytest
+
+from markwright import RenderWarning
 from markwright.annotate import apply_html, expand_source
+
+if TYPE_CHECKING:
+    from markwright import Diagnostic
 
 MARKER = '<!-- mw-annotate:{"version": 1} -->'
 PROSE = "<p>Run (1) now (2).</p>"
@@ -26,6 +33,11 @@ PROSE_ANNOTATED = (
     + "</ol>"
 )
 BASH_FENCE = "```bash\n./deploy.sh --prod # (1)!\n```"
+
+
+def messages(diagnostics: list[Diagnostic]) -> list[str]:
+    """Return the --warn message of each diagnostic."""
+    return [diagnostic.message for diagnostic in diagnostics]
 
 
 def render_annotate(source: str) -> str:
@@ -211,60 +223,60 @@ class TestCode:
 
 class TestSkippedMarkers:
     def test_marker_followed_by_another_marker_before_a_list_is_skipped(self) -> None:
-        skip_reasons: list[str] = []
+        diagnostics: list[Diagnostic] = []
         page = MARKER + "\n<p>a (1)</p>\n" + MARKER + "\n<ol>\n<li>b (1)</li>\n</ol>\n<!-- split -->\n" + ONE_NOTE
-        result = apply_html(page, skip_reasons)
-        assert skip_reasons == ["Skipping mw-annotate marker with no annotation list after the block"]
+        result = apply_html(page, diagnostics)
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with no annotation list after the block"]
         assert result.count('<ol class="mw-annotations"') == 1
         assert 'class="mw-annotated">class=' not in result
         assert 'href="#mw-annotation-1-1"' in result
         assert "mw-annotate:" not in result
 
     def test_no_following_block_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(MARKER + "\ntext only", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(MARKER + "\ntext only", diagnostics)
         assert result == "\ntext only"
-        assert skip_reasons == ["Skipping mw-annotate marker with no following block"]
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with no following block"]
 
     def test_unclosed_block_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(MARKER + "\n<div>(1)", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(MARKER + "\n<div>(1)", diagnostics)
         assert result == "\n<div>(1)"
-        assert skip_reasons == ["Skipping mw-annotate marker with no following block"]
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with no following block"]
 
     def test_block_then_non_list_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(MARKER + "\n<p>a (1)</p>\n<p>b</p>", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(MARKER + "\n<p>a (1)</p>\n<p>b</p>", diagnostics)
         assert result == "\n<p>a (1)</p>\n<p>b</p>"
-        assert skip_reasons == ["Skipping mw-annotate marker with no annotation list after the block"]
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with no annotation list after the block"]
 
     def test_block_then_end_of_page_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html(MARKER + "\n<p>a</p>\n", skip_reasons)
-        assert skip_reasons == ["Skipping mw-annotate marker with no annotation list after the block"]
+        diagnostics: list[Diagnostic] = []
+        apply_html(MARKER + "\n<p>a</p>\n", diagnostics)
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with no annotation list after the block"]
 
     def test_unordered_list_is_not_an_annotation_list(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html(MARKER + "\n<p>a</p>\n<ul>\n<li>x</li>\n</ul>", skip_reasons)
-        assert skip_reasons == ["Skipping mw-annotate marker with no annotation list after the block"]
+        diagnostics: list[Diagnostic] = []
+        apply_html(MARKER + "\n<p>a</p>\n<ul>\n<li>x</li>\n</ul>", diagnostics)
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with no annotation list after the block"]
 
     def test_unclosed_list_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html(MARKER + "\n<p>a</p>\n<ol>\n<li>x</li>", skip_reasons)
-        assert skip_reasons == ["Skipping mw-annotate marker with no annotation list after the block"]
+        diagnostics: list[Diagnostic] = []
+        apply_html(MARKER + "\n<p>a</p>\n<ol>\n<li>x</li>", diagnostics)
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with no annotation list after the block"]
 
     def test_malformed_marker_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html("<!-- mw-annotate:{nope -->\n" + PROSE + "\n" + NOTES, skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html("<!-- mw-annotate:{nope -->\n" + PROSE + "\n" + NOTES, diagnostics)
         assert result == "\n" + PROSE + "\n" + NOTES
-        assert skip_reasons == ["Skipping malformed mw-annotate marker: '{nope'"]
+        assert messages(diagnostics) == ["Skipping malformed mw-annotate marker: '{nope'"]
 
     def test_unsupported_version_is_skipped_and_reported(self) -> None:
-        skip_reasons: list[str] = []
-        apply_html('<!-- mw-annotate:{"version": 2} -->\n' + PROSE + "\n" + NOTES, skip_reasons)
-        assert skip_reasons == ["Skipping mw-annotate marker with unsupported version 2"]
+        diagnostics: list[Diagnostic] = []
+        apply_html('<!-- mw-annotate:{"version": 2} -->\n' + PROSE + "\n" + NOTES, diagnostics)
+        assert messages(diagnostics) == ["Skipping mw-annotate marker with unsupported version 2"]
 
-    def test_skip_reasons_are_optional(self) -> None:
+    def test_diagnostics_are_optional(self) -> None:
         assert apply_html(MARKER + "\ntext") == "\ntext"
 
 
@@ -311,3 +323,23 @@ class TestInProcessSkipsIndentedCode:
         result = render_annotate("- item\n\n    [annotate]\n    Text (1)\n\n    1. note\n")
         assert 'class="mw-annotations"' in result
         assert "mw-annotate:" not in result
+
+
+class TestDiagnostics:
+    def test_a_missing_block_is_a_no_target_report(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html(MARKER + "\ntext only", diagnostics)
+        assert [(item.extension, item.reason, item.line) for item in diagnostics] == [("annotate", "no-target", None)]
+
+    def test_a_malformed_marker_is_a_malformed_marker_report(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html("<!-- mw-annotate:{nope -->\n" + PROSE + "\n" + NOTES, diagnostics)
+        assert [(item.extension, item.reason) for item in diagnostics] == [("annotate", "malformed-marker")]
+
+
+class TestInProcessDiagnostics:
+    def test_a_marker_with_no_block_is_reported_in_the_list_and_as_a_warning(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.annotate"])
+        with pytest.warns(RenderWarning):
+            md.convert("[annotate]")
+        assert [item.reason for item in md.markwright_diagnostics] == ["no-target"]  # type: ignore[attr-defined]

@@ -3,9 +3,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import markdown
 
 from markwright.codepen import apply_html, expand_source
+
+if TYPE_CHECKING:
+    from markwright import Diagnostic
 
 
 def render(source: str) -> str:
@@ -166,9 +171,9 @@ class TestCodePenStageFunctions:
         assert "ei.js" not in result
 
     def test_apply_html_warnings_stay_empty(self) -> None:
-        warnings: list[str] = []
-        apply_html('<p class="codepen"></p>', warnings)
-        assert warnings == []
+        diagnostics: list[Diagnostic] = []
+        apply_html('<p class="codepen"></p>', diagnostics)
+        assert diagnostics == []
 
     def test_directive_inside_fence_is_unchanged(self) -> None:
         source = "```\n[codepen MattCowley vwPzeX]\n```"

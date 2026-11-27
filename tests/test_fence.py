@@ -6,8 +6,13 @@ from __future__ import annotations
 import markdown
 import pytest
 
-from markwright import ConfigWarning, OptionError
+from markwright import ConfigWarning, Diagnostic, OptionError, RenderWarning
 from markwright.fence import FenceExtension, apply_html, environment_names, expand_source
+
+
+def messages(diagnostics: list[Diagnostic]) -> list[str]:
+    """Return the --warn message of each diagnostic."""
+    return [diagnostic.message for diagnostic in diagnostics]
 
 
 def _stub_render(markdown_text: str) -> str:
@@ -424,11 +429,11 @@ class TestFenceApplyHtml:
         ],
     )
     def test_wrong_shape_payload_skips_instead_of_crashing(self, payload: str, reason: str) -> None:
-        skip_reasons: list[str] = []
-        result = apply_html(f"<!-- mw-fence:{payload} -->\n<pre><code>x\n</code></pre>", skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(f"<!-- mw-fence:{payload} -->\n<pre><code>x\n</code></pre>", diagnostics)
         assert result == "\n<pre><code>x\n</code></pre>"
-        assert len(skip_reasons) == 1
-        assert reason in skip_reasons[0]
+        assert len(diagnostics) == 1
+        assert reason in diagnostics[0].message
 
     def test_unknown_payload_fields_are_ignored(self) -> None:
         marked = '<!-- mw-fence:{"version": 1, "label": "a.sh", "future_field": 3} -->\n<pre><code>x\n</code></pre>'
@@ -439,32 +444,32 @@ class TestFenceApplyHtml:
             '<!-- mw-fence:{"version": 1, "environment": "a"} -->\n<p>no code</p>\n'
             '<!-- mw-fence:{"version": 1, "environment": "b"} -->\n<pre><code>x\n</code></pre>'
         )
-        skip_reasons: list[str] = []
-        result = apply_html(marked, skip_reasons)
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(marked, diagnostics)
         assert '<pre class="environment-b">' in result
         assert "environment-a" not in result
-        assert skip_reasons == ["Skipping mw-fence marker with no following code block"]
+        assert messages(diagnostics) == ["Skipping mw-fence marker with no following code block"]
 
     def test_malformed_json_warns_and_skips(self) -> None:
         html_input = "<!-- mw-fence:{not json -->\n<pre><code>x\n</code></pre>"
-        skip_reasons: list[str] = []
-        result = apply_html(html_input, skip_reasons)
-        assert len(skip_reasons) == 1
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(html_input, diagnostics)
+        assert len(diagnostics) == 1
         assert "code-label" not in result
         assert "<!-- mw-fence:" not in result
 
     def test_unsupported_version_warns_and_skips(self) -> None:
         html_input = '<!-- mw-fence:{"version": 999, "label": "x"} -->\n<pre><code>x\n</code></pre>'
-        skip_reasons: list[str] = []
-        result = apply_html(html_input, skip_reasons)
-        assert len(skip_reasons) == 1
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(html_input, diagnostics)
+        assert len(diagnostics) == 1
         assert "code-label" not in result
 
     def test_no_following_code_block_warns(self) -> None:
         html_input = '<!-- mw-fence:{"version": 1, "label": "x"} -->\n<p>no code here</p>'
-        skip_reasons: list[str] = []
-        result = apply_html(html_input, skip_reasons)
-        assert len(skip_reasons) == 1
+        diagnostics: list[Diagnostic] = []
+        result = apply_html(html_input, diagnostics)
+        assert len(diagnostics) == 1
         assert "code-label" not in result
 
     def test_warnings_none_is_silent_no_op(self) -> None:
@@ -703,3 +708,23 @@ class TestEnvironmentNames:
         source = "```mermaid\n[environment a]\ngraph TD\n```\n"
         assert environment_names(source, skip_mermaid=True) == []
         assert environment_names(source, skip_mermaid=False) == ["a"]
+
+
+class TestDiagnostics:
+    def test_a_malformed_marker_is_a_malformed_marker_report_with_no_line(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html("<!-- mw-fence:{not json -->\n<pre><code>x\n</code></pre>", diagnostics)
+        assert [(item.extension, item.reason, item.line, item.directive) for item in diagnostics] == [
+            ("fence", "malformed-marker", None, None)
+        ]
+
+    def test_a_marker_with_no_code_block_is_a_no_target_report(self) -> None:
+        diagnostics: list[Diagnostic] = []
+        apply_html('<!-- mw-fence:{"version": 1, "label": "x"} -->\n<p>no code</p>', diagnostics)
+        assert [(item.extension, item.reason) for item in diagnostics] == [("fence", "no-target")]
+
+    def test_an_in_process_render_reports_a_marker_with_no_code_block(self) -> None:
+        md = markdown.Markdown(extensions=["markwright.fence"])
+        with pytest.warns(RenderWarning):
+            md.convert('<!-- mw-fence:{"version": 1, "label": "x"} -->\n\ntext')
+        assert [item.reason for item in md.markwright_diagnostics] == ["no-target"]  # type: ignore[attr-defined]
