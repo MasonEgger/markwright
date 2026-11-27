@@ -117,7 +117,7 @@ Each marker is a versioned public contract, read fail-soft.
 | Marker | Payload | Role |
 |--------|---------|------|
 | `mw-tab` / `mw-tab-end` | `version`, `name`, `first` on the opener | Wrap one tab, grouped into sets at each `first`. |
-| `mw-tab-problem` | `version`, `line`, `directive`, `reason` | Mark a tab left literal so `mw post --warn` reports it. |
+| `mw-tab-problem` | `version`, `line`, `directive`, `reason` | Mark a tab left literal so the post stage reports it. |
 
 A payload bumps its version with no migration shim when a field changes, since the project is pre-1.0 with one host.
 
@@ -129,7 +129,7 @@ It works the same in-process and through `mw pre | renderer | mw post`.
 
 ## Fail-Soft and Warnings
 
-A tab the extension cannot pair stays literal and is reported by `mw post --warn`, never raised:
+A tab the extension cannot pair stays literal and is reported, never raised, by `mw post --warn`, by `mw render --warn`, and in-process as a [`Diagnostic`](../config.md#diagnostics):
 
 - an unclosed `[tab NAME]`;
 - a stray `[/tab]`.

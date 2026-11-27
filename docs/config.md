@@ -28,7 +28,7 @@ A missing path, or a `pyproject.toml` with no `[tool.markwright]` table, is an e
 
 Three layers resolve each run, highest priority first:
 
-1. A CLI flag (`--exclude`, and `--warn` or `--no-warn` on `mw post`).
+1. A CLI flag (`--exclude`, and `--warn` or `--no-warn` on `mw post` and `mw render`).
 2. The project config file (`markwright.toml`, else `[tool.markwright]`).
 3. The built-in default (all extensions on, no per-extension options, `warn` off).
 

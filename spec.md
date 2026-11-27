@@ -84,7 +84,6 @@ Cached by `/bpe:plan` on 2026-11-26 from `bpe:cheap-research`; unverified commun
 - 0.4.0 release: PR #35 merged on 2026-11-22 and tagged `v0.4.0`; done by hand, outside the bpe loop, since `pyproject.toml`, `uv.lock`, and the workflows are outside `paths:`; version 0.4.0, the `markdown` floor at `>=3.8.2`, and the dev dependency `mkdocs>=1.6,<2`; it closes #16, #20, #29, #30, #31, #32, #33, and #34
 
 **Upcoming:**
-- polish-gaps: close every remaining `Known gap` and the polish findings, on branch `polish-gaps` stacked on PR #39: in-process diagnostics as `Diagnostic` records that name the true source line, the docs-site MkDocs hook for strict mode, multi-line comment regions, markwright syntax inside raw HTML blocks, embeds and marked fences as their own blocks, highlighter attributes beside a prefix flag, line-number tables, and line prefixes around wrapping spans; it ships when spec.md holds no `Known gap` sentence
 - Bartleby follow-up to 0.4.0, in the Bartleby repo: `selected_extensions` with no `enable` list goes from eight names to fifteen and Bartleby pins the eight in a test, and its private imports move to the public `disallowed_environments`
 
 **Deferred:**
@@ -131,25 +130,25 @@ Docs paths are under `docs/` and code paths under `src/markwright/`.
 
 | Feature | Origin | State | Open Work | Docs | Code |
 |---------|--------|-------|-----------|------|------|
-| highlight | ported | Released 0.1.0 | polish-gaps | `extensions/highlight.md` | `highlight.py` |
-| fence | ported | Released 0.1.0 | polish-gaps | `extensions/fence.md` | `fence.py` |
-| youtube | ported | Released 0.1.0 | polish-gaps | `extensions/youtube.md` | `youtube.py` |
-| codepen | ported | Released 0.1.0 | polish-gaps | `extensions/codepen.md` | `codepen.py` |
-| twitter | ported | Released 0.1.0 | polish-gaps | `extensions/twitter.md` | `twitter.py` |
-| instagram | ported | Released 0.1.0 | polish-gaps | `extensions/instagram.md` | `instagram.py` |
-| slideshow | ported | Released 0.1.0 | polish-gaps | `extensions/slideshow.md` | `slideshow.py` |
-| image_compare | ported | Released 0.1.0 | polish-gaps | `extensions/image-compare.md` | `image_compare.py` |
-| `mw` CLI | own | Released 0.1.0 | polish-gaps | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
+| highlight | ported | Released 0.1.0 | none | `extensions/highlight.md` | `highlight.py` |
+| fence | ported | Released 0.1.0 | none | `extensions/fence.md` | `fence.py` |
+| youtube | ported | Released 0.1.0 | none | `extensions/youtube.md` | `youtube.py` |
+| codepen | ported | Released 0.1.0 | none | `extensions/codepen.md` | `codepen.py` |
+| twitter | ported | Released 0.1.0 | none | `extensions/twitter.md` | `twitter.py` |
+| instagram | ported | Released 0.1.0 | none | `extensions/instagram.md` | `instagram.py` |
+| slideshow | ported | Released 0.1.0 | none | `extensions/slideshow.md` | `slideshow.py` |
+| image_compare | ported | Released 0.1.0 | none | `extensions/image-compare.md` | `image_compare.py` |
+| `mw` CLI | own | Released 0.1.0 | none | `cli.md`, `pipeline.md`, `renderer-requirements.md` | `cli.py`, `registry.py` |
 | config | own | Released 0.2.0 | none | `config.md` | `config.py` |
-| host API | own | Released 0.3.0 | polish-gaps | `config.md` | `config.py`, `__init__.py` |
+| host API | own | Released 0.3.0 | none | `config.md` | `config.py`, `__init__.py` |
 | click-to-load | own | Released 0.3.0 | none | `click-to-load.md` | `_embed_load.py` |
-| button | own | Released 0.4.0 | polish-gaps | `extensions/button.md` | `button.py` |
-| lightbox | own | Released 0.4.0 | polish-gaps | `extensions/lightbox.md` | `lightbox.py` |
-| mermaid | own | Released 0.4.0 | polish-gaps | `extensions/mermaid.md` | `mermaid.py` |
-| icons | own | Released 0.4.0 | polish-gaps | `extensions/icons.md` | `icons.py` |
-| annotate | own | Released 0.4.0 | polish-gaps | `extensions/annotate.md` | `annotate.py` |
-| grid and cards | own | Released 0.4.0 | polish-gaps | `extensions/grid.md` | `grid.py`, `_containers.py` |
-| tabs | own | Released 0.4.0 | polish-gaps | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
+| button | own | Released 0.4.0 | none | `extensions/button.md` | `button.py` |
+| lightbox | own | Released 0.4.0 | none | `extensions/lightbox.md` | `lightbox.py` |
+| mermaid | own | Released 0.4.0 | none | `extensions/mermaid.md` | `mermaid.py` |
+| icons | own | Released 0.4.0 | none | `extensions/icons.md` | `icons.py` |
+| annotate | own | Released 0.4.0 | none | `extensions/annotate.md` | `annotate.py` |
+| grid and cards | own | Released 0.4.0 | none | `extensions/grid.md` | `grid.py`, `_containers.py` |
+| tabs | own | Released 0.4.0 | none | `extensions/tabs.md` | `tabs.py`, `_containers.py` |
 
 ### Rules Every Feature Follows
 
@@ -444,10 +443,10 @@ Both paths:
   A config file that cannot be read or is not UTF-8 is a `ConfigError`.
 - The host API, re-exported from the package root, lets a host tool carry a markwright table in its own config file: `config_from_mapping(table, source)` validates a parsed table with the same rules as a file, `selected_extensions(config)` applies `enable` and `disable` (an empty selection warns and returns an empty list), and `extension_configs(config, names)` builds the `markwright.<name>` option dicts for `markdown.Markdown`.
   `mw render` builds its own `Markdown` through `selected_extensions` and `extension_configs`.
-- Planned (polish-gaps): a `Diagnostic` is a frozen record of `extension`, `line`, `directive`, `reason`, and `message`, and the package root re-exports it with `RenderWarning`; `mw post --warn` prints each one's `message`.
-  `reason` comes from a closed vocabulary listed on the CLI docs page: the container reasons `unclosed`, `stray-closer`, and `card-outside-grid`, one reason for each other problem a post stage reports today, and `disallowed-environment`; `directive` is the directive as written, or `None` for a problem with no directive.
+- A `Diagnostic` is a frozen record of `extension`, `line`, `directive`, `reason`, and `message`, and the package root re-exports it with `RenderWarning`; `mw post --warn` prints each one's `message`.
+  `reason` comes from a closed vocabulary listed on the CLI docs page: the container reasons `unclosed`, `stray-closer`, and `card-outside-grid`, `disallowed-environment`, and one reason for each problem a marker can have, `malformed-marker`, `no-target`, and `unmatched-marker`; `directive` is the directive as written, or `None` for a problem with no directive.
 - `line` is the 1-based line in the text the author wrote: for `mw`, the input file with its front matter block counted; in-process, the text handed to `convert()`, so a host that strips front matter itself adds that block's length.
-  `run_pre` keeps a line map through the stages (`rebase_marker_lines`), so a line an earlier stage added above a problem never shifts it; in-process, the preprocessor that resets the diagnostics also keeps the source lines for grid and tabs to rebase against.
+  `run_pre` keeps a line map through the stages (`rebase_marker_lines`), so a line an earlier stage added above a problem never shifts it; in-process, the preprocessor that resets the diagnostics also keeps the source lines for fence, grid, and tabs to rebase against.
   A problem only the post stage can see (a malformed marker, a marker with no block after it) has `line` `None`.
 - The public names are `Config`, `ConfigError`, `ConfigWarning`, `OptionError`, those three functions, and `disallowed_environments`; `load_config` is not public, and Bartleby is the first consumer.
   `disallowed_environments(source, config)` returns each environment name a fence directive names outside `fence.allowed_environments`, once each, in order of first appearance.
@@ -491,7 +490,7 @@ Permanent; markwright does not do these:
 - **`registry.py`** maps each extension name to a pydantic `StageSpec` (stage functions, priorities, the extension class, its option checker) and provides `run_pre`, `run_post`, and `describe`. Selection lives in `config.selected_extensions`; there is no `registry.select_extensions`.
   `run_pre` keeps the line map from each stage's input back to the source, through `StageSpec.line_markers`, so a stage writes the source line into a problem marker.
 - **`_diagnostics.py`** owns `ConfigWarning` and `OptionError`.
-  Planned (polish-gaps): it also owns `Diagnostic`, `RenderWarning`, and the one `report` function every in-process post stage calls; it depends on nothing in markwright.
+  It also owns `Diagnostic`, `RenderWarning`, the one `report` function the in-process post stages of fence, grid, tabs, and annotate call, and `ReportingExtension`, the base class that registers the per-document reset preprocessor; it imports nothing else from markwright.
 - **`_fences.py`** (CommonMark fenced-code scanning) and **`_html.py`** (offset-preserving tokenizing over the stdlib `html.parser`) own structured-text parsing. No stage hand-rolls Markdown-structure or HTML regex; single-line token grammars (embed directives, the marker comment) may stay regex.
   `_fences` also reads the body of a Python-Markdown block opener (an admonition, a details block, a content tab, a definition, a footnote definition) as that block's content, not as indented code.
   It also finds multi-line comment regions and verbatim HTML blocks, which every pre stage skips like code.

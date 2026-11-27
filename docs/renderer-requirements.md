@@ -15,7 +15,7 @@ Without passthrough, the expanded HTML and pre-stage highlights are dropped by t
 ### 2. Comment Preservation
 
 The pre stage encodes the fence, grid, annotate, and tabs directives as HTML comments (listed under [Marker Comments](#marker-comments)) and the post stage reads them back.
-For a fence, the `<!-- mw-fence:{JSON} -->` comment sits immediately before the fence, and the post stage uses it to style the adjacent code block.
+For a fence, the `<!-- mw-fence:{JSON} -->` comment sits right before the fence (see [The `mw-fence` Marker Contract](#the-mw-fence-marker-contract) for the blank lines), and the post stage uses it to style the adjacent code block.
 A renderer that preserves HTML comments lets all of these round-trip.
 A renderer that drops comments disables those four features and breaks nothing else: a code block still renders, just without its label, environment tint, or line prefixes, and a grid, annotation, or tab directive does nothing.
 
@@ -38,14 +38,14 @@ Each is a public contract, read fail-soft, and each has its payload documented o
 | `mw-card`, `mw-card-end` | [Grid](extensions/grid.md) | Open and close a card inside a block grid. |
 | `mw-annotate` | [Annotate](extensions/annotate.md) | Links the `(N)` markers in the block that follows to the numbered list after it. |
 | `mw-tab`, `mw-tab-end` | [Tabs](extensions/tabs.md) | Open and close one tab, grouped into sets. |
-| `mw-grid-problem`, `mw-tab-problem` | [Grid](extensions/grid.md), [Tabs](extensions/tabs.md) | Sit after a directive the pre stage left literal, so `mw post --warn` can report it. |
+| `mw-grid-problem`, `mw-tab-problem` | [Grid](extensions/grid.md), [Tabs](extensions/tabs.md) | Sit after a directive the pre stage left literal, so the post stage can report it (`mw post --warn`, `mw render --warn`, or in-process). |
 
 The post stage removes every one of them from its output.
 The rest of this page describes `mw-fence` in detail; the others follow the same versioning policy.
 
 ## The `mw-fence` Marker Contract
 
-The fence directives travel from `pre` to `post` as a single HTML comment immediately before the fence:
+The fence directives travel from `pre` to `post` as a single HTML comment right before the fence:
 
 ```
 <!-- mw-fence:{"version": 1, "label": "deploy.sh"} -->
@@ -54,7 +54,14 @@ The fence directives travel from `pre` to `post` as a single HTML comment immedi
 The fence itself is left intact, so your renderer still syntax-highlights the real code.
 There is no placeholder and no rewritten language token.
 The post stage associates a marker with the first code block that follows it, before the next marker.
-For an indented fence (up to three spaces, or inside a list item), the comment carries the fence's indentation and is followed by a blank line, so it stays inside the list item and renders as its own block.
+A marked fence is its own block, and `mw pre` writes the comment at the fence's indentation:
+
+- At column 0, the comment is the line directly above the fence, with a blank line before it when a text line sits above, and nothing after it.
+- A fence indented one or more columns, as under a list item, gets a blank line after the comment, and a blank line before it unless the fence opens the document, so the comment stays inside the item and renders as its own block.
+- A fence indented four or more columns also gets a blank line after its closing fence when text follows, so the next list item stays an item.
+- A fence indented one to three columns right under a text line, as under a short list marker, is the exception: its comment sits at four columns with no blank line around it, since Python-Markdown ends the item at a blank line there.
+- A fence behind block quote markers gets its comment behind the same markers, with a blank quoted line on each side, so it stays inside the quote and outside the paragraph before the fence.
+
 This comment is a cross-tool surface, so its shape is a versioned contract.
 
 ### v1 Payload
@@ -77,7 +84,7 @@ Every other field is optional and present only when the author used that directi
 `prefix_type` is one of `line_numbers`, `command`, `super_user`, or `custom_prefix`.
 `prefix_value` carries the rendered prefix (`$`, `#`, or custom text) and is absent for `line_numbers`.
 `disallowed_environment` names the first `[environment NAME]` directive outside `fence.allowed_environments`, which stays in the code as text, and `line` is that directive's 1-based line in the source.
-The post stage reports it under `--warn` and changes no HTML for it; a fence with nothing else to carry gets a marker with only these two fields.
+The post stage reports it under `--warn` (and in-process as a `Diagnostic`) and changes no HTML for it; a fence with nothing else to carry gets a marker with only these two fields.
 The post stage applies whatever fields are present and ignores any it does not recognize.
 
 ### Versioning Policy

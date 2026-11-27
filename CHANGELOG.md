@@ -10,6 +10,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - An `[environment NAME]` directive outside `fence.allowed_environments` is now reported, in `mw post --warn`, `mw render --warn`, and in-process, as a `Diagnostic` with the reason `disallowed-environment`.
   The `mw-fence` marker (still version 1) carries `disallowed_environment` and `line` for it.
   A fence holding an unlisted `[environment NAME]` now gains an `mw-fence` marker, so it renders as its own block like any fence with a directive.
+- A render through Python-Markdown now reports what `mw post --warn` reports.
+  The `fence`, `grid`, `tabs`, and `annotate` post stages hand each problem (an unclosed `[card]`, a stray `[/tab]`, a marker with no block after it) to one `report` call, which appends a `Diagnostic` to `md.markwright_diagnostics` and emits one `RenderWarning` that carries it.
+  `Diagnostic` (a frozen record of `extension`, `line`, `directive`, `reason`, and `message`) and `RenderWarning` are re-exported from the package root, and `reason` comes from a closed vocabulary listed on the CLI and config pages.
+  The list is empty at the start of each non-blank `convert()` and after `md.reset()`.
+- `mw render` takes `--warn` and `--no-warn`, and the `warn` config key is now its default too.
+  Each report prints as one `mw: warning:` line on stderr, and `PYTHONWARNINGS=error` does not turn it into a failure there.
 - The docs site loads `docs/hooks/strict_warnings.py`, which logs each `RenderWarning` at WARNING so `mkdocs build --strict` fails on a markwright diagnostic.
   The MkDocs integration page documents it as a host example.
 
@@ -21,16 +27,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Item text after the embed ends in a blank line as well, so the next list item stays an item.
   Under a CommonMark renderer the lines after it now render as Markdown instead of raw HTML.
   An embed already between blank lines, or inside a raw HTML block, is unchanged.
-- A fence with a directive or a flag under a tight list item now keeps the list: the marker gets a blank line before it, an indented marked fence gets one after it when text follows, and item text after the fence gets one before the next item, so the item renders loose and the next item stays an item.
+- A fence with a directive or a flag under a tight list item now keeps the list: the marker gets a blank line before it, a marked fence indented four or more columns gets a blank line after its closing fence when text follows, and that text gets one before the next item, so the item renders loose and the next item stays an item.
   Before, in-process, such a fence ended the list at that item.
   A fence already after a blank line, an unmarked fence, and a quoted fence are unchanged.
   `mw pre` now also writes a blank line before the marker of a marked fence that follows a text line, at column 0 included; the rendered HTML is unchanged.
   A marked fence indented one to three columns right under a text line gets its marker at four columns with no blank line around it, so the item and the list stay whole in-process.
 - An embed indented one to three columns under a list item gets its blank lines from `mw pre`, so a CommonMark renderer keeps it in the item and renders the text after it as Markdown.
   In-process it gets none, since Python-Markdown ends the item at a blank line there, so the embed stays in the item, which stays tight.
+- The second parameter of every `apply_html` and of `registry.run_post` is now `diagnostics: list[Diagnostic] | None`, where it was `skip_reasons: list[str] | None`.
+  A caller that passes the list by keyword renames it, and one that reads the list reads `Diagnostic` records, each with a `message`.
+  `mw post --warn` prints the same lines as before.
+- A document that holds a directive line, a fence directive, a highlight pair, or an icon shortcode inside a multi-line HTML comment or a `<pre>`, `<script>`, `<style>`, or `<textarea>` block now keeps that text as written, and one that holds them in a raw HTML block such as a `<div>` now renders them in-process, as `mw pre` already did.
+  Check such a page if you relied on the old output.
 
 ### Fixed
 
+- A grid or tabs problem report names the line the author wrote.
+  Before, the `line` in the report counted from the text the stage received, so a line an earlier stage added above it (a fence marker or a mermaid diagram), or the front matter block under `mw pre`, shifted it.
+  `run_pre` now keeps a line map between stages and rebases each marker's `line` through it.
 - A label, a secondary label, an environment, or a prefix flag on a fence now works beside the highlighter's line numbers in a table (Pygments `linenums`, Hugo `lineNos = true` or `{linenos=table}`).
   Before, the classes and the `<li>` prefixes landed on the line-number gutter's `<pre>`, so the numbers were prefixed and the code was not.
   The post stage now skips the first cell of the table the highlighter wrote for the fence (one that opens after the marker and has a second cell), whatever its classes (Hugo's `noClasses = true` gives it none) and whatever sits around it, such as the `<th>` filename row Pygments writes for a `title`, and styles the code cell's `<pre>`.

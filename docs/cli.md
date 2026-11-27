@@ -26,7 +26,7 @@ See [Configuration](config.md) for the file format, discovery, and precedence.
 Reads Markdown source and writes Markdown with the source-stage transforms applied.
 It expands the embed, `[button ...]`, and `[lightbox ...]` directives into raw HTML, turns `mermaid` fences into `<pre class="mermaid">` blocks, and resolves `:pack-name:` icon shortcodes to inline SVG.
 It extracts fence, `[grid]`, `[annotate]`, and `[tab NAME]` directives into marker comments (`<!-- mw-fence:{JSON} -->` and its siblings) that the post stage reads back later.
-It pairs the containers (`[grid]` ... `[/grid]` with its `[card]` ... `[/card]` cards, and `[tab NAME]` ... `[/tab]`) into marker comments the same way, and leaves an unpaired opener or closer literal with a problem marker that `mw post --warn` reports.
+It pairs the containers (`[grid]` ... `[/grid]` with its `[card]` ... `[/card]` cards, and `[tab NAME]` ... `[/tab]`) into marker comments the same way, and leaves an unpaired opener or closer literal with a problem marker that the post stage reports under `--warn`.
 With the highlight extension active, it also wraps prose `\<^>...\<^>` runs in `<mark>`, leaving in-code markers for the post stage.
 A leading YAML (`---`) or TOML (`+++`) front matter block passes through untouched.
 A first line of `---` counts as front matter when a later `---` line closes it, so start a document that opens with a thematic break with `***` or `___`.

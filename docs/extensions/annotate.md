@@ -102,7 +102,7 @@ The `mw-annotate` marker is a versioned public contract, read fail-soft like the
 |--------|---------|------|
 | `mw-annotate` | `version` | Marks the block after it as annotated by the ordered list that follows the block. |
 
-A marker with an invalid payload, no following block, or no ordered list after the block is skipped and reported by `mw post --warn`.
+A marker with an invalid payload, no following block, or no ordered list after the block is skipped and reported, never raised, by `mw post --warn`, by `mw render --warn`, and in-process as a [`Diagnostic`](../config.md#diagnostics).
 The post stage removes the comment from its output.
 
 ## Examples

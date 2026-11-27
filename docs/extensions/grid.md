@@ -261,7 +261,7 @@ Each marker is a versioned public contract, read fail-soft like the [fence](fenc
 | `mw-grid` | `version`, `cards`, `columns` | Classes the list shortcut that follows it. |
 | `mw-grid-block` / `mw-grid-end` | `version`, `cards`, `columns` on the opener | Wrap a block grid in a `<div>`. |
 | `mw-card` / `mw-card-end` | `version` | Wrap a card in a `<div class="mw-card">`. |
-| `mw-grid-problem` | `version`, `line`, `directive`, `reason` | Mark a container left literal so `mw post --warn` reports it. |
+| `mw-grid-problem` | `version`, `line`, `directive`, `reason` | Mark a container left literal so the post stage reports it. |
 
 The `cards` and `columns` fields are present only when the opener carries them.
 A payload bumps its version with no migration shim when a field changes, since the project is pre-1.0 with one host.
@@ -274,7 +274,7 @@ It works the same in-process and through `mw pre | renderer | mw post`.
 
 ## Fail-Soft and Warnings
 
-A directive the extension cannot turn into markup stays literal and is reported by `mw post --warn`, never raised:
+A directive the extension cannot turn into markup stays literal and is reported, never raised, by `mw post --warn`, by `mw render --warn`, and in-process as a [`Diagnostic`](../config.md#diagnostics):
 
 - an unclosed `[card]`;
 - a stray `[/card]` or `[/grid]`;

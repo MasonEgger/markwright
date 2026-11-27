@@ -110,16 +110,20 @@ The extensions use these processor patterns:
     Social embeds add a Postprocessor (priority 15) for one-time script injection.
 
 3. **Highlight** uses an InlineProcessor (priority 175) for regular text, plus a Postprocessor (priority 25) for `<^>` markers inside code blocks where the delimiters are HTML-escaped.
+    A Preprocessor (priority 20.5) applies the same wrapping to the text of each raw HTML block, which Python-Markdown stashes before the inline processors run.
 
 4. **Button, Lightbox, and Mermaid** use Preprocessors only.
     Button and Lightbox (priority 21) match standalone directive lines like the embeds.
     Mermaid (priority 45) replaces `mermaid` fences with a raw `<pre>` before superfences sees them.
 
 5. **Icons** uses a pre stage (priority 5, after every directive stage) for `mw pre` and an InlineProcessor (priority 85) in-process, both resolving `:pack-name:` shortcodes against SVG directories you configure.
+    With packs configured, a Preprocessor (priority 20.5) resolves shortcodes in the text of each raw HTML block as well.
 
 6. **Grid and Annotate** follow the fence marker-comment pattern: a Preprocessor (priority 21, ahead of Python-Markdown's `html_block`) swaps the directive for a versioned marker comment, and a Postprocessor (priority 27) reads it from the rendered HTML.
 
 7. **Tabs** follow the same marker-comment pattern: a Preprocessor (priority 21) swaps each `[tab NAME]` ... `[/tab]` block for a pair of marker comments, and a Postprocessor (priority 27) groups consecutive tabs into one `tabbed-set`.
+
+The fence, grid, tabs, and annotate extensions also share one Preprocessor (priority 46) that empties `md.markwright_diagnostics` for each document, so a render reports its problems as [`Diagnostic`](config.md#diagnostics) records.
 
 markwright ships no CSS, JavaScript, or icons.
 The extensions emit classes and markup, and the host site styles them.

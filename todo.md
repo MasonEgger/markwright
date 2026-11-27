@@ -93,8 +93,8 @@ The `/goal` loop checks items as it goes.
 
 ## Section 5: Records
 
-- [ ] Step 16: Close the Cycle's Records (task)
-  - [ ] spec.md: Upcoming line deleted, Open Work none, no Known gap or Planned sentence
-  - [ ] CHANGELOG.md Unreleased complete
-  - [ ] CLAUDE.md matches the code
-  - [ ] Verify: grep prints nothing, just check, just docs-build
+- [x] Step 16: Close the Cycle's Records (task)
+  - [x] spec.md: Upcoming line deleted, Open Work none, no Known gap or Planned sentence
+  - [x] CHANGELOG.md Unreleased complete
+  - [x] CLAUDE.md matches the code
+  - [x] Verify: grep prints nothing, just check, just docs-build
